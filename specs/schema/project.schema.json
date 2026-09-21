@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/project.schema.json",
+  "title": "Clementina project manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "name",
+    "target",
+    "program",
+    "assets"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-project"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "machine"
+      ],
+      "properties": {
+        "machine": {
+          "const": "clementina-6502"
+        },
+        "phi2Hz": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8000000
+        }
+      }
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "entry"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "basic",
+            "assembly",
+            "mixed"
+          ]
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "palettes",
+        "paletteConfigs",
+        "tilesets",
+        "shapes",
+        "animations"
+      ],
+      "properties": {
+        "palettes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "paletteConfigs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tilesets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "shapes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "animations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

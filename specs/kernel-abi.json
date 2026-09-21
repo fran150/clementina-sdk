@@ -1,0 +1,6 @@
+{
+  "format":"clementina-kernel-abi","version":1,"base":1207,"entrySize":3,
+  "entries":[
+    {"address":1207,"hex":"$04B7","symbol":"KERN_COLDSTART"},{"address":1210,"hex":"$04BA","symbol":"KERN_WARMSTART"},{"address":1213,"hex":"$04BD","symbol":"KERN_CHROUT"},{"address":1216,"hex":"$04C0","symbol":"KERN_CHRIN"},{"address":1219,"hex":"$04C3","symbol":"KERN_GETKEY_NB"},{"address":1222,"hex":"$04C6","symbol":"KERN_STOP"},{"address":1225,"hex":"$04C9","symbol":"KERN_CLRSCR"},{"address":1228,"hex":"$04CC","symbol":"KERN_PRHEX"},{"address":1231,"hex":"$04CF","symbol":"KERN_PRBYTE"},{"address":1234,"hex":"$04D2","symbol":"KERN_PRSTR"},{"address":1237,"hex":"$04D5","symbol":"KERN_LOAD"},{"address":1240,"hex":"$04D8","symbol":"KERN_SAVE"},{"address":1243,"hex":"$04DB","symbol":"KERN_EDITKEY"},{"address":1246,"hex":"$04DE","symbol":"KERN_CHROUT_GLYPH"},{"address":1249,"hex":"$04E1","symbol":"KERN_WOZMON"},{"address":1252,"hex":"$04E4","symbol":"KERN_SET_BACKDROP"}
+  ]
+}

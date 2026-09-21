@@ -1,0 +1,9 @@
+[
+  {
+    "id": "audio-sequencer-sd-memory-overlap",
+    "severity": "high",
+    "status": "unresolved",
+    "summary": "Audio sequencer track buffers use MIA RAM $13000-$13FFF while SD/FS state uses $13000-$13BFF. Current physical MIA and emulator code both define these overlapping ranges.",
+    "sdkPolicy": "Portable Phase 2 files are unaffected. Future runtime packing/linking must not assume both ranges are independently available until the upstream MIA RAM map is reconciled."
+  }
+]

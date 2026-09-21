@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/assets.schema.json",
+  "title": "Clementina portable asset-format summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "portableFormatVersion",
+    "formats",
+    "constraints"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-assets"
+    },
+    "version": {
+      "const": 2
+    },
+    "portableFormatVersion": {
+      "const": 1
+    },
+    "formats": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "object"
+    }
+  }
+}

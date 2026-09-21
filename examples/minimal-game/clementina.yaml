@@ -1,0 +1,20 @@
+format: clementina-project
+version: 1
+name: Minimal Game
+target:
+  machine: clementina-6502
+  phi2Hz: 1200000
+program:
+  kind: basic
+  entry: src/main.bas
+assets:
+  palettes:
+    - assets/palettes/main.palette.json
+  paletteConfigs:
+    - assets/palette-configs/main.palette-config.json
+  tilesets:
+    - assets/tilesets/player.tileset.json
+  shapes:
+    - assets/shapes/player_idle.shape.json
+  animations:
+    - assets/animations/player_idle.animation.json

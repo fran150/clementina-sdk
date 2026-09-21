@@ -1,0 +1,22 @@
+{
+  "format": "clementina-shape",
+  "version": 1,
+  "id": "shape:player_idle",
+  "name": "Player_Idle",
+  "tilesetId": "tileset:player",
+  "canvasPixelWidth": 8,
+  "canvasPixelHeight": 8,
+  "originAnchor": "bottom-center",
+  "originX": 4,
+  "originY": 8,
+  "sprites": [
+    {
+      "tile": 0,
+      "x": -4,
+      "y": -8,
+      "paletteBank": 0,
+      "flipX": false,
+      "flipY": false
+    }
+  ]
+}

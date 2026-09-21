@@ -1,0 +1,24 @@
+{
+  "format": "clementina-palette-config",
+  "version": 1,
+  "id": "palette-config:main",
+  "name": "Main",
+  "banks": [
+    "palette:main",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ]
+}

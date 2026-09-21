@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/animation.schema.json",
+  "title": "Clementina animation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "frames"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-animation"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 255,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "shapeId",
+          "ticks"
+        ],
+        "properties": {
+          "shapeId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+          },
+          "ticks": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 255
+          },
+          "dx": {
+            "type": "integer",
+            "minimum": -512,
+            "maximum": 511
+          },
+          "dy": {
+            "type": "integer",
+            "minimum": -512,
+            "maximum": 511
+          }
+        }
+      }
+    }
+  }
+}

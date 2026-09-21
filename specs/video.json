@@ -1,0 +1,213 @@
+{
+  "format": "clementina-video",
+  "version": 1,
+  "display": {
+    "width": 320,
+    "height": 200,
+    "tileWidth": 8,
+    "tileHeight": 8,
+    "columns": 40,
+    "rows": 25
+  },
+  "videoRegion": {
+    "start": 0,
+    "endExclusive": 68944,
+    "size": 68944,
+    "pageSize": 32,
+    "pages": 2155,
+    "syncablePages": 2154
+  },
+  "regions": [
+    {
+      "name": "LOCAL_CONTROL",
+      "start": 0,
+      "size": 32,
+      "syncable": false
+    },
+    {
+      "name": "RENDER_CONTROL",
+      "start": 32,
+      "size": 32,
+      "syncable": true
+    },
+    {
+      "name": "CONTROL_RESERVED",
+      "start": 64,
+      "size": 192,
+      "syncable": true
+    },
+    {
+      "name": "PALETTE",
+      "start": 256,
+      "size": 256,
+      "syncable": true
+    },
+    {
+      "name": "CHR",
+      "start": 512,
+      "size": 49152,
+      "syncable": true
+    },
+    {
+      "name": "BG_NT",
+      "start": 49664,
+      "size": 8000,
+      "syncable": true
+    },
+    {
+      "name": "BG_ATTR",
+      "start": 57664,
+      "size": 8000,
+      "syncable": true
+    },
+    {
+      "name": "OV_NT",
+      "start": 65664,
+      "size": 1000,
+      "syncable": true
+    },
+    {
+      "name": "OV_ATTR",
+      "start": 66664,
+      "size": 1000,
+      "syncable": true
+    },
+    {
+      "name": "OAM",
+      "start": 67664,
+      "size": 1280,
+      "syncable": true
+    }
+  ],
+  "palettes": {
+    "banks": 16,
+    "colorsPerBank": 8,
+    "encoding": "RGB565 little-endian",
+    "bytesPerBank": 16,
+    "totalBytes": 256
+  },
+  "chr": {
+    "banks": 8,
+    "bytesPerBank": 6144,
+    "tilesPerBank": 256,
+    "bytesPer3bppTile": 24,
+    "planes": 3,
+    "planeBytes": 2048,
+    "modes": [
+      1,
+      3
+    ],
+    "oneBppInterpretation": "three independent 256-tile monochrome pages"
+  },
+  "background": {
+    "tables": 8,
+    "tableCells": 1000,
+    "tableColumns": 40,
+    "tableRows": 25,
+    "sets": 2,
+    "tablesPerSet": 4,
+    "viewportModes": [
+      {
+        "id": 0,
+        "columns": 40,
+        "rows": 25
+      },
+      {
+        "id": 1,
+        "columns": 80,
+        "rows": 25
+      },
+      {
+        "id": 2,
+        "columns": 40,
+        "rows": 50
+      },
+      {
+        "id": 3,
+        "columns": 160,
+        "rows": 25
+      },
+      {
+        "id": 4,
+        "columns": 40,
+        "rows": 100
+      },
+      {
+        "id": 5,
+        "columns": 80,
+        "rows": 50
+      }
+    ]
+  },
+  "overlay": {
+    "columns": 40,
+    "rows": 25,
+    "scrolls": false,
+    "colorZeroTransparent": true
+  },
+  "sprites": {
+    "count": 256,
+    "recordBytes": 5,
+    "width": 8,
+    "height": 8,
+    "singleGlobalChrBank": true,
+    "x": {
+      "bits": 10,
+      "min": -512,
+      "max": 511
+    },
+    "y": {
+      "bits": 9,
+      "min": -256,
+      "max": 255
+    },
+    "colorZeroTransparent": true,
+    "higherOamIndexDrawsAboveLower": true
+  },
+  "attributes": {
+    "backgroundOverlay": {
+      "paletteBits": [
+        0,
+        3
+      ],
+      "flipXBit": 4,
+      "flipYBit": 5,
+      "priorityBit": 6,
+      "chrAltBit": 7
+    },
+    "spriteAttr": {
+      "paletteBits": [
+        0,
+        3
+      ],
+      "priorityBit": 4,
+      "flipXBit": 5,
+      "flipYBit": 6
+    },
+    "spriteExt": {
+      "xHighBits": [
+        0,
+        1
+      ],
+      "yHighBit": 2,
+      "disableBit": 3
+    }
+  },
+  "renderOrder": [
+    "backdrop",
+    "background",
+    "sprites",
+    "priority background pixels",
+    "overlay"
+  ],
+  "network": {
+    "udpPort": 6502,
+    "clientPaced": true,
+    "defaultClientFps": 25
+  },
+  "directOamIndexes": {
+    "start": "$C0",
+    "end": "$DF",
+    "records": 32
+  }
+}

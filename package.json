@@ -1,0 +1,18 @@
+{
+  "name": "clementina-sdk",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Shared development SDK for the Clementina homebrew computer",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "validate:specs": "node scripts/validate-specs.mjs",
+    "build": "npm run build -w @clementina/core && npm run build -w @clementina/assets && npm run build -w @clementina/project && npm run build -w @clementina/basic && npm run build -w @clementina/emulator-client && npm run build -w @clementina/cli && npm run build -w @clementina/mcp",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run validate:specs && npm run build && node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

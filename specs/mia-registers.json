@@ -1,0 +1,231 @@
+{
+  "format": "clementina-mia-registers",
+  "version": 1,
+  "base": 65504,
+  "registers": [
+    {
+      "address": 65504,
+      "hex": "$FFE0",
+      "name": "IDXA_PORT",
+      "access": "rw",
+      "description": "Data port for index A."
+    },
+    {
+      "address": 65505,
+      "hex": "$FFE1",
+      "name": "IDXA_SELECT",
+      "access": "rw",
+      "description": "Select index A descriptor."
+    },
+    {
+      "address": 65506,
+      "hex": "$FFE2",
+      "name": "CFG_SELECT",
+      "access": "rw",
+      "description": "Configuration field selector."
+    },
+    {
+      "address": 65507,
+      "hex": "$FFE3",
+      "name": "CFG_PORT",
+      "access": "rw",
+      "description": "Configuration data port."
+    },
+    {
+      "address": 65508,
+      "hex": "$FFE4",
+      "name": "IDXB_PORT",
+      "access": "rw",
+      "description": "Data port for index B."
+    },
+    {
+      "address": 65509,
+      "hex": "$FFE5",
+      "name": "IDXB_SELECT",
+      "access": "rw",
+      "description": "Select index B descriptor."
+    },
+    {
+      "address": 65510,
+      "hex": "$FFE6",
+      "name": "CMD_PARAM1",
+      "access": "rw",
+      "description": "Command parameter 1."
+    },
+    {
+      "address": 65511,
+      "hex": "$FFE7",
+      "name": "CMD_PARAM2",
+      "access": "rw",
+      "description": "Command parameter 2."
+    },
+    {
+      "address": 65512,
+      "hex": "$FFE8",
+      "name": "CMD_PARAM3",
+      "access": "rw",
+      "description": "Command parameter 3."
+    },
+    {
+      "address": 65513,
+      "hex": "$FFE9",
+      "name": "CMD_TRIGGER",
+      "access": "rw",
+      "description": "Writing a command id triggers/queues it."
+    },
+    {
+      "address": 65514,
+      "hex": "$FFEA",
+      "name": "STATUS_L",
+      "access": "r",
+      "description": "MIA status low."
+    },
+    {
+      "address": 65515,
+      "hex": "$FFEB",
+      "name": "STATUS_H",
+      "access": "r",
+      "description": "MIA status high."
+    },
+    {
+      "address": 65516,
+      "hex": "$FFEC",
+      "name": "ERROR_L",
+      "access": "r-pop",
+      "description": "Read-to-pop error queue."
+    },
+    {
+      "address": 65517,
+      "hex": "$FFED",
+      "name": "ERROR_H",
+      "access": "r",
+      "description": "Error high byte."
+    },
+    {
+      "address": 65518,
+      "hex": "$FFEE",
+      "name": "IRQ_MASK_L",
+      "access": "rw",
+      "description": "IRQ mask low."
+    },
+    {
+      "address": 65519,
+      "hex": "$FFEF",
+      "name": "IRQ_MASK_H",
+      "access": "rw",
+      "description": "IRQ mask high."
+    },
+    {
+      "address": 65520,
+      "hex": "$FFF0",
+      "name": "IRQ_STATUS_L",
+      "access": "r-clear",
+      "description": "Read clears top-level IRQ status."
+    },
+    {
+      "address": 65521,
+      "hex": "$FFF1",
+      "name": "IRQ_STATUS_H",
+      "access": "r",
+      "description": "Read before low when high bits matter."
+    },
+    {
+      "address": 65522,
+      "hex": "$FFF2",
+      "name": "INPUT_STATUS",
+      "access": "r",
+      "description": "Input status."
+    },
+    {
+      "address": 65523,
+      "hex": "$FFF3",
+      "name": "INPUT_CHAR",
+      "access": "r-pop",
+      "description": "Text FIFO read/pop."
+    },
+    {
+      "address": 65524,
+      "hex": "$FFF4",
+      "name": "INPUT_CHAR_COUNT",
+      "access": "r",
+      "description": "Text FIFO count."
+    },
+    {
+      "address": 65525,
+      "hex": "$FFF5",
+      "name": "RESERVED_FFF5",
+      "access": "reserved",
+      "description": "Reads zero; writes ignored."
+    },
+    {
+      "address": 65526,
+      "hex": "$FFF6",
+      "name": "RESERVED_FFF6",
+      "access": "reserved",
+      "description": "Reads zero; writes ignored."
+    },
+    {
+      "address": 65527,
+      "hex": "$FFF7",
+      "name": "RESERVED_FFF7",
+      "access": "reserved",
+      "description": "Reads zero; writes ignored."
+    },
+    {
+      "address": 65528,
+      "hex": "$FFF8",
+      "name": "RESERVED_FFF8",
+      "access": "reserved",
+      "description": "Reads zero; writes ignored."
+    },
+    {
+      "address": 65529,
+      "hex": "$FFF9",
+      "name": "RESERVED_FFF9",
+      "access": "reserved",
+      "description": "Reads zero; writes ignored."
+    },
+    {
+      "address": 65530,
+      "hex": "$FFFA",
+      "name": "NMI_VEC_L",
+      "access": "rw",
+      "description": "NMI vector low."
+    },
+    {
+      "address": 65531,
+      "hex": "$FFFB",
+      "name": "NMI_VEC_H",
+      "access": "rw",
+      "description": "NMI vector high."
+    },
+    {
+      "address": 65532,
+      "hex": "$FFFC",
+      "name": "RESET_VEC_L",
+      "access": "rw",
+      "description": "RESET vector low."
+    },
+    {
+      "address": 65533,
+      "hex": "$FFFD",
+      "name": "RESET_VEC_H",
+      "access": "rw",
+      "description": "RESET vector high."
+    },
+    {
+      "address": 65534,
+      "hex": "$FFFE",
+      "name": "IRQ_VEC_L",
+      "access": "rw",
+      "description": "IRQ/BRK vector low."
+    },
+    {
+      "address": 65535,
+      "hex": "$FFFF",
+      "name": "IRQ_VEC_H",
+      "access": "rw",
+      "description": "IRQ/BRK vector high."
+    }
+  ]
+}

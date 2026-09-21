@@ -1,0 +1,25 @@
+{
+  "format": "clementina-audio",
+  "version": 1,
+  "region": {
+    "start": 73728,
+    "endExclusive": 73808,
+    "size": 80
+  },
+  "layoutVersion": 2,
+  "voices": 4,
+  "sampleRateHz": 24000,
+  "output": "stereo PWM",
+  "frequency": "unsigned 12.4 fixed-point Hz",
+  "waveforms": [
+    {"id":0,"name":"sine"},{"id":1,"name":"pulse"},{"id":2,"name":"saw"},{"id":3,"name":"triangle"},{"id":4,"name":"noise"}
+  ],
+  "masterVolume": {"min":0,"max":15,"default":15},
+  "voiceVolume": {"min":0,"max":255,"default":255},
+  "pan": {"min":-64,"max":63,"default":0},
+  "voiceRecordBytes": 16,
+  "voiceOffsets": {"FREQ_L":0,"FREQ_H":1,"PULSE_WIDTH":2,"ATTACK_DECAY":3,"SUSTAIN_RELEASE":4,"WAVEFORM":5,"PAN":6,"CONTROL":7,"VOLUME":8},
+  "indexes": {"all":"$E6","voice0":"$E7","voice1":"$E8","voice2":"$E9","voice3":"$EA","header":"$EB","sequencerStatus0":"$EC","sequencerStatus1":"$ED","sequencerStatus2":"$EE","sequencerStatus3":"$EF"},
+  "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67"},
+  "sequencer": {"trackRegion":{"start":77824,"endExclusive":81920,"size":4096},"trackBytesPerVoice":1024,"trackHeaderBytes":4,"durationUnit":"24 kHz audio samples","doneIrqBit":14,"knownIssue":"audio-sequencer-sd-memory-overlap"}
+}

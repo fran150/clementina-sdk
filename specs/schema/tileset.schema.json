@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/tileset.schema.json",
+  "title": "Clementina tileset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "bpp",
+    "chr",
+    "authoring"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-tileset"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+    },
+    "bpp": {
+      "enum": [
+        1,
+        3
+      ]
+    },
+    "chr": {
+      "type": "array",
+      "minItems": 6144,
+      "maxItems": 6144,
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      }
+    },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tilePaletteBanks",
+        "compositions"
+      ],
+      "properties": {
+        "tilePaletteBanks": {
+          "type": "array",
+          "minItems": 256,
+          "maxItems": 256,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15
+          }
+        },
+        "compositions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

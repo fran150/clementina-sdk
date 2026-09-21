@@ -1,0 +1,251 @@
+{
+  "format": "clementina-mia-commands",
+  "version": 1,
+  "commands": [
+    {
+      "id": 0,
+      "hex": "$00",
+      "name": "RESET_INDEX_A"
+    },
+    {
+      "id": 1,
+      "hex": "$01",
+      "name": "RESET_INDEX_B"
+    },
+    {
+      "id": 2,
+      "hex": "$02",
+      "name": "RESET_INDEX"
+    },
+    {
+      "id": 3,
+      "hex": "$03",
+      "name": "CURRENT_TO_DEFAULT"
+    },
+    {
+      "id": 4,
+      "hex": "$04",
+      "name": "CURRENT_TO_LIMIT"
+    },
+    {
+      "id": 5,
+      "hex": "$05",
+      "name": "RESET_ALL_INDEXES"
+    },
+    {
+      "id": 6,
+      "hex": "$06",
+      "name": "PEEK_INDEX_TO_A"
+    },
+    {
+      "id": 7,
+      "hex": "$07",
+      "name": "PEEK_INDEX_TO_B"
+    },
+    {
+      "id": 16,
+      "hex": "$10",
+      "name": "COPY_INDEXES"
+    },
+    {
+      "id": 48,
+      "hex": "$30",
+      "name": "EXEC_PAUSE"
+    },
+    {
+      "id": 66,
+      "hex": "$42",
+      "name": "VIDEO_FORCE_FULL_REFRESH"
+    },
+    {
+      "id": 67,
+      "hex": "$43",
+      "name": "VIDEO_SET_MODE"
+    },
+    {
+      "id": 80,
+      "hex": "$50",
+      "name": "INPUT_SET_MODE"
+    },
+    {
+      "id": 81,
+      "hex": "$51",
+      "name": "INPUT_SET_PROBE"
+    },
+    {
+      "id": 82,
+      "hex": "$52",
+      "name": "INPUT_REPEAT_DELAY"
+    },
+    {
+      "id": 83,
+      "hex": "$53",
+      "name": "INPUT_REPEAT_INTERVAL"
+    },
+    {
+      "id": 84,
+      "hex": "$54",
+      "name": "INPUT_REPEAT_KEY"
+    },
+    {
+      "id": 85,
+      "hex": "$55",
+      "name": "CLOCK_SNAPSHOT"
+    },
+    {
+      "id": 86,
+      "hex": "$56",
+      "name": "CLOCK_SET_TI"
+    },
+    {
+      "id": 96,
+      "hex": "$60",
+      "name": "AUDIO_ENABLE"
+    },
+    {
+      "id": 97,
+      "hex": "$61",
+      "name": "AUDIO_STOP"
+    },
+    {
+      "id": 98,
+      "hex": "$62",
+      "name": "AUDIO_RESET"
+    },
+    {
+      "id": 99,
+      "hex": "$63",
+      "name": "AUDIO_SEQ_LOAD"
+    },
+    {
+      "id": 100,
+      "hex": "$64",
+      "name": "AUDIO_SEQ_START"
+    },
+    {
+      "id": 101,
+      "hex": "$65",
+      "name": "AUDIO_SEQ_STOP"
+    },
+    {
+      "id": 102,
+      "hex": "$66",
+      "name": "AUDIO_VOICE_TAKE"
+    },
+    {
+      "id": 103,
+      "hex": "$67",
+      "name": "AUDIO_VOICE_RELEASE"
+    },
+    {
+      "id": 112,
+      "hex": "$70",
+      "name": "SD_INIT"
+    },
+    {
+      "id": 113,
+      "hex": "$71",
+      "name": "SD_READ_SECTOR"
+    },
+    {
+      "id": 114,
+      "hex": "$72",
+      "name": "SD_WRITE_SECTOR"
+    },
+    {
+      "id": 115,
+      "hex": "$73",
+      "name": "SD_GET_INFO"
+    },
+    {
+      "id": 120,
+      "hex": "$78",
+      "name": "FS_MOUNT"
+    },
+    {
+      "id": 121,
+      "hex": "$79",
+      "name": "FS_OPENDIR"
+    },
+    {
+      "id": 122,
+      "hex": "$7A",
+      "name": "FS_READDIR"
+    },
+    {
+      "id": 123,
+      "hex": "$7B",
+      "name": "FS_OPEN"
+    },
+    {
+      "id": 124,
+      "hex": "$7C",
+      "name": "FS_READ"
+    },
+    {
+      "id": 125,
+      "hex": "$7D",
+      "name": "FS_CLOSE"
+    },
+    {
+      "id": 126,
+      "hex": "$7E",
+      "name": "FS_LOAD_TO_MIA_RAM"
+    },
+    {
+      "id": 127,
+      "hex": "$7F",
+      "name": "FS_WRITE"
+    },
+    {
+      "id": 128,
+      "hex": "$80",
+      "name": "FS_SYNC"
+    },
+    {
+      "id": 129,
+      "hex": "$81",
+      "name": "FS_SEEK"
+    },
+    {
+      "id": 130,
+      "hex": "$82",
+      "name": "FS_STAT"
+    },
+    {
+      "id": 131,
+      "hex": "$83",
+      "name": "FS_MKDIR"
+    },
+    {
+      "id": 132,
+      "hex": "$84",
+      "name": "FS_DELETE"
+    },
+    {
+      "id": 133,
+      "hex": "$85",
+      "name": "FS_RENAME"
+    },
+    {
+      "id": 134,
+      "hex": "$86",
+      "name": "FS_GET_FREE"
+    },
+    {
+      "id": 135,
+      "hex": "$87",
+      "name": "FS_SAVE_FROM_MIA_RAM"
+    },
+    {
+      "id": 136,
+      "hex": "$88",
+      "name": "FS_CHDIR"
+    },
+    {
+      "id": 137,
+      "hex": "$89",
+      "name": "FS_FILE_INFO"
+    }
+  ]
+}

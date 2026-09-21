@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/machine.schema.json",
+  "title": "Clementina Machine Specification",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "cpu",
+    "memory",
+    "miaRam"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-machine"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cpu": {
+      "type": "object"
+    },
+    "memory": {
+      "type": "object"
+    },
+    "miaRam": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/shape.schema.json",
+  "title": "Clementina shape",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "tilesetId",
+    "sprites"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-shape"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+    },
+    "tilesetId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "canvasPixelWidth": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 320
+    },
+    "canvasPixelHeight": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "originAnchor": {
+      "enum": [
+        "top-left",
+        "center",
+        "bottom-center",
+        "custom"
+      ]
+    },
+    "originX": {
+      "type": "integer",
+      "minimum": -32768,
+      "maximum": 32767
+    },
+    "originY": {
+      "type": "integer",
+      "minimum": -32768,
+      "maximum": 32767
+    },
+    "sprites": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tile",
+          "x",
+          "y",
+          "paletteBank",
+          "flipX",
+          "flipY"
+        ],
+        "properties": {
+          "tile": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "x": {
+            "type": "integer",
+            "minimum": -512,
+            "maximum": 511
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -256,
+            "maximum": 255
+          },
+          "paletteBank": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15
+          },
+          "flipX": {
+            "type": "boolean"
+          },
+          "flipY": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

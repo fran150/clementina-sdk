@@ -1,0 +1,19 @@
+{
+  "$schema": "./schema/machine.schema.json",
+  "format": "clementina-machine",
+  "version": 1,
+  "cpu": {"model":"W65C02S","addressBits":16,"cpuAddressSpaceBytes":65536},
+  "memory": {
+    "baseRam":{"start":0,"end":32767,"size":32768},
+    "extendedRamWindow":{"start":32768,"end":49151,"windowSize":16384,"backingSize":524288,"banks":32,"bankSelect":"65C22 VIA Port A PA0-PA4","basicReservedBank":0},
+    "io":{"start":49152,"end":57343,"slotSize":1024,"slots":8},
+    "via":{"start":49152,"end":50175,"registerMirrorPeriod":16},
+    "miaRegion":{"start":57344,"end":65535},
+    "miaGuaranteedRegisters":{"start":65504,"end":65535,"size":32},
+    "miaReservedHighRegion":{"start":57344,"end":65503,"guaranteed":false}
+  },
+  "miaRam":{"addressBits":18,"start":0,"end":262143,"size":262144},
+  "kernel":{"intendedLoadBase":1207,"jumpTable":{"start":1207,"end":1254,"entrySize":3}},
+  "timing":{"defaultPhi2Hz":1200000,"requestedPhi2MinHz":1,"requestedPhi2MaxHz":8000000,"wallTimeRecommendedForGameplay":true},
+  "knownIssues":"known-issues.json"
+}

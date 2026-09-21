@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-09-20",
+  "purpose": "Source audit used to derive the Clementina SDK developer specification.",
+  "repositories": [
+    {
+      "name": "clementina-rom",
+      "repository": "fran150/clementina-rom",
+      "branch": "main",
+      "commit": "6d09f6425ef956e824f127c3d16232aa62f28555",
+      "role": "6502 kernel/BASIC/WozMon; kernel ABI and programmer-facing memory map"
+    },
+    {
+      "name": "clementina-6502",
+      "repository": "fran150/clementina-6502",
+      "branch": "main",
+      "commit": "66095793b4e9087ac31331c6f8ff41fb9ca959b0",
+      "role": "emulator; CPU-visible decode and behavior verification"
+    },
+    {
+      "name": "clementina-mia",
+      "repository": "fran150/clementina-mia",
+      "branch": "main",
+      "commit": "a6e8e810c0c6960dff8a3a6a1079e91b43efe095",
+      "role": "physical MIA firmware; register/RAM protocols and hardware implementation"
+    },
+    {
+      "name": "clementina-video-client",
+      "repository": "fran150/clementina-video-client",
+      "branch": "main",
+      "commit": "f8a41166002f54f663b1b85999d4e8f8485d1baf",
+      "role": "host renderer/input client"
+    },
+    {
+      "name": "clementina-studio",
+      "repository": "fran150/clementina-studio",
+      "branch": "main",
+      "commit": "42ac43f37ef9e6d1066335464053c0546a45a68f",
+      "role": "current authoring model for palettes, tilesets, shapes, and animations"
+    }
+  ],
+  "sourcePrecedence": [
+    "Physical MIA register/RAM behavior: clementina-mia source, unless explicitly recorded as unresolved.",
+    "CPU-visible decode: clementina-6502 implementation/tests.",
+    "Kernel ABI and current ROM memory use: clementina-rom.",
+    "Rendering semantics: clementina-mia video spec cross-checked with clementina-video-client.",
+    "Authoring semantics: clementina-studio, constrained by hardware specs."
+  ]
+}

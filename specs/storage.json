@@ -1,0 +1,56 @@
+{
+  "format": "clementina-storage",
+  "version": 1,
+  "protocolVersion": 6,
+  "region": {
+    "start": 77824,
+    "endExclusive": 80896,
+    "size": 3072
+  },
+  "regions": [
+    {
+      "name": "CONTROL",
+      "start": 77824,
+      "size": 64
+    },
+    {
+      "name": "SECTOR_BUFFER",
+      "start": 77888,
+      "size": 512
+    },
+    {
+      "name": "PATH",
+      "start": 78400,
+      "size": 256
+    },
+    {
+      "name": "DIR_ENTRY",
+      "start": 78656,
+      "size": 256
+    },
+    {
+      "name": "TRANSFER",
+      "start": 78912,
+      "size": 1984
+    },
+    {
+      "name": "PATH2",
+      "start": 78912,
+      "size": 256,
+      "overlays": "TRANSFER"
+    }
+  ],
+  "maxFileHandles": 16,
+  "directoryCursors": 1,
+  "sectorBytes": 512,
+  "indexes": {
+    "control": "$E0",
+    "sector": "$E1",
+    "path": "$E2",
+    "dir": "$E3",
+    "transfer": "$E4",
+    "path2": "$E5"
+  },
+  "filesystem": "FAT via FatFs",
+  "fileInfoCommand": "$89"
+}

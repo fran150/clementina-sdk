@@ -1,0 +1,16 @@
+{
+  "format": "clementina-palette",
+  "version": 1,
+  "id": "palette:main",
+  "name": "Main",
+  "colors": [
+    0,
+    65535,
+    63488,
+    2016,
+    31,
+    65504,
+    63519,
+    2047
+  ]
+}

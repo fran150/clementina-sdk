@@ -1,0 +1,28 @@
+{
+  "format": "clementina-assets",
+  "version": 2,
+  "portableFormatVersion": 1,
+  "formats": {
+    "palette": "clementina-palette",
+    "paletteConfig": "clementina-palette-config",
+    "tileset": "clementina-tileset",
+    "shape": "clementina-shape",
+    "animation": "clementina-animation",
+    "project": "clementina-project"
+  },
+  "constraints": {
+    "paletteColors": 8,
+    "paletteBanks": 16,
+    "tilesetBytes": 6144,
+    "tilesPerTileset": 256,
+    "tilesetBpp": [
+      1,
+      3
+    ],
+    "maxSpritesPerShape": 64,
+    "maxShapesPerProject": 255,
+    "maxAnimationsPerProject": 255,
+    "animationTickHz": 60,
+    "maxFramesPerAnimation": 255
+  }
+}

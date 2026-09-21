@@ -1,0 +1,12 @@
+{
+  "format": "clementina-animation",
+  "version": 1,
+  "id": "animation:player_idle",
+  "name": "Player_Idle",
+  "frames": [
+    {
+      "shapeId": "shape:player_idle",
+      "ticks": 8
+    }
+  ]
+}
