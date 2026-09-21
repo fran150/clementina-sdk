@@ -1,7 +1,7 @@
 # Clementina CLI
 
 Build the SDK with `npm ci && npm run build`, then run `npx clementina --help`
-from this workspace (or `node packages/cli/dist/bin.js --help`).
+from this workspace (or `node packages/cli/bin/clementina.mjs --help`).
 
 ```sh
 npx clementina project validate examples/minimal-game

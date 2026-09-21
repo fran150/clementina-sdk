@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync, spawnSync} from 'node:child_process';
+import {spawnSync} from 'node:child_process';
 import {executeCommand,runCli} from '../packages/cli/dist/index.js';
-const bin=new URL('../packages/cli/dist/bin.js',import.meta.url);
+const bin=new URL('../packages/cli/bin/clementina.mjs',import.meta.url);
 const run=(...args)=>spawnSync(process.execPath,[bin.pathname,...args],{encoding:'utf8'});
 test('CLI commands validate the example through shared APIs',async()=>{
  for(const args of [

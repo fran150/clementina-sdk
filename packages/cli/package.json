@@ -14,10 +14,11 @@
     "@types/node": "^26.6.2"
   },
   "bin": {
-    "clementina": "./dist/bin.js"
+    "clementina": "./bin/clementina.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "dependencies": {
     "@clementina/core": "0.2.0",
