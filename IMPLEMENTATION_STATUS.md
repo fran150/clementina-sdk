@@ -29,8 +29,17 @@ Implemented:
 - hardware attribute encoders
 - example project and tests
 
+## Phase 3
+
+Implemented structured schema-backed diagnostics with throwing compatibility APIs,
+Node project loading/saving, path and ID resolution, cross-asset checks, generated
+schema freshness checks, bidirectional schema/type conformance, version policy,
+and golden Studio conversion fixtures. Studio now imports SDK models/converters;
+legacy session validators remain pending normalization/parity coverage.
+
+See `docs/shared-packages.md` for filesystem atomicity and migration limitations.
+
 ## Next
 
-Phase 3 should turn this baseline into the shared production packages used by Studio:
-structured diagnostics, filesystem project loading/saving, schema/type conformance tests,
-asset path/id resolution, migration policy, and then removing Studio's duplicate validators.
+Phase 4 CLI over shared APIs. Continue Studio legacy validator migration with
+explicit compatibility coverage before declaring Phase 6 complete.

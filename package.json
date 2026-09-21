@@ -10,9 +10,13 @@
     "validate:specs": "node scripts/validate-specs.mjs",
     "build": "npm run build -w @clementina/core && npm run build -w @clementina/assets && npm run build -w @clementina/project && npm run build -w @clementina/basic && npm run build -w @clementina/emulator-client && npm run build -w @clementina/cli && npm run build -w @clementina/mcp",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run validate:specs && npm run build && node --test tests/*.test.mjs"
+    "test": "node scripts/generate-schemas.mjs --check && npm run validate:specs && npm run build && tsc -p tests/tsconfig.json && node --test tests/*.test.mjs",
+    "generate:schemas": "node scripts/generate-schemas.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "json-schema-to-ts": "^3.1.1"
   }
 }

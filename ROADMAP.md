@@ -15,7 +15,7 @@ Implemented project manifest, versioned JSON schemas, TypeScript types/validator
 cross-reference validation, Studio v2 conversion, examples, and tests.
 
 ## Phase 3 — shared core packages
-**Next.**
+**Baseline implemented; incremental Studio migration started.**
 
 1. structured diagnostics instead of exception-only validation;
 2. filesystem project reader/writer;

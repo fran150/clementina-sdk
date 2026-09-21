@@ -1,61 +1,84 @@
-import type {AnimationAsset,PaletteAsset,PaletteConfigAsset,PortableAssetSet,ShapeAsset,TilesetAsset} from "./types.js";
+import {assertValid, diagnostic, result, schemaDiagnostics, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
+import type {AnimationAsset, PaletteAsset, PaletteConfigAsset, PortableAssetSet, ShapeAsset, TilesetAsset} from './types.js';
 
-const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
-const TILESET=/^[A-Za-z][A-Za-z0-9_-]{0,47}$/;
-const ASM=/^[A-Za-z][A-Za-z0-9_]{0,31}$/;
-const isObj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
-const int=(v:unknown,min:number,max:number)=>Number.isInteger(v)&&Number(v)>=min&&Number(v)<=max;
-const fail=(m:string):never=>{throw new Error(m)};
+export type PortableAsset = PaletteAsset | PaletteConfigAsset | TilesetAsset | ShapeAsset | AnimationAsset;
+export const assetKinds = ['palettes', 'paletteConfigs', 'tilesets', 'shapes', 'animations'] as const;
+export type AssetKind = typeof assetKinds[number];
+export const assetSchemas = {palettes: 'palette', paletteConfigs: 'palette-config', tilesets: 'tileset', shapes: 'shape', animations: 'animation'} as const;
 
-export function validatePalette(a:PaletteAsset):void {
- if(!isObj(a)||a.format!=="clementina-palette"||a.version!==1||!ID.test(a.id)||typeof a.name!=="string"||!a.name.trim())fail("Invalid palette");
- if(!Array.isArray(a.colors)||a.colors.length!==8||a.colors.some(v=>!int(v,0,65535)))fail("Palettes hold exactly eight RGB565 colors");
+/** Validate untrusted JSON without coercion, mutation, or throwing. */
+export function checkAsset(value: unknown, kind?: AssetKind): ValidationResult<PortableAsset> {
+  const format = value && typeof value === 'object' ? (value as {format?: unknown}).format : undefined;
+  const selected = kind ?? assetKinds.find(k => `clementina-${assetSchemas[k]}` === format);
+  if (!selected) return result(value, [diagnostic('asset.format', '/format', 'Unknown asset format')]);
+  const diagnostics = schemaDiagnostics(assetSchemas[selected], value);
+  if (diagnostics.length) return result(value, diagnostics);
+  const a = value as PortableAsset;
+  if (!a.name.trim()) diagnostics.push(diagnostic('asset.name', '/name', 'Name must not be blank'));
+  if (a.format === 'clementina-tileset') {
+    const names = new Set<string>();
+    a.authoring.compositions.forEach((c, i) => {
+      const path = `/authoring/compositions/${i}`;
+      if (!c.name.trim() || names.has(c.name)) diagnostics.push(diagnostic('asset.composition.name', `${path}/name`, 'Composition names must be unique and non-empty'));
+      names.add(c.name);
+      if (c.x + c.width > 16 || c.y + c.height > 16) diagnostics.push(diagnostic('asset.composition.bounds', path, 'Composition lies outside the tileset'));
+    });
+  }
+  return result(value, diagnostics);
 }
-export function validatePaletteConfig(a:PaletteConfigAsset,paletteIds?:Set<string>):void {
- if(!isObj(a)||a.format!=="clementina-palette-config"||a.version!==1||!ID.test(a.id)||typeof a.name!=="string"||!a.name.trim())fail("Invalid palette config");
- if(!Array.isArray(a.banks)||a.banks.length!==16)fail("A palette config has exactly sixteen banks");
- for(const id of a.banks)if(id!==null&&(!ID.test(id)||(paletteIds&&!paletteIds.has(id))))fail("Palette config references an unknown palette");
+
+export function checkAssetSet(value: unknown): ValidationResult<PortableAssetSet> {
+  const diagnostics: ClementinaDiagnostic[] = [];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return result(value, [diagnostic('asset.set', '', 'Expected an asset set')]);
+  const set = value as PortableAssetSet;
+  for (const kind of assetKinds) {
+    if (!Array.isArray(set[kind])) { diagnostics.push(diagnostic('asset.collection', `/${kind}`, 'Expected an array')); continue; }
+    if ((kind === 'shapes' || kind === 'animations') && set[kind].length > 255) diagnostics.push(diagnostic('asset.limit', `/${kind}`, 'At most 255 assets are supported'));
+    const ids = new Set<string>(), names = new Set<string>();
+    set[kind].forEach((asset, i) => {
+      const r = checkAsset(asset, kind);
+      diagnostics.push(...r.diagnostics.map(d => ({...d, path: `/${kind}/${i}${d.path}`})));
+      if (!r.ok) return;
+      if (ids.has(asset.id)) diagnostics.push(diagnostic('asset.duplicate.id', `/${kind}/${i}/id`, 'Asset ids must be unique within their kind'));
+      if (names.has(asset.name.toLowerCase())) diagnostics.push(diagnostic('asset.duplicate.name', `/${kind}/${i}/name`, 'Asset names must be unique ignoring case'));
+      ids.add(asset.id); names.add(asset.name.toLowerCase());
+    });
+  }
+  // References are inspected only after structural validation has succeeded.
+  if (diagnostics.length) return result(value, diagnostics);
+  const palettes = new Set(set.palettes.map(a => a.id)), tilesets = new Set(set.tilesets.map(a => a.id));
+  const shapes = new Map(set.shapes.map(a => [a.id, a]));
+  set.paletteConfigs.forEach((a, i) => a.banks.forEach((id, j) => {
+    if (id !== null && !palettes.has(id)) diagnostics.push(diagnostic('asset.reference', `/paletteConfigs/${i}/banks/${j}`, `Unknown palette ${id}`));
+  }));
+  set.shapes.forEach((a, i) => {
+    if (!tilesets.has(a.tilesetId)) diagnostics.push(diagnostic('asset.reference', `/shapes/${i}/tilesetId`, `Unknown tileset ${a.tilesetId}`));
+  });
+  set.animations.forEach((a, i) => diagnostics.push(...animationReferences(a, shapes).map(d => ({...d, path: `/animations/${i}${d.path}`}))));
+  return result(value, diagnostics);
 }
-export function validateTileset(a:TilesetAsset):void {
- if(!isObj(a)||a.format!=="clementina-tileset"||a.version!==1||!ID.test(a.id)||!TILESET.test(a.name)||![1,3].includes(a.bpp))fail("Invalid tileset");
- if(!Array.isArray(a.chr)||a.chr.length!==6144||a.chr.some(v=>!int(v,0,255)))fail("A tileset contains exactly 6144 CHR bytes");
- if(!isObj(a.authoring)||!Array.isArray(a.authoring.tilePaletteBanks)||a.authoring.tilePaletteBanks.length!==256||a.authoring.tilePaletteBanks.some(v=>!int(v,0,15)))fail("A tileset has 256 palette-bank hints");
- if(!Array.isArray(a.authoring.compositions))fail("Invalid compositions");
- const names=new Set<string>();
- for(const c of a.authoring.compositions){
-  if(!isObj(c)||typeof c.name!=="string"||!c.name.trim()||names.has(c.name))fail("Composition names must be unique and non-empty");names.add(c.name);
-  if(!int(c.x,0,15)||!int(c.y,0,15)||!int(c.width,1,16-Number(c.x))||!int(c.height,1,16-Number(c.y)))fail("Composition lies outside the tileset");
- }
+function animationReferences(a: AnimationAsset, shapes: Map<string, ShapeAsset>): ClementinaDiagnostic[] {
+  const diagnostics: ClementinaDiagnostic[] = [], tilesets = new Set<string>();
+  a.frames.forEach((f, i) => {
+    const shape = shapes.get(f.shapeId);
+    if (!shape) diagnostics.push(diagnostic('asset.reference', `/frames/${i}/shapeId`, `Unknown shape ${f.shapeId}`));
+    else tilesets.add(shape.tilesetId);
+  });
+  if (tilesets.size > 1) diagnostics.push(diagnostic('animation.tileset', '/frames', `Every shape in ${a.name} must use the same tileset`));
+  return diagnostics;
 }
-export function validateShape(a:ShapeAsset,tilesetIds?:Set<string>):void {
- if(!isObj(a)||a.format!=="clementina-shape"||a.version!==1||!ID.test(a.id)||!ASM.test(a.name)||!ID.test(a.tilesetId))fail("Invalid shape");
- if(tilesetIds&&!tilesetIds.has(a.tilesetId))fail("Shape references an unknown tileset");
- if(a.canvasPixelWidth!==undefined&&!int(a.canvasPixelWidth,1,320))fail("Invalid shape canvas width");
- if(a.canvasPixelHeight!==undefined&&!int(a.canvasPixelHeight,1,200))fail("Invalid shape canvas height");
- if(a.originAnchor!==undefined&&!['top-left','center','bottom-center','custom'].includes(a.originAnchor))fail("Invalid origin anchor");
- if(a.originX!==undefined&&!int(a.originX,-32768,32767))fail("Invalid origin X");
- if(a.originY!==undefined&&!int(a.originY,-32768,32767))fail("Invalid origin Y");
- if(!Array.isArray(a.sprites)||a.sprites.length>64)fail("A shape holds at most 64 sprites");
- for(const s of a.sprites)if(!isObj(s)||!int(s.tile,0,255)||!int(s.x,-512,511)||!int(s.y,-256,255)||!int(s.paletteBank,0,15)||typeof s.flipX!=="boolean"||typeof s.flipY!=="boolean")fail("Invalid shape sprite");
+export function validatePalette(a: unknown): void { assertValid(checkAsset(a, 'palettes')); }
+export function validateTileset(a: unknown): void { assertValid(checkAsset(a, 'tilesets')); }
+export function validatePaletteConfig(value: unknown, ids?: Set<string>): void {
+  const a = assertValid(checkAsset(value, 'paletteConfigs')) as PaletteConfigAsset;
+  if (ids) assertValid(result(a, a.banks.flatMap((id, i) => id !== null && !ids.has(id) ? [diagnostic('asset.reference', `/banks/${i}`, `Unknown palette ${id}`)] : [])));
 }
-export function validateAnimation(a:AnimationAsset,shapes?:Map<string,ShapeAsset>):void {
- if(!isObj(a)||a.format!=="clementina-animation"||a.version!==1||!ID.test(a.id)||!ASM.test(a.name))fail("Invalid animation");
- if(!Array.isArray(a.frames)||a.frames.length<1||a.frames.length>255)fail("An animation has 1 to 255 frames");
- const tilesets=new Set<string>();
- for(const f of a.frames){
-  if(!isObj(f)||!ID.test(f.shapeId)||!int(f.ticks,1,255))fail("Invalid animation frame");
-  if(f.dx!==undefined&&!int(f.dx,-512,511)||f.dy!==undefined&&!int(f.dy,-512,511))fail("Invalid animation frame offset");
-  if(shapes){const s=shapes.get(f.shapeId);if(!s){fail(`Animation ${a.name} references unknown shape ${f.shapeId}`);continue;}tilesets.add(s.tilesetId);}
- }
- if(tilesets.size>1)fail(`Every shape in ${a.name} must use the same tileset`);
+export function validateShape(value: unknown, ids?: Set<string>): void {
+  const a = assertValid(checkAsset(value, 'shapes')) as ShapeAsset;
+  if (ids && !ids.has(a.tilesetId)) assertValid(result(a, [diagnostic('asset.reference', '/tilesetId', `Unknown tileset ${a.tilesetId}`)]));
 }
-function uniqueCI(values:string[],what:string):void {const s=new Set<string>();for(const v of values){const k=v.toLowerCase();if(s.has(k))fail(`${what} must be unique`);s.add(k)}}
-export function validateAssetSet(set:PortableAssetSet):void {
- if(!isObj(set))fail("Invalid asset set");
- if(set.shapes.length>255)fail("At most 255 shapes are supported"); if(set.animations.length>255)fail("At most 255 animations are supported");
- set.palettes.forEach(validatePalette);const pids=new Set(set.palettes.map(x=>x.id));if(pids.size!==set.palettes.length)fail("Palette ids must be unique");uniqueCI(set.palettes.map(x=>x.name),"Palette names");
- set.paletteConfigs.forEach(x=>validatePaletteConfig(x,pids));const cids=new Set(set.paletteConfigs.map(x=>x.id));if(cids.size!==set.paletteConfigs.length)fail("Palette config ids must be unique");uniqueCI(set.paletteConfigs.map(x=>x.name),"Palette config names");
- set.tilesets.forEach(validateTileset);const tids=new Set(set.tilesets.map(x=>x.id));if(tids.size!==set.tilesets.length)fail("Tileset ids must be unique");uniqueCI(set.tilesets.map(x=>x.name),"Tileset names");
- set.shapes.forEach(x=>validateShape(x,tids));const shapes=new Map(set.shapes.map(x=>[x.id,x]));if(shapes.size!==set.shapes.length)fail("Shape ids must be unique");uniqueCI(set.shapes.map(x=>x.name),"Shape names");
- set.animations.forEach(x=>validateAnimation(x,shapes));const aids=new Set(set.animations.map(x=>x.id));if(aids.size!==set.animations.length)fail("Animation ids must be unique");uniqueCI(set.animations.map(x=>x.name),"Animation names");
+export function validateAnimation(value: unknown, shapes?: Map<string, ShapeAsset>): void {
+  const a = assertValid(checkAsset(value, 'animations')) as AnimationAsset;
+  if (shapes) assertValid(result(a, animationReferences(a, shapes)));
 }
+export function validateAssetSet(value: unknown): void { assertValid(checkAssetSet(value)); }

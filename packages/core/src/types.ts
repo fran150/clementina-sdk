@@ -17,4 +17,6 @@ export interface ClementinaDiagnostic {
   code: string;
   message: string;
   source?: string;
+  /** JSON Pointer within the source document. */
+  path?: string;
 }
