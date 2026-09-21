@@ -28,3 +28,5 @@ Run:
 npm install
 npm test
 ```
+
+Initial CLI: `npx clementina --help` after building. See `docs/cli.md`.

@@ -39,7 +39,13 @@ legacy session validators remain pending normalization/parity coverage.
 
 See `docs/shared-packages.md` for filesystem atomicity and migration limitations.
 
+## Phase 4
+
+Initial CLI validation commands and runtime doctor implemented with versioned JSON
+output, exit codes, and subprocess tests. Build/run remain dependent on adapters.
+See `docs/cli.md`.
+
 ## Next
 
-Phase 4 CLI over shared APIs. Continue Studio legacy validator migration with
+Phase 5 emulator automation. Continue Studio legacy validator migration with
 explicit compatibility coverage before declaring Phase 6 complete.

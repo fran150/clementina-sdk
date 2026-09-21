@@ -25,7 +25,9 @@ cross-reference validation, Studio v2 conversion, examples, and tests.
 6. migrate Studio to `@clementina/assets` and `@clementina/project`.
 
 ## Phase 4 — CLI
-`project validate`, `asset validate`, `sprite validate`, `animation validate`, then build/run.
+**Initial validation CLI implemented.** `project validate`, `asset validate`,
+`sprite validate`, `animation validate`, and runtime `doctor`, with JSON diagnostics
+and stable exit codes. Build/run depend on later adapters.
 
 ## Phase 5 — emulator automation
 Stable control/debug API plus `@clementina/emulator-client`.
