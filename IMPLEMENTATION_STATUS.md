@@ -62,8 +62,8 @@ Bounded source-line stepping and JSR step-over are now implemented over the same
 transport-independent client. The editor-neutral `@clementina/debug` layer now
 owns thread/frame/register views, replacement-style source breakpoints, command
 serialization, stop polling, and Node project build/emulator/launch composition.
-Next debugger increments remain held HID/gamepad automation and an actual thin
-VS Code/DAP transport. Phase 8 BASIC tooling now includes portable-project
+A thin DAP transport and VS Code extension are now implemented (Phase 11); held
+HID/gamepad automation remains pending. Phase 8 BASIC tooling now includes portable-project
 build/run composition and a baseline language server (diagnostics/hover/
 completion); GOTO/GOSUB target validation and go-to-definition remain pending.
 Continue Studio legacy validator migration with explicit compatibility coverage
@@ -93,14 +93,30 @@ readiness verification, SD mounting, and shutdown. CLI `run` builds the project,
 launches its generated load plan, prints the endpoint, and remains attached until
 interrupted. The transport-independent client remains browser-compatible.
 
-## Phase 11 foundation
+## Phase 11
 
 `@clementina/debug` exposes one source-aware 65C02 thread/frame, raw registers,
 source breakpoint replacement and ownership, execution/step controls, memory reads,
 and cancellable bounded stop polling. Its Node entry builds the project, starts the
 owned emulator, creates the source map, permits breakpoints before launch, then
-delegates the generated BASIC load plan. No VS Code dependency or DAP server is
-included yet; editor integrations translate over this stable SDK layer.
+delegates the generated BASIC load plan.
+
+`@clementina/debug-adapter` is a standalone stdio DAP server (`clementina-debug-adapter`,
+built on `@vscode/debugadapter`) that translates that layer one-to-one: launch,
+source breakpoints, continue/pause/step-in/step-over, a single stack frame, and a
+read-only "Registers" scope. It has no debugging logic of its own. A real DAP
+request race (real clients, including VS Code, pipeline `setBreakpoints`
+alongside `launch` rather than waiting for it to finish) and an unhandled-exception
+crash path were found and fixed during verification. Only assembly projects work;
+`@clementina/debug`'s `debug.program-kind` rejection surfaces as a clean DAP
+launch error.
+
+The `clementina` VS Code extension (`packages/vscode-extension`) registers that
+adapter plus `@clementina/basic-lsp`'s language server for `.bas` files — the
+entire extension is that registration, nothing more. See `docs/vscode-extension.md`.
+Instruction-level stepping/disassembly, variables/expression evaluation, stack
+unwinding, physical bank-selective breakpoints, and syntax highlighting remain
+pending.
 
 ## Phase 8
 

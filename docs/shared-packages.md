@@ -118,6 +118,17 @@ browser-compatible core (`analyzeDiagnostics`, `hoverAt`, `completionsFor`) reus
 separate Node entry (`clementina-basic-lsp`, built on `vscode-languageserver`) wires
 that core to stdio JSON-RPC. See [the BASIC language server](basic-lsp.md).
 
+`@clementina/debug-adapter` is a standalone stdio Debug Adapter Protocol server
+(`clementina-debug-adapter`, built on `@vscode/debugadapter`) translating DAP
+requests directly into `ClementinaDebugSession`/`createProjectDebugSession` calls —
+no debugging logic of its own, and editor-agnostic like `@clementina/basic-lsp`.
+
+The `clementina` VS Code extension (`packages/vscode-extension`, npm name
+`clementina` since extension manifests cannot use a scoped package name) is a thin
+client registering both: a `DebugAdapterDescriptorFactory` spawning
+`clementina-debug-adapter`, and a `vscode-languageclient` spawning
+`clementina-basic-lsp` for `.bas` files. See [the VS Code extension](vscode-extension.md).
+
 `@clementina/build` loads and validates a portable project, emits only explicitly
 selected palette and CHR placements, then writes a validated load plan. Its result
 is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates

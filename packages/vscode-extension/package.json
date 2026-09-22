@@ -1,0 +1,72 @@
+{
+  "name": "clementina",
+  "displayName": "Clementina",
+  "description": "Debugging and BASIC language support for the Clementina homebrew computer",
+  "version": "0.2.0",
+  "private": true,
+  "publisher": "clementina",
+  "engines": {
+    "vscode": "^1.138.0"
+  },
+  "categories": ["Debuggers", "Programming Languages"],
+  "activationEvents": [
+    "onDebug",
+    "onLanguage:clementina-basic"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "contributes": {
+    "languages": [
+      {"id": "clementina-basic", "extensions": [".bas"], "aliases": ["Clementina BASIC"]}
+    ],
+    "debuggers": [
+      {
+        "type": "clementina",
+        "label": "Clementina",
+        "languages": ["clementina-basic"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["program"],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Portable project root (containing clementina.yaml)",
+                "default": "${workspaceFolder}"
+              },
+              "emulator": {
+                "type": "string",
+                "description": "Path to the clementina-automation executable (default: clementina-automation on PATH)"
+              },
+              "port": {
+                "type": "number",
+                "description": "Fixed loopback automation port (default: automatic)"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {"type": "clementina", "request": "launch", "name": "Launch Clementina project", "program": "${workspaceFolder}"}
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Clementina: Launch project",
+            "body": {"type": "clementina", "request": "launch", "name": "Launch Clementina project", "program": "^\"${1:\\${workspaceFolder\\}}\""}
+          }
+        ]
+      }
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/vscode": "^1.138.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@clementina/basic-lsp": "0.2.0",
+    "@clementina/debug-adapter": "0.2.0",
+    "vscode-languageclient": "^10.1.1"
+  }
+}

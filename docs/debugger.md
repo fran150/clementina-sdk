@@ -71,6 +71,7 @@ debug records and has no BASIC-source equivalent. `@clementina/basic` has no
 line/address mapping to feed the same session API yet.
 
 This package is not a Debug Adapter Protocol server and does not import VS Code.
-A future extension should translate its protocol requests and events into these
-APIs. Stack unwinding, expression evaluation, variable symbols, disassembly, and
+`@clementina/debug-adapter` is that translation (see
+[the VS Code extension](vscode-extension.md)), over this same session API.
+Stack unwinding, expression evaluation, variable symbols, disassembly, and
 physical bank breakpoints require separate verified contracts.

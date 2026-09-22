@@ -1,9 +1,10 @@
 // Explicit cross-repository check. Build both Go commands first; see docs/emulator-automation.md.
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
+import {mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {DebugClient} from '@vscode/debugadapter-testsupport';
 import {compileBasicProgram,detokenizeBasicProgram,encodePrg,inspectBasicProgram} from '../packages/basic/dist/index.js';
 import {startEmulatorProcess} from '../packages/emulator-client/dist/node.js';
 const [emulator,renderer]=process.argv.slice(2);
@@ -116,3 +117,42 @@ try {
  assert.equal((await invalid.json()).ok,false);
  console.log('Go emulator → compiled BASIC LOAD/SAVE → generated bootstrap → PRG/MIA load → BASIC load plan → debugger/render: passed');
 } finally {if(emulatorProcess)await emulatorProcess.close();await rm(sdRoot,{recursive:true,force:true});}
+
+// Separate project/emulator lifecycle: proves the real DAP adapter binary, not just ClementinaDebugSession directly.
+const debugRoot=await mkdtemp(join(tmpdir(),'clementina-sdk-debug-adapter-'));
+try {
+ await mkdir(join(debugRoot,'src'));
+ await writeFile(join(debugRoot,'src','main.s'),[
+  '.setcpu "65C02"','.import answer','.export game_start','.segment "CODE"',
+  '.proc game_start','  lda answer','  rts','.endproc','',
+ ].join('\n'));
+ await writeFile(join(debugRoot,'src','data.s'),[
+  '.setcpu "65C02"','.export answer','.segment "RODATA"','answer: .byte $2A','',
+ ].join('\n'));
+ await writeFile(join(debugRoot,'link.cfg'),[
+  'MEMORY { RAM: start=$6000, size=$1000, type=rw, file=%O; }',
+  'SEGMENTS { CODE: load=RAM, type=ro; RODATA: load=RAM, type=ro; }','',
+ ].join('\n'));
+ await writeFile(join(debugRoot,'clementina.yaml'),[
+  'format: clementina-project','version: 1','name: Debug Adapter Integration',
+  'target:','  machine: clementina-6502',
+  'program:','  kind: assembly','  entry: src/main.s','  sources:','    - src/data.s',
+  'assets:','  palettes: []','  paletteConfigs: []','  tilesets: []','  shapes: []','  animations: []',
+  'build:','  outputDirectory: build','  assembly:','    linkerConfig: link.cfg',
+  '    outputName: game','    loadAddress: 24576','    entrySymbol: game_start','',
+ ].join('\n'));
+
+ const dapBin=new URL('../packages/debug-adapter/bin/clementina-debug-adapter.mjs',import.meta.url).pathname;
+ const dc=new DebugClient(process.execPath,dapBin,'clementina');
+ await dc.start();
+ try {
+  await dc.hitBreakpoint({program:debugRoot,emulator},{path:'src/main.s',line:7});
+  const scopes=await dc.scopesRequest({frameId:1});
+  assert.equal(scopes.body.scopes[0].name,'Registers');
+  const variables=await dc.variablesRequest({variablesReference:scopes.body.scopes[0].variablesReference});
+  assert.equal(variables.body.variables.find(v=>v.name==='A').value,'$2A');
+ } finally {
+  await dc.stop();
+ }
+ console.log('Go emulator → real ca65/ld65 build → clementina-debug-adapter → breakpoint hit and registers read: passed');
+} finally {await rm(debugRoot,{recursive:true,force:true});}

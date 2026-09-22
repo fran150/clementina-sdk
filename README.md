@@ -18,8 +18,9 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
   detokenizer, CLI output, portable-project build/run composition, and a baseline
   language server; see `docs/basic-tooling.md`, `docs/program-loading.md`, and
   `docs/basic-lsp.md`
-- **Phase 11 foundation:** editor-neutral debug session and Node project-debug
-  composition (assembly projects only); see `docs/debugger.md`
+- **Phase 11:** editor-neutral debug session and Node project-debug composition
+  (assembly projects only; see `docs/debugger.md`), plus a baseline VS Code
+  extension (DAP debugging + BASIC language client); see `docs/vscode-extension.md`
 
 Assembly and BASIC projects use the portable load-plan contract described in
 `docs/program-loading.md`. `program.kind: mixed` composition is not defined yet.

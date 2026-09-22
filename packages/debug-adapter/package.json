@@ -1,0 +1,32 @@
+{
+  "name": "@clementina/debug-adapter",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/adapter.js",
+  "types": "./dist/adapter.d.ts",
+  "exports": {
+    ".": {"types": "./dist/adapter.d.ts", "import": "./dist/adapter.js"}
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "bin": {
+    "clementina-debug-adapter": "./bin/clementina-debug-adapter.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@vscode/debugadapter-testsupport": "^1.65.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@clementina/debug": "0.2.0",
+    "@vscode/debugadapter": "^1.65.0",
+    "@vscode/debugprotocol": "^1.65.0"
+  }
+}

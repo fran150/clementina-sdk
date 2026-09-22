@@ -86,7 +86,14 @@ Vendor-neutral game/asset/code/debug workflows.
 Structured agent tools.
 
 ## Phase 11 — VS Code
-**SDK adapter baseline implemented; extension pending.** `@clementina/debug`
+**Baseline extension implemented.** `@clementina/debug`
 provides editor-neutral thread/frame/register views, source breakpoint ownership,
 execution controls, source stepping, stop polling, and Node build/process/launch
-composition. A VS Code extension should remain a thin protocol/UI client over it.
+composition. `@clementina/debug-adapter` is a standalone stdio DAP server
+translating that layer's capabilities one-to-one (launch, source breakpoints,
+continue/pause/step, a single stack frame, and a read-only registers scope) —
+no debugging logic of its own. The `clementina` VS Code extension is a thin
+client registering that adapter plus `@clementina/basic-lsp`'s language server
+for `.bas` files; see `docs/vscode-extension.md`. Instruction-level
+stepping/disassembly, variables/expression evaluation, stack unwinding,
+physical bank-selective breakpoints, and syntax highlighting remain pending.
