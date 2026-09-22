@@ -23,7 +23,12 @@ export interface AnimationFrame { shapeId:string; ticks:number; dx?:number; dy?:
 export interface AnimationAsset {
   format:"clementina-animation"; version:1; id:string; name:string; frames:AnimationFrame[];
 }
+export interface BackgroundCell { tile:number; paletteBank:number; flipX:boolean; flipY:boolean; priority:boolean; chrAlt:boolean }
+export interface BackgroundAsset {
+  format:"clementina-background"; version:1; id:string; name:string; width:number; height:number;
+  tilesetId:string; altTilesetId:string; cells:BackgroundCell[];
+}
 export interface PortableAssetSet {
-  palettes:PaletteAsset[]; paletteConfigs:PaletteConfigAsset[]; tilesets:TilesetAsset[];
+  palettes:PaletteAsset[]; paletteConfigs:PaletteConfigAsset[]; tilesets:TilesetAsset[]; backgrounds:BackgroundAsset[];
   shapes:ShapeAsset[]; animations:AnimationAsset[];
 }

@@ -6,6 +6,7 @@
     "palette": "clementina-palette",
     "paletteConfig": "clementina-palette-config",
     "tileset": "clementina-tileset",
+    "background": "clementina-background",
     "shape": "clementina-shape",
     "animation": "clementina-animation",
     "project": "clementina-project"
@@ -23,6 +24,9 @@
     "maxShapesPerProject": 255,
     "maxAnimationsPerProject": 255,
     "animationTickHz": 60,
-    "maxFramesPerAnimation": 255
+    "maxFramesPerAnimation": 255,
+    "maxBackgroundsPerProject": 255,
+    "maxBackgroundDimension": 1024,
+    "maxBackgroundCells": 200000
   }
 }

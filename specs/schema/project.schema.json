@@ -81,6 +81,7 @@
         "palettes",
         "paletteConfigs",
         "tilesets",
+        "backgrounds",
         "shapes",
         "animations"
       ],
@@ -102,6 +103,14 @@
           }
         },
         "tilesets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "backgrounds": {
           "type": "array",
           "uniqueItems": true,
           "items": {

@@ -52,7 +52,7 @@ test('project build emits explicit video placements, terminal PRG, load plan, an
     'target:', '  machine: clementina-6502',
     'program:', '  kind: assembly', '  entry: src/main.s', '  sources:', '    - src/player.s',
     'assets:', '  palettes: [assets/palette.json]', '  paletteConfigs: [assets/palette-config.json]',
-    '  tilesets: [assets/tileset.json]', '  shapes: []', '  animations: []',
+    '  tilesets: [assets/tileset.json]', '  backgrounds: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  assembly:', '    linkerConfig: config/game.cfg',
     '    outputName: game', '    loadAddress: 24576', '    entrySymbol: game_start',
     '  video:', '    paletteConfigId: palette-config:main', '    tilesets:',
@@ -87,7 +87,7 @@ test('BASIC project build compiles the entry source and emits a direct-launch lo
     'target:', '  machine: clementina-6502',
     'program:', '  kind: basic', '  entry: main.bas',
     'assets:', '  palettes: []', '  paletteConfigs: []',
-    '  tilesets: []', '  shapes: []', '  animations: []',
+    '  tilesets: []', '  backgrounds: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
   ].join('\n'));
 
@@ -107,7 +107,7 @@ test('project build configuration rejects duplicate banks and implicit banked CP
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Invalid', 'target: {machine: clementina-6502}',
     'program: {kind: mixed, entry: main.s}',
-    'assets: {palettes: [], paletteConfigs: [], tilesets: [], shapes: [], animations: []}',
+    'assets: {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], shapes: [], animations: []}',
     'build:', '  outputDirectory: build', '  assembly:', '    linkerConfig: game.cfg',
     '    outputName: game', '    loadAddress: 32768', '    entrySymbol: start',
     '  video:', '    tilesets:', '      - {tilesetId: tileset:a, bank: 1}', '      - {tilesetId: tileset:b, bank: 1}', '',

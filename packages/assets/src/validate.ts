@@ -1,10 +1,10 @@
 import {assertValid, diagnostic, result, schemaDiagnostics, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
-import type {AnimationAsset, PaletteAsset, PaletteConfigAsset, PortableAssetSet, ShapeAsset, TilesetAsset} from './types.js';
+import type {AnimationAsset, BackgroundAsset, PaletteAsset, PaletteConfigAsset, PortableAssetSet, ShapeAsset, TilesetAsset} from './types.js';
 
-export type PortableAsset = PaletteAsset | PaletteConfigAsset | TilesetAsset | ShapeAsset | AnimationAsset;
-export const assetKinds = ['palettes', 'paletteConfigs', 'tilesets', 'shapes', 'animations'] as const;
+export type PortableAsset = PaletteAsset | PaletteConfigAsset | TilesetAsset | ShapeAsset | AnimationAsset | BackgroundAsset;
+export const assetKinds = ['palettes', 'paletteConfigs', 'tilesets', 'backgrounds', 'shapes', 'animations'] as const;
 export type AssetKind = typeof assetKinds[number];
-export const assetSchemas = {palettes: 'palette', paletteConfigs: 'palette-config', tilesets: 'tileset', shapes: 'shape', animations: 'animation'} as const;
+export const assetSchemas = {palettes: 'palette', paletteConfigs: 'palette-config', tilesets: 'tileset', backgrounds: 'background', shapes: 'shape', animations: 'animation'} as const;
 
 /** Validate untrusted JSON without coercion, mutation, or throwing. */
 export function checkAsset(value: unknown, kind?: AssetKind): ValidationResult<PortableAsset> {
@@ -24,6 +24,10 @@ export function checkAsset(value: unknown, kind?: AssetKind): ValidationResult<P
       if (c.x + c.width > 16 || c.y + c.height > 16) diagnostics.push(diagnostic('asset.composition.bounds', path, 'Composition lies outside the tileset'));
     });
   }
+  if (a.format === 'clementina-background') {
+    if (a.cells.length !== a.width * a.height) diagnostics.push(diagnostic('asset.background.cells', '/cells', 'Cell count must equal width times height'));
+    if (a.width * a.height > 200000) diagnostics.push(diagnostic('asset.background.size', '/cells', 'A background may hold at most 200000 cells'));
+  }
   return result(value, diagnostics);
 }
 
@@ -33,7 +37,7 @@ export function checkAssetSet(value: unknown): ValidationResult<PortableAssetSet
   const set = value as PortableAssetSet;
   for (const kind of assetKinds) {
     if (!Array.isArray(set[kind])) { diagnostics.push(diagnostic('asset.collection', `/${kind}`, 'Expected an array')); continue; }
-    if ((kind === 'shapes' || kind === 'animations') && set[kind].length > 255) diagnostics.push(diagnostic('asset.limit', `/${kind}`, 'At most 255 assets are supported'));
+    if ((kind === 'shapes' || kind === 'animations' || kind === 'backgrounds') && set[kind].length > 255) diagnostics.push(diagnostic('asset.limit', `/${kind}`, 'At most 255 assets are supported'));
     const ids = new Set<string>(), names = new Set<string>();
     set[kind].forEach((asset, i) => {
       const r = checkAsset(asset, kind);
@@ -53,6 +57,10 @@ export function checkAssetSet(value: unknown): ValidationResult<PortableAssetSet
   }));
   set.shapes.forEach((a, i) => {
     if (!tilesets.has(a.tilesetId)) diagnostics.push(diagnostic('asset.reference', `/shapes/${i}/tilesetId`, `Unknown tileset ${a.tilesetId}`));
+  });
+  set.backgrounds.forEach((a, i) => {
+    if (!tilesets.has(a.tilesetId)) diagnostics.push(diagnostic('asset.reference', `/backgrounds/${i}/tilesetId`, `Unknown tileset ${a.tilesetId}`));
+    if (!tilesets.has(a.altTilesetId)) diagnostics.push(diagnostic('asset.reference', `/backgrounds/${i}/altTilesetId`, `Unknown tileset ${a.altTilesetId}`));
   });
   set.animations.forEach((a, i) => diagnostics.push(...animationReferences(a, shapes).map(d => ({...d, path: `/animations/${i}${d.path}`}))));
   return result(value, diagnostics);
@@ -76,6 +84,15 @@ export function validatePaletteConfig(value: unknown, ids?: Set<string>): void {
 export function validateShape(value: unknown, ids?: Set<string>): void {
   const a = assertValid(checkAsset(value, 'shapes')) as ShapeAsset;
   if (ids && !ids.has(a.tilesetId)) assertValid(result(a, [diagnostic('asset.reference', '/tilesetId', `Unknown tileset ${a.tilesetId}`)]));
+}
+export function validateBackground(value: unknown, tilesetIds?: Set<string>): void {
+  const a = assertValid(checkAsset(value, 'backgrounds')) as BackgroundAsset;
+  if (tilesetIds) {
+    const diagnostics: ClementinaDiagnostic[] = [];
+    if (!tilesetIds.has(a.tilesetId)) diagnostics.push(diagnostic('asset.reference', '/tilesetId', `Unknown tileset ${a.tilesetId}`));
+    if (!tilesetIds.has(a.altTilesetId)) diagnostics.push(diagnostic('asset.reference', '/altTilesetId', `Unknown tileset ${a.altTilesetId}`));
+    assertValid(result(a, diagnostics));
+  }
 }
 export function validateAnimation(value: unknown, shapes?: Map<string, ShapeAsset>): void {
   const a = assertValid(checkAsset(value, 'animations')) as AnimationAsset;

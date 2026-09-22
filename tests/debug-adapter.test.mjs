@@ -15,7 +15,7 @@ async function basicProjectFixture() {
     'target:', '  machine: clementina-6502',
     'program:', '  kind: basic', '  entry: main.bas',
     'assets:', '  palettes: []', '  paletteConfigs: []',
-    '  tilesets: []', '  shapes: []', '  animations: []',
+    '  tilesets: []', '  backgrounds: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
   ].join('\n'));
   return root;

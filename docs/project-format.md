@@ -17,6 +17,7 @@ my-game/
     ├── palettes/
     ├── palette-configs/
     ├── tilesets/
+    ├── backgrounds/
     ├── shapes/
     └── animations/
 ```
@@ -43,6 +44,8 @@ assets:
     - assets/palette-configs/main.palette-config.json
   tilesets:
     - assets/tilesets/player.tileset.json
+  backgrounds:
+    - assets/backgrounds/level1.background.json
   shapes:
     - assets/shapes/player_idle.shape.json
   animations:
@@ -100,6 +103,7 @@ Every asset is self-identifying and versioned:
 | palette | `clementina-palette` | 1 |
 | palette config | `clementina-palette-config` | 1 |
 | tileset | `clementina-tileset` | 1 |
+| background | `clementina-background` | 1 |
 | shape | `clementina-shape` | 1 |
 | animation | `clementina-animation` | 1 |
 
@@ -123,6 +127,8 @@ They intentionally omit Studio session-only state:
 
 ## What Phase 2 does not define yet
 
-Scene files, room/background maps, audio authoring assets, shape/animation runtime
-packing, and BASIC-project build composition remain later phases. The standalone
-BASIC tokenizer and file compiler are documented in [BASIC tooling](basic-tooling.md).
+Scene files (which combine backgrounds, shapes, and a bank config, and decide
+sprite-versus-background priority), audio authoring assets, shape/animation
+runtime packing, and BASIC-project build composition remain later phases. The
+standalone BASIC tokenizer and file compiler are documented in
+[BASIC tooling](basic-tooling.md).

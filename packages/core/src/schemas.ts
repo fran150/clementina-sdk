@@ -197,6 +197,99 @@ export const schemas = {
       }
     }
   },
+  "background": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://clementina.dev/schema/background.schema.json",
+    "title": "Clementina background",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "format",
+      "version",
+      "id",
+      "name",
+      "width",
+      "height",
+      "tilesetId",
+      "altTilesetId",
+      "cells"
+    ],
+    "properties": {
+      "format": {
+        "const": "clementina-background"
+      },
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+      },
+      "width": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1024
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1024
+      },
+      "tilesetId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "altTilesetId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "cells": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 200000,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tile",
+            "paletteBank",
+            "flipX",
+            "flipY",
+            "priority",
+            "chrAlt"
+          ],
+          "properties": {
+            "tile": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "paletteBank": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            },
+            "flipX": {
+              "type": "boolean"
+            },
+            "flipY": {
+              "type": "boolean"
+            },
+            "priority": {
+              "type": "boolean"
+            },
+            "chrAlt": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  },
   "shape": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://clementina.dev/schema/shape.schema.json",
@@ -451,6 +544,7 @@ export const schemas = {
           "palettes",
           "paletteConfigs",
           "tilesets",
+          "backgrounds",
           "shapes",
           "animations"
         ],
@@ -472,6 +566,14 @@ export const schemas = {
             }
           },
           "tilesets": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "backgrounds": {
             "type": "array",
             "uniqueItems": true,
             "items": {
