@@ -130,7 +130,11 @@
     "build": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["outputDirectory", "assembly"],
+      "required": ["outputDirectory"],
+      "anyOf": [
+        {"properties": {"assembly": {"type": "object"}}, "required": ["assembly"]},
+        {"properties": {"basic": {"type": "object"}}, "required": ["basic"]}
+      ],
       "properties": {
         "outputDirectory": {"type": "string", "minLength": 1},
         "assembly": {
@@ -158,6 +162,14 @@
                 ]
               }
             }
+          }
+        },
+        "basic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outputName"],
+          "properties": {
+            "outputName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"}
           }
         },
         "video": {

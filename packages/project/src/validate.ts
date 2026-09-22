@@ -10,12 +10,18 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
   const paths: [string, string][] = [['/program/entry', m.program.entry], ...(m.program.sources ?? []).map((p, i): [string, string] => [`/program/sources/${i}`, p])];
   if (m.program.sources?.includes(m.program.entry)) diagnostics.push(diagnostic('project.source.duplicate', '/program/sources', 'The entry source must not also appear in program.sources'));
   if (m.build) {
-    paths.push(['/build/outputDirectory', m.build.outputDirectory], ['/build/assembly/linkerConfig', m.build.assembly.linkerConfig]);
-    paths.push(...(m.build.assembly.includeDirectories ?? []).map((p, i): [string, string] => [`/build/assembly/includeDirectories/${i}`, p]));
-    if (m.program.kind !== 'assembly') diagnostics.push(diagnostic('project.build.kind', '/build/assembly', 'The current build composer supports assembly projects only'));
-    const banked = m.build.assembly.loadAddress >= 0x8000;
-    if (banked && m.build.assembly.bank === undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is required for an image linked at $8000-$BFFF'));
-    if (!banked && m.build.assembly.bank !== undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is only valid for an image linked at $8000-$BFFF'));
+    paths.push(['/build/outputDirectory', m.build.outputDirectory]);
+    if (m.build.assembly && m.build.basic) diagnostics.push(diagnostic('project.build.configuration', '/build', 'Choose either assembly or BASIC build settings'));
+    if (m.program.kind === 'mixed') diagnostics.push(diagnostic('project.build.kind', '/program/kind', 'Mixed-project composition is not defined yet'));
+    if ('assembly' in m.build && m.build.assembly) {
+      paths.push(['/build/assembly/linkerConfig', m.build.assembly.linkerConfig]);
+      paths.push(...(m.build.assembly.includeDirectories ?? []).map((p, i): [string, string] => [`/build/assembly/includeDirectories/${i}`, p]));
+      if (m.program.kind !== 'assembly') diagnostics.push(diagnostic('project.build.kind', '/build/assembly', 'Assembly build settings require program.kind assembly'));
+      const banked = m.build.assembly.loadAddress >= 0x8000;
+      if (banked && m.build.assembly.bank === undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is required for an image linked at $8000-$BFFF'));
+      if (!banked && m.build.assembly.bank !== undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is only valid for an image linked at $8000-$BFFF'));
+    } else if (m.program.kind !== 'basic') diagnostics.push(diagnostic('project.build.kind', '/build/basic', 'BASIC build settings require program.kind basic'));
+    if (m.program.kind === 'basic' && (m.program.sources?.length ?? 0) > 0) diagnostics.push(diagnostic('project.basic.sources', '/program/sources', 'BASIC builds currently compile the entry source only'));
     const ids = new Set<string>(), banks = new Set<number>();
     m.build.video?.tilesets?.forEach((placement, i) => {
       if (ids.has(placement.tilesetId)) diagnostics.push(diagnostic('project.build.tileset', `/build/video/tilesets/${i}/tilesetId`, 'A tileset may be assigned only once'));

@@ -1,0 +1,52 @@
+{
+  "format": "clementina-basic",
+  "version": 1,
+  "source": "clementina-rom/src/basic/token.s, program.s, misc1.s, inline.s, clementina_extra.s and defines_clementina.s",
+  "sourceLimits": {
+    "maxLineNumber": 63999,
+    "maxInputCharacters": 71,
+    "encoding": "7-bit ASCII for portable source"
+  },
+  "savedProgram": {
+    "contents": "raw TXTTAB..VARTAB bytes; no PRG header",
+    "lineRecord": ["nextAddressLo", "nextAddressHi", "lineNumberLo", "lineNumberHi", "tokenizedText", 0, "optionalStyleSidecar"],
+    "endMarker": [0, 0],
+    "loadBehavior": "LOAD rebuilds every forward link before entering READY",
+    "relocatableLink": [255, 255],
+    "styleSidecar": {
+      "magic": [206, 255],
+      "layout": ["magic0", "magic1", "totalLength", "recordCount", "records"],
+      "record": ["literalOffset", "literalLength", "oneAttributeBytePerLiteralCharacter"],
+      "literalOffsetBase": "first tokenized-text byte after the four-byte line header",
+      "maxBytes": 42,
+      "plainSourceCompiler": "does not emit sidecars because text source has no per-cell attributes"
+    }
+  },
+  "tokens": {
+    "primaryStart": 128,
+    "primary": [
+      "END", "FOR", "NEXT", "DATA", "INPUT", "DIM", "READ", "LET", "GOTO", "RUN", "IF", "RESTORE", "GOSUB", "RETURN", "REM", "STOP", "ON", "WAIT", "LOAD", "SAVE", "DEF", "POKE", "COLOR", "FLIPX", "FLIPY", "ALT", "STYLE", "CRSR", "CLS", "PRINT", "CONT", "LIST", "CLEAR", "GET", "NEW", "TAB(", "TO", "FN", "SPC(", "THEN", "NOT", "STEP", "+", "-", "*", "/", "^", "AND", "OR", ">", "=", "<", "SGN", "INT", "ABS", "USR", "FRE", "POS", "SQR", "RND", "LOG", "EXP", "COS", "SIN", "TAN", "ATN", "PEEK", "LEN", "STR$", "VAL", "ASC", "CHR$", "LEFT$", "RIGHT$", "MID$", "GO"
+    ],
+    "special": {"MON": 254},
+    "extensionPrefix": 255,
+    "extension": [
+      "BCOLOR", "SNDON", "SNDOFF", "SNDCLR", "VOL", "WAVE", "NOTE", "FREQ", "GATE", "ADSR", "PULSE", "PAN", "BGON", "BGOFF", "BGMODE", "BGSET", "SCROLL", "BGBANK", "BGALT", "SPRON", "SPROFF", "SPRCOUNT", "SPRBANK", "CHRMODE", "CHRPLANE", "PALETTE", "VIDON", "VIDOFF", "BGCHAR", "CHRLOAD", "PALLOAD", "OAMLOAD", "SPRITE", "SPRTILE", "SPRX", "SPRY", "SPRCOLOR", "SPRFLIP", "SPRPRI", "OPEN", "CLOSE", "BGET#", "BPUT#"
+    ],
+    "extension2Prefix": 252,
+    "extension2": [
+      "NTREAD", "NTLOAD", "NTSAVE", "ATRREAD", "ATRLOAD", "ATRSAVE", "CHRREAD", "CHRSAVE", "PALREAD", "PALSAVE", "OAMREAD", "OAMSAVE", "MIALOAD", "MIASAVE", "SEEK#", "KILL", "RMDIR", "MKDIR", "NAME", "CD", "DIR", "INPUTMODE", "KEYCLEAR", "KEYREPEAT", "KEYRPT", "MOUSE", "PADREAD", "OVLON", "OVLOFF", "OVLBANK", "OVLALT", "DELAY", "MPOKE", "MCOPY", "MFILL", "FLUSH", "FSTAT", "BLOAD", "BSAVE", "SYS", "TRACK", "BAND", "VTAKE", "VGIVE"
+    ],
+    "extensionFunctionPrefix": 253,
+    "extensionFunction": [
+      "PLAYING", "EOF", "KEYDOWN", "CONSDOWN", "INPUTDEV", "PADON", "PADDIR", "PADSTICK", "PADBTN", "PADAXIS", "PADTRIG", "TICKS", "MPEEK", "FPOS", "FSIZE", "DISKFREE", "CUE"
+    ],
+    "extensionSubtokenStart": 128,
+    "tokenizerSearchOrder": ["MON", "extensionFunction", "extension", "extension2", "primary"],
+    "lexicalBehavior": {
+      "questionMark": "PRINT token",
+      "spaces": "leading spaces after the line number are skipped; subsequent spaces are preserved",
+      "case": "ASCII uppercase outside quoted strings, DATA, and REM",
+      "keywordBoundary": "none"
+    }
+  }
+}

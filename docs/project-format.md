@@ -124,4 +124,5 @@ They intentionally omit Studio session-only state:
 ## What Phase 2 does not define yet
 
 Scene files, room/background maps, audio authoring assets, shape/animation runtime
-packing, and BASIC compilation remain later phases.
+packing, and BASIC-project build composition remain later phases. The standalone
+BASIC tokenizer and file compiler are documented in [BASIC tooling](basic-tooling.md).

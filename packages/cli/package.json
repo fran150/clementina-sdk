@@ -21,9 +21,11 @@
     "bin"
   ],
   "dependencies": {
+    "@clementina/basic": "0.2.0",
     "@clementina/core": "0.2.0",
     "@clementina/assets": "0.2.0",
     "@clementina/build": "0.2.0",
+    "@clementina/emulator-client": "0.2.0",
     "@clementina/project": "0.2.0"
   }
 }

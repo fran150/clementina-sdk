@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "validate:specs": "node scripts/validate-specs.mjs",
-    "build": "npm run build -w @clementina/core && npm run build -w @clementina/assets && npm run build -w @clementina/project && npm run build -w @clementina/basic && npm run build -w @clementina/assembler && npm run build -w @clementina/build && npm run build -w @clementina/emulator-client && npm run build -w @clementina/cli && npm run build -w @clementina/mcp",
+    "build": "npm run build -w @clementina/core && npm run build -w @clementina/assets && npm run build -w @clementina/project && npm run build -w @clementina/basic && npm run build -w @clementina/assembler && npm run build -w @clementina/build && npm run build -w @clementina/emulator-client && npm run build -w @clementina/debug && npm run build -w @clementina/cli && npm run build -w @clementina/mcp",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "node scripts/generate-schemas.mjs --check && npm run validate:specs && npm run build && tsc -p tests/tsconfig.json && node --test tests/*.test.mjs",
     "generate:schemas": "node scripts/generate-schemas.mjs"

@@ -251,3 +251,175 @@ mapping. Preserve Studio's unrelated uncommitted work. Do not commit without ask
   assembler suite separately uses real ca65/ld65 when installed.
 - Next: emulator lifecycle/spawn support and CLI `run`, followed by translating
   ld65 source records into source breakpoint APIs.
+
+## Update — emulator lifecycle and CLI run (2026-09-21)
+
+- `@clementina/emulator-client/node` starts the Go automation executable without a
+  shell, mounts an existing SD root, validates its loopback `/v1` endpoint and
+  capabilities, reports startup stderr, and owns idempotent termination.
+- CLI `run [directory]` builds through `@clementina/build`, mounts the project root,
+  launches the generated load plan through the ROM, reports the debugger endpoint,
+  and remains attached until SIGINT/SIGTERM. Executable and port are host-only CLI
+  settings rather than portable manifest fields.
+- The cross-repository integration script now uses the public lifecycle adapter.
+- Verification passed with 34 SDK tests, all workspace typechecks/spec checks, and
+  the real Go emulator → BASIC bootstrap → debugger/render integration.
+- Next: complete ld65 span parsing and source-line/address mapping, then expose
+  source breakpoints over the existing address-breakpoint client API.
+
+## Update — source mapping and source breakpoints (2026-09-21)
+
+- `@clementina/assembler` now parses ld65 v2 span records and multi-span line
+  references. `createAssemblySourceMap` resolves exact source lines to emitted
+  spans, addresses back to every containing source span, and executable line lists.
+- The build request supplies Clementina bank metadata because ld65's v2 debug file
+  does not encode it. Banked source locations retain that metadata.
+- `@clementina/emulator-client` accepts the source map structurally and adds or
+  removes one existing logical address breakpoint per emitted span start. Blank or
+  non-emitting lines fail explicitly instead of moving to another line.
+- The Go protocol and sibling repositories were not changed. Banked source
+  breakpoints remain logical-address comparisons and may also fire in another bank
+  mapped at the same `$8000-$BFFF` address.
+- Full verification passes: generated schema freshness, spec validation, every
+  workspace build/typecheck, and all 36 SDK tests, including a real two-source
+  ca65/ld65 mapping check when the installed toolchain is available.
+- Next: source-line stepping and step-over semantics, then thin editor/VS Code
+  adapters. Do not commit without explicit user instruction.
+
+## Update — source stepping and JSR step-over (2026-09-21)
+
+- `EmulatorClient.stepSource` executes bounded machine-instruction steps until the
+  exact set of ld65 `path:line` locations at PC changes. Unmapped code, MIA pause,
+  STP/cycle exhaustion, and the SDK instruction budget are explicit result reasons.
+- `stepOverSource` recognizes the actual emulator's `$20` three-byte JSR and waits
+  for its return PC and caller stack pointer before applying the same line-change
+  rule. Other opcodes use ordinary source-step behavior. Jumps and stack tricks are
+  not inferred as calls.
+- Both methods require a stopped instruction boundary and use the structural source
+  map interface, preserving the browser-compatible emulator client and avoiding an
+  assembler package dependency.
+- Unit tests cover same-line spans, call/return, unmapped locations, limits, stop
+  reasons, and invalid starting states. The real integration program now includes a
+  subroutine and verifies source step-over through the Go emulator. Full validation
+  passes with 40 SDK tests, every workspace build/typecheck, spec/schema checks, and
+  the real Go emulator → BASIC load → debugger/render integration.
+- Next: thin editor/debug-adapter integration and held HID/gamepad automation.
+  Do not commit without explicit user instruction.
+
+## Update — editor-neutral debugger session (2026-09-21)
+
+- New `@clementina/debug` centralizes one CPU thread/frame, raw register snapshots,
+  source breakpoint replacement/ownership, command serialization, execution and
+  source-step controls, memory reads, bounded stop polling, and cleanup.
+- Source breakpoint synchronization preserves pre-existing external address
+  breakpoints and shared addresses. Unresolved lines and logical-only banked
+  addresses return explicit editor-facing messages.
+- `@clementina/debug/node` builds a portable project, starts the owned Go emulator,
+  creates the ld65 source map, and returns a prepared session. Execution remains
+  stopped until `launch`, allowing editor breakpoint configuration first.
+- The package has no VS Code dependency and is not itself a DAP server. A later
+  extension can translate protocol requests into the reusable session API.
+- Focused tests cover breakpoint ownership, snapshots/registers, controls, stop
+  polling, cleanup, composition ordering, idempotent close, and diagnostics.
+- Full repository verification passes with 46 SDK tests, generated schema/spec
+  checks, every workspace build, and the editor/debugger composition tests.
+- Next: held HID/gamepad automation or an actual thin VS Code/DAP transport. Do not
+  commit without explicit user instruction.
+
+## Update — BASIC tokenizer and file output (2026-09-22)
+
+- `specs/basic.json` records the active Clementina ROM token tables, `$FC-$FF`
+  prefixes, 0-63999 line-number range, 71-character editor limit, raw program
+  record structure, and styled-literal sidecar marker.
+- `@clementina/basic` now parses numbered source, tokenizes with the ROM's exact
+  search order and lexical modes, compiles raw `SAVE`/`LOAD` files, validates and
+  inspects existing files and sidecars, and detokenizes canonical source.
+- Default output uses `$FFFF` nonterminal links specifically for ROM `LOAD`, which
+  rebuilds them. Exact in-memory images require an explicit `baseAddress`; the SDK
+  does not hardcode the ROM-dependent `TXTTAB`.
+- CLI `basic compile <source> <file>` calls the shared compiler and writes the
+  binary LOAD format. Portable-project build/run composition remains pending.
+- The real Go emulator integration loads and runs compiled output, saves it again
+  through the ROM, compares SDK tokens with the ROM tokenizer byte for byte, then
+  continues through the existing BASIC bootstrap, PRG/MIA, debugger, and renderer
+  checks. Full SDK validation passes with 52 tests, generated schema/spec checks,
+  and every workspace build/typecheck.
+- No sibling repository was modified. Do not commit without explicit user request.
+
+## Update — portable-project BASIC build/run/debug composition, audio sequencer sync (2026-09-22)
+
+Resumed from a prior agent's in-progress edits (uncommitted, not a clean baseline):
+it had already implemented most of a `program.kind: basic` build path but left two
+latent failures (`@clementina/build` had a TS narrowing error on `config.basic`,
+and the new `project.schema.json` `build.anyOf` required-property pattern violated
+Ajv strict mode) that made `npm run build`/`npm test` fail. Fixed both, then
+verified and extended the feature, and separately synced the SDK with an already-
+committed upstream firmware/emulator/ROM change to the audio sequencer.
+
+**Audio sequencer relocation (`clementina-mia` `bf80dbb`, `clementina-6502`
+`5febec6`, `clementina-rom` `7044039`, all pre-existing on disk, not made this
+session):** sequencer tracks are now relocatable (`AUDIO_SEQ_SET_BASE0-3`,
+commands `$68-$6B`), undeclared-length, and default to `$14000/$15000/$16000/
+$17000` instead of the old fixed `$13000-$13FFF` layout that aliased SD/FS state.
+`specs/known-issues.json`'s `audio-sequencer-sd-memory-overlap` is now `resolved`;
+`specs/audio.json`'s `sequencer` block, `docs/architecture/audio.md`, and
+`docs/compatibility.md` describe the new opcode stream (`END`/`NOTE`/`REST`/
+`SET_WAVE`/`SET_ADSR`/`SET_PAN`/`SET_VOL`/`SET_PULSE`/`JUMP`), decode/catch-up
+budgets, and `SEQ_NOTE_INDEX`/`SEQ_STATUS` voice-record offsets. SD/FS's own
+`$13000-$13BFF` remains permanently reserved; `@clementina/basic`'s load-plan
+validator now rejects any `mia` step overlapping it as a hard bounds failure
+(`load.mia.reserved`) rather than an acknowledgeable trade-off — the
+`acknowledgedIssues`/`knownLoadIssue` mechanism is removed (schema, types,
+docs, tests) since there is no longer a legitimate default conflict to
+acknowledge. Every stale "unresolved overlap" reference across `IMPLEMENTATION_
+STATUS.md`, `ROADMAP.md`, and `docs/emulator-automation.md` was updated.
+
+**BASIC project build/run/debug (the increment the prior agent described but
+didn't finish verifying):** `program.kind: basic` manifests can declare
+`build.basic: {outputName}`; `project.schema.json`'s `build` uses `anyOf`
+(`assembly` xor `basic`, schema-enforced) plus `validate.ts` cross-checks that
+`program.kind` matches which one is present and explicitly rejects `mixed`
+composition (not defined yet) and `assembly`+`basic` both present.
+`@clementina/build` returns a discriminated `{kind:'assembly',...}` or
+`{kind:'basic', basic:{source,artifact,bytes,lines}, ...}` result; the BASIC
+branch compiles `program.entry` through `@clementina/basic` and its load plan's
+terminal step is the compiled program itself (no bootstrap file). CLI
+`build`/`run` and `@clementina/emulator-client`'s `launchLoadPlan` already
+branched on this via `checkLoadPlanLaunch`'s existing `numbered`/`direct` launch
+modes (a BASIC plan issues preceding MIA/PRG steps as direct commands, then
+`LOAD`+`RUN`, instead of a generated numbered bootstrap) — this was already
+correct and is now exercised by tests. `@clementina/debug`'s
+`createProjectDebugSession` explicitly rejects a non-assembly build
+(`debug.program-kind`) before starting an emulator, since its source map is
+ld65-only.
+- Added: a real `buildProject` test compiling a BASIC project end to end
+  (`tests/build.test.mjs`), a `createProjectDebugSession` BASIC-rejection test
+  (`tests/debug.test.mjs`), a CLI `build`/`run` BASIC-kind composition test
+  (`tests/cli.test.mjs`), and a `basic`-terminal `launchLoadPlan` block (with a
+  preceding `mia` step) in `scripts/test-emulator-integration.mjs`, run three
+  times against a freshly built real Go `clementina-automation`/`clementina-render`
+  (from the already-committed `clementina-6502`/`clementina-video-client` state)
+  with no flakiness.
+- Updated `docs/cli.md`, `docs/program-loading.md` (new "BASIC terminal step"
+  section), `docs/shared-packages.md`, `docs/debugger.md`, `docs/assembly.md`
+  context, `README.md`, `ROADMAP.md`, and `IMPLEMENTATION_STATUS.md` to match;
+  `docs/cli.md` previously still said "portable-project build composition is a
+  later increment" after the feature existed.
+- Verified: 54 SDK tests, generated schema/spec freshness, every workspace
+  build/typecheck, and the real Go emulator integration (BASIC LOAD/SAVE
+  round-trip, generated assembly bootstrap, PRG/MIA load, debugger breakpoints/
+  source step-over, the new BASIC load-plan direct launch, and PNG rendering).
+- No sibling repository was modified by this session (the firmware/emulator/ROM
+  audio-sequencer commits already existed on disk, and `go build` does not write
+  to a repository's git state). Nothing in `clementina-sdk` was committed or
+  pushed. `clementina-6502`'s branch/commit state changed mid-session outside
+  this session's control — it was on `feature/sequencer-relocatable-tracks`
+  (HEAD `5febec6`) with uncommitted CPU/MIA changes and untracked automation
+  files when the automation binary below was built from it, and is now on
+  `main` two commits ahead of `origin/main` (HEAD `fa68b6b`, "headless
+  automation server for clementina-sdk"), working tree clean. That commit's
+  content matches what was built and integration-tested. This was someone
+  else's concurrent activity in that repo, not an action taken here.
+
+Next: a BASIC LSP and `program.kind: mixed` composition rules remain undefined.
+Do not commit without explicit user instruction.

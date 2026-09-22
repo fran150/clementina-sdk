@@ -9,8 +9,8 @@ Baseline implemented and updated to the fixed upstream state:
 - default PHI2 1.2 MHz
 - documented audio sequencer ABI
 
-A separate current MIA-RAM overlap between sequencer tracks and SD/FS is recorded in
-`docs/compatibility.md`.
+The former MIA-RAM overlap between default sequencer track addresses and SD/FS is
+now resolved (relocatable tracks, `docs/compatibility.md`).
 
 ## Phase 2
 
@@ -41,8 +41,8 @@ See `docs/shared-packages.md` for filesystem atomicity and migration limitations
 
 ## Phase 4
 
-Initial CLI validation commands and runtime doctor implemented with versioned JSON
-output, exit codes, and subprocess tests. Build/run remain dependent on adapters.
+CLI validation commands, runtime doctor, shared project `build`, and owned-emulator
+`run` are implemented with versioned JSON output, exit codes, and subprocess tests.
 See `docs/cli.md`.
 
 ## Phase 5
@@ -57,7 +57,14 @@ See `docs/emulator-automation.md` for limits and remaining debugger work.
 Execution control and pre-opcode address breakpoints are now implemented.
 Program loading now has a versioned load-plan schema, PRG helpers, BASIC bootstrap
 generation, SD-backed real-ROM emulator launch, and end-to-end coverage.
-Next: emulator process lifecycle and CLI `run`, then debugger source mapping.
+Exact ld65 source mapping and source-breakpoint translation are now implemented.
+Bounded source-line stepping and JSR step-over are now implemented over the same
+transport-independent client. The editor-neutral `@clementina/debug` layer now
+owns thread/frame/register views, replacement-style source breakpoints, command
+serialization, stop polling, and Node project build/emulator/launch composition.
+Next debugger increments remain held HID/gamepad automation and an actual thin
+VS Code/DAP transport. Phase 8 BASIC tooling now includes portable-project
+build/run composition; a BASIC LSP remains pending.
 Continue Studio legacy validator migration with explicit compatibility coverage
 before declaring Phase 6 complete.
 
@@ -67,8 +74,8 @@ The first assembly layer is implemented in `@clementina/assembler`. It invokes
 ca65/ld65 without a shell, supports ordered multi-file builds, produces binary,
 PRG, listing, map, label and `.dbg` artifacts, validates linked placement, and
 parses source files, lines, segments and symbols for debugger consumers. Memory
-placement is still explicit input; project build declarations and asset output
-composition are the next increment.
+placement is still explicit input. The parser includes line span lists, and the
+source map resolves exact source lines to emitted logical address ranges and back.
 
 The asset package now emits exact palette-bank, complete palette-configuration,
 and CHR-bank bytes using the canonical video layout. CHR placement is explicit.
@@ -79,3 +86,36 @@ Portable manifests now carry explicit build declarations for linker input, CPU
 placement, palette selection and CHR-bank assignments. `@clementina/build` composes
 those inputs into verified runtime artifacts, `load-plan.json`, and `bootstrap.bas`.
 CLI `build` calls that API and returns artifact paths in JSON mode.
+
+The Node-only emulator-client entry point now owns automation process startup,
+readiness verification, SD mounting, and shutdown. CLI `run` builds the project,
+launches its generated load plan, prints the endpoint, and remains attached until
+interrupted. The transport-independent client remains browser-compatible.
+
+## Phase 11 foundation
+
+`@clementina/debug` exposes one source-aware 65C02 thread/frame, raw registers,
+source breakpoint replacement and ownership, execution/step controls, memory reads,
+and cancellable bounded stop polling. Its Node entry builds the project, starts the
+owned emulator, creates the source map, permits breakpoints before launch, then
+delegates the generated BASIC load plan. No VS Code dependency or DAP server is
+included yet; editor integrations translate over this stable SDK layer.
+
+## Phase 8
+
+The first BASIC tooling increment is implemented in `@clementina/basic`. It parses
+numbered portable source, mirrors the ROM tokenizer and all three extension tables,
+emits raw `SAVE`/`LOAD` program files, optionally emits absolute links for a supplied
+`TXTTAB`, validates existing program images and style sidecars, and detokenizes to
+canonical `LIST`-style source. CLI `basic compile` writes the relocatable form.
+
+A `program.kind: basic` manifest can declare `build.basic` (currently just an
+`outputName`). `@clementina/build` compiles `program.entry` through
+`@clementina/basic` and returns a discriminated `{kind: 'basic', basic, loadPlan,
+files}` result alongside the existing `{kind: 'assembly', ...}` result; both write
+`load-plan.json`. CLI `build`/`run` and `checkLoadPlanLaunch`'s direct-launch mode
+(load/setup commands issued directly, then `LOAD`+`RUN`, instead of a numbered
+bootstrap) share this contract with assembly projects. `program.kind: mixed` is
+rejected during project validation, and `@clementina/debug` explicitly rejects a
+non-assembly project rather than assuming ld65 debug records exist. An LSP remains
+pending.

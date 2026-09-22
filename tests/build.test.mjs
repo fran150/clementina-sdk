@@ -4,6 +4,7 @@ import {mkdtemp, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {buildProject} from '../packages/build/dist/index.js';
+import {compileBasicProgram} from '../packages/basic/dist/index.js';
 
 const arg = (args, name) => args[args.indexOf(name) + 1];
 
@@ -75,6 +76,30 @@ test('project build emits explicit video placements, terminal PRG, load plan, an
   assert.equal((await readFile(join(root, 'build', 'asset-chr-3.bin')))[0], 0x80);
   assert.deepEqual(JSON.parse(await readFile(join(root, 'build', 'load-plan.json'), 'utf8')), built.value.loadPlan);
   assert.equal(await readFile(join(root, 'build', 'bootstrap.bas'), 'utf8'), built.value.bootstrapSource);
+});
+
+test('BASIC project build compiles the entry source and emits a direct-launch load plan', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'clementina-basic-build-'));
+  const source = '10 PRINT "HI"\n20 END\n';
+  await writeFile(join(root, 'main.bas'), source);
+  await writeFile(join(root, 'clementina.yaml'), [
+    'format: clementina-project', 'version: 1', 'name: Basic Build Test',
+    'target:', '  machine: clementina-6502',
+    'program:', '  kind: basic', '  entry: main.bas',
+    'assets:', '  palettes: []', '  paletteConfigs: []',
+    '  tilesets: []', '  shapes: []', '  animations: []',
+    'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
+  ].join('\n'));
+
+  const built = await buildProject(root);
+  assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+  assert.equal(built.value.kind, 'basic');
+  const expectedBytes = compileBasicProgram(source);
+  assert.deepEqual(built.value.loadPlan.steps, [{kind: 'basic', path: 'build/game.bas', length: expectedBytes.length}]);
+  assert.deepEqual(built.value.basic, {source: 'main.bas', artifact: 'build/game.bas', bytes: expectedBytes, lines: 2});
+  assert.deepEqual(built.value.files.map(file => file.kind), ['basic', 'load-plan']);
+  assert.deepEqual(Array.from(await readFile(join(root, 'build', 'game.bas'))), Array.from(expectedBytes));
+  assert.deepEqual(JSON.parse(await readFile(join(root, 'build', 'load-plan.json'), 'utf8')), built.value.loadPlan);
 });
 
 test('project build configuration rejects duplicate banks and implicit banked CPU placement', async () => {

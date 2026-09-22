@@ -47,13 +47,15 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
       if (checked.ok) (assets[kind] as unknown[]).push(checked.value);
     } catch (e) { diagnostics.push(...ioDiagnostics(e, path)); }
   }
-  for (const path of new Set([manifest.program.entry, ...(manifest.program.sources ?? []), ...(manifest.build ? [manifest.build.assembly.linkerConfig] : [])])) {
+  const linkerConfig = manifest.build && 'assembly' in manifest.build && manifest.build.assembly ? [manifest.build.assembly.linkerConfig] : [];
+  for (const path of new Set([manifest.program.entry, ...(manifest.program.sources ?? []), ...linkerConfig])) {
     try {
       const stat = await lstat(await resolveProjectPath(root, path));
       if (!stat.isFile()) throw Error('Program source must be a regular file');
     } catch (e) { diagnostics.push(...ioDiagnostics(e, path)); }
   }
-  for (const path of manifest.build?.assembly.includeDirectories ?? []) {
+  const includeDirectories = manifest.build && 'assembly' in manifest.build && manifest.build.assembly ? manifest.build.assembly.includeDirectories ?? [] : [];
+  for (const path of includeDirectories) {
     try {
       const stat = await lstat(await resolveProjectPath(root, path));
       if (!stat.isDirectory()) throw Error('Assembly include path must be a directory');

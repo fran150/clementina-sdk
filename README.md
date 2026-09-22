@@ -9,12 +9,19 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 - **Phase 3:** shared diagnostics, filesystem APIs, resolution, conformance and initial Studio integration implemented
 
 - **Phase 4:** validation CLI implemented
-- **Phase 5:** headless emulator automation baseline; see `docs/emulator-automation.md`
+- **Phase 5:** headless emulator automation, owned Node process lifecycle, and
+  ld65-backed source breakpoints/stepping;
+  see `docs/emulator-automation.md`
 - **Phase 7:** ca65/ld65, explicit palette/CHR composition, and CLI build baseline;
   see `docs/assembly.md`
+- **Phase 8:** ROM-compatible BASIC tokenizer, SAVE/LOAD file compiler, inspector,
+  detokenizer, CLI output, and portable-project build/run composition;
+  see `docs/basic-tooling.md` and `docs/program-loading.md`
+- **Phase 11 foundation:** editor-neutral debug session and Node project-debug
+  composition (assembly projects only); see `docs/debugger.md`
 
-Assembly and mixed projects use the BASIC bootstrap and portable load-plan contract
-described in `docs/program-loading.md`.
+Assembly and BASIC projects use the portable load-plan contract described in
+`docs/program-loading.md`. `program.kind: mixed` composition is not defined yet.
 
 See `docs/shared-packages.md` for package APIs and versioning policy.
 

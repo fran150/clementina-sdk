@@ -20,6 +20,9 @@ Phase 1 was derived from the five repositories and exact commits recorded in
 ### clementina-rom
 `README.md`, memory map, BASIC video/input/memory/sound/timing/file docs,
 charset/keyboard and styled-string design docs, BASIC import notes, and WozMon notes.
+The Phase 8 tokenizer additionally follows `src/basic/token.s`, `program.s`,
+`misc1.s`, `inline.s`, `defines_clementina.s`, and the program `LOAD`/`SAVE`
+implementation in `clementina_extra.s`.
 
 ### clementina-mia
 `README.md`, all audio/input/SD/video subsystem docs and programmer guides,

@@ -20,7 +20,7 @@ the linked payload are rejected. This prevents a PRG header from claiming an
 address that disagrees with the linked image.
 
 ```ts
-import {buildAssembly} from '@clementina/assembler';
+import {buildAssembly, createAssemblySourceMap} from '@clementina/assembler';
 
 const built = await buildAssembly('/projects/my-game', {
   sources: ['src/main.s', 'src/player.s'],
@@ -33,7 +33,12 @@ const built = await buildAssembly('/projects/my-game', {
 });
 
 if (!built.ok) console.error(built.diagnostics);
-else console.log(built.value.loadStep, built.value.debug.symbols);
+else {
+  const sourceMap = createAssemblySourceMap(built.value.debug, {
+    bank: built.value.loadStep.bank,
+  });
+  console.log(sourceMap.locationsForSource('src/main.s', 12));
+}
 ```
 
 The result includes the raw binary, loader-compatible PRG, a terminal load-plan
@@ -41,8 +46,19 @@ step, normalized source/debug records, and paths for objects, listings, map,
 labels, and debug data. Tool failures are returned as structured diagnostics.
 Processes are launched directly without a shell.
 
-The adapter currently requires ld65 debug format major version 2. Portable project
-build declarations are documented in [the project format](project-format.md), and
+The adapter currently requires ld65 debug format major version 2. It parses every
+span attached to a source line and maps `segment.start + span.start` to a logical
+CPU address. `locationsForSource` resolves an exact line, `locationsForAddress`
+returns every containing source span, and `executableLines` lists the lines that
+actually emitted bytes. Paths use normalized POSIX separators and remain
+case-sensitive. Lines without emitted spans are deliberately left unresolved.
+
+ld65 v2 debug records do not include Clementina's selected RAM bank. Pass the bank
+from the verified assembly build when creating the map. The resulting source
+locations retain that bank metadata for addresses in `$8000-$BFFF`.
+
+Portable project build declarations are documented in
+[the project format](project-format.md), and
 `@clementina/build` composes assembler and video outputs into the load plan used by
-CLI `build`. CLI `run` still awaits emulator process lifecycle and SD-root mounting.
+CLI `build`. CLI `run` composes that output with the owned emulator process API.
 Shape and animation runtime files will wait for an explicit binary ABI.

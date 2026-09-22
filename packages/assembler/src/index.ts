@@ -31,15 +31,37 @@ export interface AssemblyBuildRequest {
 }
 
 export interface DebugSourceFile {id: number; path: string}
-export interface DebugLine {id: number; fileId: number; line: number; spanId?: number}
+export interface DebugLine {id: number; fileId: number; line: number; spanIds: number[]; type?: number; count?: number}
 export interface DebugSegment {id: number; name: string; start: number; size: number; outputName?: string; outputOffset?: number}
+export interface DebugSpan {id: number; segmentId: number; start: number; size: number; typeId?: number}
 export interface DebugSymbol {id: number; name: string; value: number; segmentId?: number; definitionLineId?: number; scopeId?: number; type?: string}
 export interface Ca65DebugInfo {
   version: {major: number; minor: number};
   files: DebugSourceFile[];
   lines: DebugLine[];
   segments: DebugSegment[];
+  spans: DebugSpan[];
   symbols: DebugSymbol[];
+}
+
+export interface SourceLocation {
+  path: string;
+  line: number;
+  address: number;
+  size: number;
+  lineId: number;
+  spanId: number;
+  segmentId: number;
+  /** Clementina RAM bank supplied by the build request; ld65 debug v2 does not encode it. */
+  bank?: number;
+}
+
+export interface AssemblySourceMap {
+  /** Exact executable locations for a source line. Paths are case-sensitive. */
+  locationsForSource(path: string, line: number): readonly SourceLocation[];
+  /** All source spans containing a logical CPU address. */
+  locationsForAddress(address: number, bank?: number): readonly SourceLocation[];
+  executableLines(path: string): readonly number[];
 }
 
 export interface AssemblyBuildResult {
@@ -117,9 +139,20 @@ function integer(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-/** Parse the stable record-oriented ld65 debug format used for source mapping. */
+function integerList(value: string | undefined): number[] {
+  if (value === undefined || value === '') return [];
+  const values = value.split('+').map(integer);
+  return values.every(item => item !== undefined) ? values as number[] : [];
+}
+
+function sourcePath(value: string): string {
+  const normalized = value.replaceAll('\\', '/');
+  return normalized.startsWith('./') ? normalized.slice(2) : normalized;
+}
+
+/** Parse the version 2 record-oriented ld65 debug format used for source mapping. */
 export function parseCa65Debug(text: string): Ca65DebugInfo {
-  const debug: Ca65DebugInfo = {version: {major: 0, minor: 0}, files: [], lines: [], segments: [], symbols: []};
+  const debug: Ca65DebugInfo = {version: {major: 0, minor: 0}, files: [], lines: [], segments: [], spans: [], symbols: []};
   for (const rawLine of text.split(/\r?\n/u)) {
     if (!rawLine) continue;
     const tab = rawLine.indexOf('\t');
@@ -127,11 +160,21 @@ export function parseCa65Debug(text: string): Ca65DebugInfo {
     const kind = rawLine.slice(0, tab), fields = splitAttributes(rawLine.slice(tab + 1));
     if (kind === 'version') debug.version = {major: integer(fields.major) ?? 0, minor: integer(fields.minor) ?? 0};
     else if (kind === 'file') debug.files.push({id: integer(fields.id) ?? -1, path: textValue(fields.name) ?? ''});
-    else if (kind === 'line') debug.lines.push({id: integer(fields.id) ?? -1, fileId: integer(fields.file) ?? -1, line: integer(fields.line) ?? 0, ...(integer(fields.span) === undefined ? {} : {spanId: integer(fields.span)})});
+    else if (kind === 'line') debug.lines.push({
+      id: integer(fields.id) ?? -1, fileId: integer(fields.file) ?? -1, line: integer(fields.line) ?? 0,
+      spanIds: integerList(fields.span),
+      ...(integer(fields.type) === undefined ? {} : {type: integer(fields.type)}),
+      ...(integer(fields.count) === undefined ? {} : {count: integer(fields.count)}),
+    });
     else if (kind === 'seg') debug.segments.push({
       id: integer(fields.id) ?? -1, name: textValue(fields.name) ?? '', start: integer(fields.start) ?? 0, size: integer(fields.size) ?? 0,
       ...(textValue(fields.oname) === undefined ? {} : {outputName: textValue(fields.oname)}),
       ...(integer(fields.ooffs) === undefined ? {} : {outputOffset: integer(fields.ooffs)}),
+    });
+    else if (kind === 'span') debug.spans.push({
+      id: integer(fields.id) ?? -1, segmentId: integer(fields.seg) ?? -1,
+      start: integer(fields.start) ?? 0, size: integer(fields.size) ?? 0,
+      ...(integer(fields.type) === undefined ? {} : {typeId: integer(fields.type)}),
     });
     else if (kind === 'sym' && integer(fields.val) !== undefined) debug.symbols.push({
       id: integer(fields.id) ?? -1, name: textValue(fields.name) ?? '', value: integer(fields.val)!,
@@ -143,6 +186,52 @@ export function parseCa65Debug(text: string): Ca65DebugInfo {
   }
   if (debug.version.major !== 2) throw new TypeError(`Unsupported ld65 debug format ${debug.version.major}.${debug.version.minor}`);
   return debug;
+}
+
+/** Build a deterministic, exact source/address index from ld65 debug records. */
+export function createAssemblySourceMap(debug: Ca65DebugInfo, options: {bank?: number} = {}): AssemblySourceMap {
+  if (options.bank !== undefined && (!Number.isInteger(options.bank) || options.bank < 1 || options.bank > 31)) {
+    throw new RangeError('bank must be 1..31');
+  }
+  const files = new Map(debug.files.map(file => [file.id, sourcePath(file.path)]));
+  const segments = new Map(debug.segments.map(segment => [segment.id, segment]));
+  const spans = new Map(debug.spans.map(span => [span.id, span]));
+  const locations: SourceLocation[] = [];
+  const seen = new Set<string>();
+  for (const line of debug.lines) {
+    const path = files.get(line.fileId);
+    if (path === undefined || line.line < 1) continue;
+    for (const spanId of line.spanIds) {
+      const span = spans.get(spanId), segment = span === undefined ? undefined : segments.get(span.segmentId);
+      if (span === undefined || segment === undefined || span.size < 1) continue;
+      const address = segment.start + span.start;
+      if (address < 0 || address > 0xffff || address + span.size > 0x10000) continue;
+      const bank = options.bank !== undefined && address >= 0x8000 && address <= 0xbfff ? options.bank : undefined;
+      const key = `${path}\0${line.line}\0${address}\0${span.size}\0${bank ?? ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      locations.push({path, line: line.line, address, size: span.size, lineId: line.id, spanId, segmentId: span.segmentId, ...(bank === undefined ? {} : {bank})});
+    }
+  }
+  locations.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.address - b.address || a.size - b.size || a.spanId - b.spanId);
+  const pathKey = (path: string): string => sourcePath(path);
+  return {
+    locationsForSource(path, line) {
+      if (!Number.isInteger(line) || line < 1) throw new RangeError('line must be a positive integer');
+      const key = pathKey(path);
+      return locations.filter(location => location.path === key && location.line === line);
+    },
+    locationsForAddress(address, bank) {
+      if (!Number.isInteger(address) || address < 0 || address > 0xffff) throw new RangeError('Invalid CPU address');
+      if (bank !== undefined && (!Number.isInteger(bank) || bank < 1 || bank > 31)) throw new RangeError('bank must be 1..31');
+      return locations.filter(location => address >= location.address && address < location.address + location.size
+        && (bank === undefined || location.bank === undefined || location.bank === bank));
+    },
+    executableLines(path) {
+      const key = pathKey(path);
+      return [...new Set(locations.filter(location => location.path === key).map(location => location.line))].sort((a, b) => a - b);
+    },
+  };
 }
 
 export const runProcess: ProcessRunner = invocation => new Promise((resolveRun, reject) => {

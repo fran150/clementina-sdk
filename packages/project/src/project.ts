@@ -9,9 +9,10 @@ export function checkProject(value: PortableProject): ValidationResult<PortableP
   if (m.ok && a.ok) {
     const sources = new Set([m.value.program.entry, ...(m.value.program.sources ?? []), 'clementina.yaml']);
     if (m.value.build) {
-      sources.add(m.value.build.assembly.linkerConfig);
+      if ('assembly' in m.value.build && m.value.build.assembly) sources.add(m.value.build.assembly.linkerConfig);
       const output = m.value.build.outputDirectory;
-      const buildInputs = [...sources, ...(m.value.build.assembly.includeDirectories ?? []), ...assetKinds.flatMap(kind => m.value.assets[kind])];
+      const includes = 'assembly' in m.value.build && m.value.build.assembly ? m.value.build.assembly.includeDirectories ?? [] : [];
+      const buildInputs = [...sources, ...includes, ...assetKinds.flatMap(kind => m.value.assets[kind])];
       for (const path of buildInputs) if (path === output || path.startsWith(output + '/')) diagnostics.push(diagnostic('project.build.output-collision', '/build/outputDirectory', `Build output contains project input: ${path}`));
       const paletteConfigId = m.value.build.video?.paletteConfigId;
       if (paletteConfigId && !a.value.paletteConfigs.some(asset => asset.id === paletteConfigId)) diagnostics.push(diagnostic('project.build.palette-config', '/build/video/paletteConfigId', `Unknown palette configuration ${paletteConfigId}`));

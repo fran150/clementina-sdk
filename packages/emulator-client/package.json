@@ -10,9 +10,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@types/node": "^26.6.2",
     "typescript": "^5.6.0"
   },
   "dependencies": {
     "@clementina/basic": "0.2.0"
+  },
+  "exports": {
+    ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
+    "./node": {"types": "./dist/node.d.ts", "import": "./dist/node.js"}
   }
 }

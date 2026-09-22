@@ -79,24 +79,47 @@ normalization and parity tests; replacing them outright would break existing fil
 `createHttpEmulatorClient` for the Go automation server. It validates requests and
 responses and has no Studio or Node runtime dependency. See
 [emulator automation](emulator-automation.md) for API semantics and integration tests.
+The separate `@clementina/emulator-client/node` entry point owns the Go automation
+process, validates its advertised loopback endpoint and capabilities, mounts an
+explicit SD root, and provides idempotent shutdown. Browser consumers do not import
+this entry point.
 
 `@clementina/basic` provides the versioned runtime load-plan validator, exact PRG
-packing/inspection, and BASIC bootstrap source generation. Despite the package
-name, it does not yet tokenize arbitrary BASIC programs. The emulator client's
-`launchLoadPlan` method enters generated source through the real ROM tokenizer.
-See [program loading](program-loading.md).
+packing/inspection, BASIC bootstrap generation, and the ROM-compatible BASIC
+tokenizer. It compiles numbered source to raw `SAVE`/`LOAD` files, validates and
+inspects existing files (including style sidecars), and detokenizes them to
+canonical `LIST`-style source. Relocatable output relies on ROM `LOAD` rebuilding
+line links; callers can provide `TXTTAB` only when they need an absolute in-memory
+image. See [program loading](program-loading.md) and [BASIC tooling](basic-tooling.md).
 
 `@clementina/assembler` is the Node adapter for ca65/ld65. Callers provide the
 source order, linker configuration, expected load address, optional bank, and
 entry symbol explicitly. The adapter assembles each source with debug information,
 links a binary plus `.dbg`, map, and label files, verifies every emitted segment's
 address against its binary offset, resolves the entry symbol, and writes the exact
-PRG consumed by the ROM loader. It parses ld65 debug records for later source-level
-debugger mapping. It deliberately does not select addresses or generate a linker
-map on the caller's behalf.
+PRG consumed by the ROM loader. `createAssemblySourceMap` builds exact bidirectional
+source-line/span/address mappings from ld65 v2 records. The transport-independent
+emulator client consumes that structural interface for source breakpoints,
+source-line stepping, and bounded JSR step-over without depending on the Node
+assembler package. The adapter deliberately does not select addresses or generate
+a linker map on the caller's behalf.
 
-`@clementina/build` loads and validates a portable project, delegates assembly to
-`@clementina/assembler`, emits only explicitly selected palette and CHR placements,
-then writes a validated load plan and generated BASIC bootstrap. This is the API
-used by CLI `build`; other consumers should call it instead of reproducing the
+`@clementina/debug` is the editor-neutral orchestration layer. It presents one CPU
+thread/frame, register snapshots, replacement-style source breakpoint ownership,
+execution controls, source stepping, memory reads, bounded stop polling, and
+cleanup. Its browser-compatible entry accepts structural emulator/source-map APIs.
+`@clementina/debug/node` builds a project, owns the emulator process, prepares the
+source map, and leaves execution stopped so an editor can configure breakpoints
+before launching the BASIC load plan. See [editor debugger integration](debugger.md).
+
+`@clementina/build` loads and validates a portable project, emits only explicitly
+selected palette and CHR placements, then writes a validated load plan. Its result
+is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates
+to `@clementina/assembler` and also writes a generated numbered BASIC bootstrap;
+a BASIC project (`build.basic`) compiles `program.entry` through `@clementina/basic`
+and produces a load plan whose terminal step is the compiled program itself (no
+bootstrap file, since the emulator client launches it with direct ROM commands —
+see [program loading](program-loading.md)). `program.kind: mixed` is rejected during
+project validation; its composition rules are not defined yet. This is the API used
+by CLI `build`/`run`; other consumers should call it instead of reproducing the
 artifact ordering or filenames.

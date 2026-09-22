@@ -6,7 +6,8 @@
 ## Phase 1 — canonical machine specification
 **Baseline complete.** Current baseline uses the `$04B7` ascending loader, audio indexes `$E6-$EF`, a 1.2 MHz default PHI2, and the documented MIA audio-sequencer ABI.
 
-The current audio-sequencer/SD MIA-RAM overlap remains tracked in `docs/compatibility.md`.
+The former audio-sequencer/SD MIA-RAM overlap is now resolved via relocatable
+sequencer tracks; see `docs/compatibility.md`.
 
 ## Phase 2 — portable project and asset formats
 **Baseline complete.**
@@ -25,19 +26,23 @@ cross-reference validation, Studio v2 conversion, examples, and tests.
 6. migrate Studio to `@clementina/assets` and `@clementina/project`.
 
 ## Phase 4 — CLI
-**Initial validation CLI implemented.** `project validate`, `asset validate`,
-`sprite validate`, `animation validate`, and runtime `doctor`, with JSON diagnostics
-and stable exit codes. Build/run depend on later adapters.
+**Build/run baseline implemented.** Validation commands, `doctor`, assembly `build`,
+and owned headless-emulator `run` use shared APIs with JSON diagnostics and stable
+exit codes.
 
 ## Phase 5 — emulator automation
 **Headless baseline implemented.** Serialized Go automation, bounded cycle stepping,
 inspection, console-byte input, video snapshots, and `@clementina/emulator-client`.
 Run/pause/resume, bounded instruction stepping and pre-opcode address breakpoints
 are implemented through the same serialized machine owner.
+Exact ld65 source-line/address maps and source-breakpoint translation reuse those
+address breakpoints. Bounded source-line stepping and JSR step-over reuse serialized
+instruction stepping. Physical bank-selective breakpoints remain pending.
 The existing Go video compositor is exposed for headless PNG rendering. See
 `docs/emulator-automation.md` for verification and pending debugger capabilities.
 The program-loading increment adds validated PRG packing, ordered MIA/CPU load plans,
 generated BASIC bootstrap source, SD-root mounting, and real-ROM emulator launch.
+The Node lifecycle entry point owns the Go process and powers CLI `run`.
 
 ## Phase 6 — Studio integration completion
 Studio becomes a client of SDK contracts instead of a parallel implementation.
@@ -47,11 +52,26 @@ Studio becomes a client of SDK contracts instead of a parallel implementation.
 order and linker placement, emits PRG/debug/map/label artifacts, verifies linked
 segment placement, and parses source symbols. Portable manifests can declare
 assembly and explicit palette/CHR placement; the shared project composer and CLI
-`build` emit the load plan and BASIC bootstrap. Generated includes/linker configs,
-runtime support, CLI `run`, and debugger source mapping remain pending.
+`build` emit the load plan and BASIC bootstrap. Generated includes, linker configs,
+and runtime support remain pending. ld65 span parsing, bidirectional source maps, and
+exact source breakpoints and source stepping are implemented.
 
 ## Phase 8 — BASIC
-Compiler/tokenizer/file output and later LSP.
+**Tokenizer/file baseline and portable-project build/run composition implemented.**
+`@clementina/basic` mirrors the current ROM's primary and extension token tables,
+lexical behavior, numbered-source limits, raw SAVE/LOAD records, optional absolute
+links, style-sidecar inspection, and canonical detokenization. CLI `basic compile`
+writes relocatable files whose links are rebuilt by ROM `LOAD`.
+
+A `program.kind: basic` manifest can now declare `build.basic`; `@clementina/build`
+compiles the entry source and emits a load plan whose terminal step is the compiled
+program, discriminated from the assembly build result. CLI `build`/`run` use the
+same contract as assembly projects. The load plan's direct-launch mode (as opposed
+to a numbered bootstrap) issues MIA/CPU setup as direct BASIC commands, then `LOAD`
+and `RUN`. `program.kind: mixed` composition remains explicitly rejected until its
+rules are defined. `@clementina/debug`'s current source map is ld65-only and
+explicitly rejects a BASIC project rather than silently misbehaving. A BASIC
+LSP remains pending.
 
 ## Phase 9 — agent workflows
 Vendor-neutral game/asset/code/debug workflows.
@@ -60,4 +80,7 @@ Vendor-neutral game/asset/code/debug workflows.
 Structured agent tools.
 
 ## Phase 11 — VS Code
-Thin client over SDK/CLI/LSP.
+**SDK adapter baseline implemented; extension pending.** `@clementina/debug`
+provides editor-neutral thread/frame/register views, source breakpoint ownership,
+execution controls, source stepping, stop polling, and Node build/process/launch
+composition. A VS Code extension should remain a thin protocol/UI client over it.

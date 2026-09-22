@@ -72,15 +72,37 @@ or control characters. Generated lines must fit the ROM's 71-character input lim
 The SDK caps a plan at 6,399 steps so its line numbers, emitted in increments of
 10, remain within the ROM BASIC line-number parser's range.
 
-The current audio-sequencer and SD/FS regions overlap at `$13000-$13FFF`. A plan
-touching this range fails validation unless it explicitly includes:
+SD/FS state permanently occupies MIA RAM `$13000-$13BFF` (see
+`docs/architecture/storage.md`). A `mia` step that overlaps that range always
+fails validation; there is no acknowledgement escape, since nothing else has a
+legitimate default claim on that range (the audio sequencer's tracks defaulted
+there previously but are now relocatable and default elsewhere — see
+`docs/compatibility.md`).
 
-```json
-{"acknowledgedIssues":["audio-sequencer-sd-memory-overlap"]}
+## BASIC terminal step
+
+A plan may instead end with one `basic` step naming the compiled program file
+(the raw `SAVE`/`LOAD` format from [BASIC tooling](basic-tooling.md), not a PRG):
+
+```ts
+const plan: LoadPlan = {
+  format: 'clementina-load-plan',
+  version: 1,
+  steps: [
+    {kind: 'mia', path: 'PALETTE.BIN', address: 0x100, length: 256},
+    {kind: 'basic', path: 'GAME.BAS', length: 512},
+  ],
+};
 ```
 
-Acknowledgement records an intentional address choice; it does not claim that both
-subsystems can safely use the bytes simultaneously or resolve the upstream issue.
+A `basic` step is a terminal step like a returning-forbidden `prg` step with
+`runAddress`; only one terminal step is allowed and it must be last.
+`checkLoadPlanLaunch`/`renderLoadPlanLaunch` render this as `mode: 'direct'`:
+every preceding step becomes the same `MIALOAD`/`BLOAD` command issued directly
+(not through a numbered bootstrap), followed by `LOAD "GAME.BAS"` and `RUN`. An
+assembly plan (ending in a returning `prg` step) instead renders `mode: 'numbered'`:
+a temporary numbered bootstrap program, executed with `RUN`. Both modes share the
+same `startCommand: 'RUN'`.
 
 ## Emulator launch
 
@@ -100,17 +122,22 @@ await client.launchLoadPlan(plan);
 ```
 
 `launchLoadPlan` resets the machine, advances a bounded boot budget, enters each
-generated numbered line through the text FIFO, and enters `RUN`. It uses bounded
-cycle budgets while entering lines; these are test/tooling budgets rather than a
-prompt-readiness protocol. The final `run` is asynchronous and honors address
-breakpoints. Poll `state()` or pause explicitly as described in
+line from `renderLoadPlanLaunch` (numbered bootstrap lines for an assembly plan,
+direct load/setup commands for a BASIC plan) through the text FIFO, and enters
+`RUN`. It uses bounded cycle budgets while entering lines; these are test/tooling
+budgets rather than a prompt-readiness protocol. The final `run` is asynchronous
+and honors address breakpoints. Poll `state()` or pause explicitly as described in
 `docs/emulator-automation.md`.
 
-The SDK deliberately sends source through the ROM tokenizer. Tokenized BASIC file
-generation belongs to the later BASIC tooling phase. The same bootstrap can be
-entered and saved on a machine today; a future tokenizer will emit its saved form
-without changing the load-plan contract.
+The SDK deliberately sends generated source through the ROM tokenizer rather than
+implementing a second one. For standalone BASIC programs outside a load plan,
+`@clementina/basic` can also directly emit and inspect the raw binary form consumed
+by ROM `LOAD`; see [BASIC tooling](basic-tooling.md).
 
-`@clementina/build` now combines explicit manifest placement, ca65/ld65 output,
-and palette/CHR encoding into the files described by this plan. CLI `build` calls
-that API. Emulator process lifecycle and CLI `run` remain the next layer.
+`@clementina/build` validates a portable project and, discriminated on
+`program.kind`, either combines explicit manifest placement with ca65/ld65 output
+and palette/CHR encoding into an assembly load plan, or compiles `program.entry`
+through `@clementina/basic` into a BASIC load plan; both cases emit
+`load-plan.json` alongside the generated files. CLI `build` calls that API. CLI
+`run` then mounts the project root through the Node emulator lifecycle and passes
+this same plan to `launchLoadPlan`, working for either project kind.

@@ -1,0 +1,28 @@
+{
+  "name": "@clementina/debug",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
+    "./node": {"types": "./dist/node.d.ts", "import": "./dist/node.js"}
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@clementina/assembler": "0.2.0",
+    "@clementina/basic": "0.2.0",
+    "@clementina/build": "0.2.0",
+    "@clementina/core": "0.2.0",
+    "@clementina/emulator-client": "0.2.0"
+  },
+  "files": ["dist"]
+}

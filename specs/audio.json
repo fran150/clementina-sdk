@@ -18,8 +18,31 @@
   "voiceVolume": {"min":0,"max":255,"default":255},
   "pan": {"min":-64,"max":63,"default":0},
   "voiceRecordBytes": 16,
-  "voiceOffsets": {"FREQ_L":0,"FREQ_H":1,"PULSE_WIDTH":2,"ATTACK_DECAY":3,"SUSTAIN_RELEASE":4,"WAVEFORM":5,"PAN":6,"CONTROL":7,"VOLUME":8},
+  "voiceOffsets": {"FREQ_L":0,"FREQ_H":1,"PULSE_WIDTH":2,"ATTACK_DECAY":3,"SUSTAIN_RELEASE":4,"WAVEFORM":5,"PAN":6,"CONTROL":7,"VOLUME":8,"SEQ_NOTE_INDEX_L":9,"SEQ_NOTE_INDEX_H":10,"SEQ_STATUS":11},
   "indexes": {"all":"$E6","voice0":"$E7","voice1":"$E8","voice2":"$E9","voice3":"$EA","header":"$EB","sequencerStatus0":"$EC","sequencerStatus1":"$ED","sequencerStatus2":"$EE","sequencerStatus3":"$EF"},
-  "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67"},
-  "sequencer": {"trackRegion":{"start":77824,"endExclusive":81920,"size":4096},"trackBytesPerVoice":1024,"trackHeaderBytes":4,"durationUnit":"24 kHz audio samples","doneIrqBit":14,"knownIssue":"audio-sequencer-sd-memory-overlap"}
+  "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67","sequencerSetBase0":"$68","sequencerSetBase1":"$69","sequencerSetBase2":"$6A","sequencerSetBase3":"$6B"},
+  "sequencer": {
+    "trackFormat": "undeclared-length opcode stream at a per-voice track_base, decoded live until END, an unrecognized opcode byte, or a cursor past the top of MIA RAM",
+    "defaultTrackBase": {"voice0":81920,"voice1":86016,"voice2":90112,"voice3":94208},
+    "setBaseCommand": {"voice0":"sequencerSetBase0","voice1":"sequencerSetBase1","voice2":"sequencerSetBase2","voice3":"sequencerSetBase3","payload":"24-bit little-endian address","effect":"sets track_base only; does not move cursor/note_index until the next sequencerLoad"},
+    "callerReservedRegions": "track_base and its decoded bytes must avoid the video sync region, input/clock state, the audio register block, SD/FS state ($13000-$13BFF, see specs/storage.json), and any other voice's own track; the SDK does not allocate or check this",
+    "durationUnit": "24 kHz audio samples",
+    "durationBytes": 3,
+    "opcodes": [
+      {"id":0,"name":"END","payload":[],"durationConsuming":false,"effect":"stop decoding this voice's track"},
+      {"id":1,"name":"NOTE","payload":["freq_l","freq_h","dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"write FREQ_L/FREQ_H, gate on with phase reset, hold for dur samples, advance note_index"},
+      {"id":2,"name":"REST","payload":["dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"gate off, hold for dur samples, advance note_index"},
+      {"id":3,"name":"SET_WAVE","payload":["waveform"],"durationConsuming":false,"effect":"write WAVEFORM"},
+      {"id":4,"name":"SET_ADSR","payload":["attack_decay","sustain_release"],"durationConsuming":false,"effect":"write both envelope bytes"},
+      {"id":5,"name":"SET_PAN","payload":["pan"],"durationConsuming":false,"effect":"write PAN"},
+      {"id":6,"name":"SET_VOL","payload":["volume"],"durationConsuming":false,"effect":"write per-voice VOLUME"},
+      {"id":7,"name":"SET_PULSE","payload":["pulse_width"],"durationConsuming":false,"effect":"write PULSE_WIDTH"},
+      {"id":8,"name":"JUMP","payload":["offset_l","offset_m","offset_h"],"durationConsuming":false,"effect":"set cursor to (address right after this record) + offset, a signed 24-bit little-endian self-relative value; does not advance note_index; used for looping instead of a dedicated LOOP opcode"}
+    ],
+    "decodeBudgetOpcodes": 32,
+    "catchupBudgetEvents": 8,
+    "noteIndex": {"offset":"SEQ_NOTE_INDEX_L/SEQ_NOTE_INDEX_H","bytes":2,"wraps":65536,"resetBy":"sequencerLoad","notResetBy":"JUMP"},
+    "status": {"offset":"SEQ_STATUS","runningBit":0,"takenBit":1},
+    "doneIrqBit": 14
+  }
 }

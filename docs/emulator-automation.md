@@ -22,6 +22,29 @@ and mismatched Host headers. HTTP requests use POST `/v1` with one JSON object.
 Protocol errors return `{version:1,ok:false,error:string}`; HTTP access errors use
 HTTP status codes. Error strings are for people, not stable diagnostic codes.
 
+Node tools can own this lifecycle through the separate
+`@clementina/emulator-client/node` entry point:
+
+```ts
+import {startEmulatorProcess} from '@clementina/emulator-client/node';
+
+const emulator = await startEmulatorProcess({
+  executable: '/path/to/clementina-automation',
+  sdRoot: '/path/to/project',
+});
+try {
+  await emulator.client.launchLoadPlan(plan);
+  console.log(emulator.endpoint);
+} finally {
+  await emulator.close();
+}
+```
+
+The adapter launches without a shell, requires an existing SD directory, accepts
+only the expected loopback `/v1` endpoint, verifies `capabilities`, captures a
+bounded stderr tail for startup failures, and provides idempotent termination.
+The browser-compatible package entry remains free of Node process APIs.
+
 ```ts
 import {createHttpEmulatorClient} from '@clementina/emulator-client';
 const client = createHttpEmulatorClient('http://127.0.0.1:PORT/v1');
@@ -55,7 +78,8 @@ MIA peek currently mirrors its register window throughout the high CPU region;
 this is emulator behavior, not a hardware guarantee for reserved `$E000-$FFDF`.
 Text bytes pass through `DebugQueueInput`; source-mode and existing FIFO overflow
 semantics still apply. A successful call means injection, not ROM consumption.
-No runtime memory allocation is added, and the sequencer/SD overlap is unresolved.
+No runtime memory allocation is added. The former sequencer/SD MIA-RAM overlap is
+resolved; see `docs/compatibility.md`.
 
 Video snapshots contain the complete 68,944-byte MIA video region at one serialized
 machine boundary. The video client's new public Go `pkg/render.Snapshot` API calls
@@ -77,10 +101,11 @@ node scripts/test-emulator-integration.mjs /tmp/clementina-automation /tmp/cleme
 
 The integration check boots the real emulator, generates and enters a BASIC
 bootstrap, loads a PRG and MIA asset from the mounted SD directory, stops at a
-pre-instruction breakpoint, checks memory, and renders through the existing Go
-compositor. SDK unit tests run without sibling checkouts. Held HID/gamepad injection,
-process-launch APIs, CLI `run`, and source-level breakpoint mapping remain future
-work. Assembly and CLI `build` are documented separately. This is the Phase 5
+pre-instruction breakpoint, source-steps over a real JSR/RTS pair, checks memory,
+and renders through the existing Go compositor. SDK unit tests run without sibling
+checkouts. Held HID/gamepad injection remains future work; source mapping is covered
+below.
+Process lifecycle and CLI `run` now use the public Node adapter. This is the Phase 5
 baseline, not completion of every debugger capability.
 
 The load-plan and launch contract is documented in [program loading](program-loading.md).
@@ -119,12 +144,73 @@ when continuing from a breakpoint stop, so a loop can hit the same address again
 Manual cycle/instruction steps ignore address breakpoints and require the runner
 to be stopped.
 
+Source breakpoints compose the assembler source map with this same address API:
+
+```ts
+import {createAssemblySourceMap} from '@clementina/assembler';
+
+const sourceMap = createAssemblySourceMap(build.debug, {bank: build.loadStep.bank});
+await client.addSourceBreakpoint(sourceMap, 'src/main.s', 12);
+await client.removeSourceBreakpoint(sourceMap, 'src/main.s', 12);
+```
+
+Resolution is exact. A line that emitted no bytes raises `SourceBreakpointError`;
+the SDK does not move it to a nearby line. A line with disjoint spans installs one
+address breakpoint at each span start. The result reports the resolved addresses,
+whether their source metadata is banked, and the emulator's complete breakpoint
+list. Adding or removing several span starts uses the protocol's individual
+idempotent mutations, so a transport failure can leave a prefix applied.
+The server stores address breakpoints rather than source-breakpoint identities;
+removing a source breakpoint also removes any manually added breakpoint at the same
+address.
+
+The Go engine still compares only the logical 16-bit CPU address. For a source
+location in `$8000-$BFFF`, `banked: true` reports that the map knows the build bank;
+it does not make the address breakpoint bank-selective. It can therefore stop at
+the same logical address while another RAM bank is selected. A future physical
+bank breakpoint requires an explicit emulator protocol change.
+
 `stepInstruction(maxCycles = 10000)` advances to the next opcode boundary. From
 inside an instruction it finishes that instruction; during reset or interrupt entry
 it advances to the next opcode fetch. It reports `cycle-limit` if the cycle budget
 is exhausted, including a CPU waiting without an interrupt. `STP` reports
 `cpu-stopped`; resume cannot release it. Reset is required. This is machine
-instruction stepping, not source-line stepping or debugger step-over.
+instruction stepping.
+
+## Source stepping
+
+The transport-independent client composes instruction stepping with an
+`AssemblySourceMap`:
+
+```ts
+const nextLine = await client.stepSource(sourceMap);
+const afterCall = await client.stepOverSource(sourceMap, {
+  maxInstructions: 10_000,
+  maxCyclesPerInstruction: 10_000,
+  bank: build.loadStep.bank,
+});
+```
+
+Both operations require a stopped machine at an instruction boundary. A source
+position is the sorted set of every `path:line` mapping that contains the current
+PC; this preserves ld65 macro/include aliases. `stepSource` executes at least one
+instruction and stops when that exact set changes. When the starting or resulting
+PC is not mapped, it performs one machine step and reports `unmapped` instead of
+guessing a nearby source line.
+
+`stepOverSource` uses the Clementina emulator's implemented `$20` three-byte `JSR`.
+For that opcode it instruction-steps until both the caller's stack pointer and the
+wrapped `PC + 3` return address are restored, then applies the same source-location
+rule. Other opcodes behave like `stepSource`. The result reports instruction count,
+starting/current locations, whether a call was stepped over, and one of
+`source-location`, `unmapped`, `instruction-limit`, `cycle-limit`, `mia-paused`,
+`cpu-stopped`, or `stopped`.
+
+The two limits are SDK safety budgets, not hardware timing. Source stepping uses
+the protocol's explicit `stepInstruction`, so address breakpoints are ignored just
+as they are for direct instruction stepping. Step-over does not promise to finish
+a subroutine that never returns normally; it reports `instruction-limit`. It also
+does not infer a call for jumps, interrupts, stack tricks, or unsupported opcodes.
 
 State includes `running`, `instructionBoundary`, and `stopReason`:
 `initial`, `running`, `pause`, `reset`, `breakpoint`, `instruction`, `cycle-limit`,

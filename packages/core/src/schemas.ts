@@ -501,8 +501,29 @@ export const schemas = {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "outputDirectory",
-          "assembly"
+          "outputDirectory"
+        ],
+        "anyOf": [
+          {
+            "properties": {
+              "assembly": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "assembly"
+            ]
+          },
+          {
+            "properties": {
+              "basic": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "basic"
+            ]
+          }
         ],
         "properties": {
           "outputDirectory": {
@@ -568,6 +589,19 @@ export const schemas = {
               }
             }
           },
+          "basic": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "outputName"
+            ],
+            "properties": {
+              "outputName": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+              }
+            }
+          },
           "video": {
             "type": "object",
             "additionalProperties": false,
@@ -622,15 +656,6 @@ export const schemas = {
       },
       "version": {
         "const": 1
-      },
-      "acknowledgedIssues": {
-        "type": "array",
-        "uniqueItems": true,
-        "items": {
-          "enum": [
-            "audio-sequencer-sd-memory-overlap"
-          ]
-        }
       },
       "steps": {
         "type": "array",
@@ -704,6 +729,30 @@ export const schemas = {
                 "runAddress": {
                   "type": "integer",
                   "minimum": 1,
+                  "maximum": 65535
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "path",
+                "length"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "basic"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 2,
                   "maximum": 65535
                 }
               }
