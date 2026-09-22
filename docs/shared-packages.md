@@ -112,6 +112,12 @@ cleanup. Its browser-compatible entry accepts structural emulator/source-map API
 source map, and leaves execution stopped so an editor can configure breakpoints
 before launching the BASIC load plan. See [editor debugger integration](debugger.md).
 
+`@clementina/basic-lsp` is a Language Server Protocol server for BASIC source. Its
+browser-compatible core (`analyzeDiagnostics`, `hoverAt`, `completionsFor`) reuses
+`@clementina/basic`'s parser/tokenizer/token tables rather than re-deriving them; a
+separate Node entry (`clementina-basic-lsp`, built on `vscode-languageserver`) wires
+that core to stdio JSON-RPC. See [the BASIC language server](basic-lsp.md).
+
 `@clementina/build` loads and validates a portable project, emits only explicitly
 selected palette and CHR placements, then writes a validated load plan. Its result
 is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates

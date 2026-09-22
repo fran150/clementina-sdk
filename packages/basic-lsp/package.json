@@ -1,0 +1,32 @@
+{
+  "name": "@clementina/basic-lsp",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
+    "./server": {"types": "./dist/server.d.ts", "import": "./dist/server.js"}
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "bin": {
+    "clementina-basic-lsp": "./bin/clementina-basic-lsp.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@clementina/basic": "0.2.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  }
+}

@@ -15,8 +15,9 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 - **Phase 7:** ca65/ld65, explicit palette/CHR composition, and CLI build baseline;
   see `docs/assembly.md`
 - **Phase 8:** ROM-compatible BASIC tokenizer, SAVE/LOAD file compiler, inspector,
-  detokenizer, CLI output, and portable-project build/run composition;
-  see `docs/basic-tooling.md` and `docs/program-loading.md`
+  detokenizer, CLI output, portable-project build/run composition, and a baseline
+  language server; see `docs/basic-tooling.md`, `docs/program-loading.md`, and
+  `docs/basic-lsp.md`
 - **Phase 11 foundation:** editor-neutral debug session and Node project-debug
   composition (assembly projects only); see `docs/debugger.md`
 

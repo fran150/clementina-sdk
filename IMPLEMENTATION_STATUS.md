@@ -64,7 +64,8 @@ owns thread/frame/register views, replacement-style source breakpoints, command
 serialization, stop polling, and Node project build/emulator/launch composition.
 Next debugger increments remain held HID/gamepad automation and an actual thin
 VS Code/DAP transport. Phase 8 BASIC tooling now includes portable-project
-build/run composition; a BASIC LSP remains pending.
+build/run composition and a baseline language server (diagnostics/hover/
+completion); GOTO/GOSUB target validation and go-to-definition remain pending.
 Continue Studio legacy validator migration with explicit compatibility coverage
 before declaring Phase 6 complete.
 
@@ -117,5 +118,14 @@ files}` result alongside the existing `{kind: 'assembly', ...}` result; both wri
 (load/setup commands issued directly, then `LOAD`+`RUN`, instead of a numbered
 bootstrap) share this contract with assembly projects. `program.kind: mixed` is
 rejected during project validation, and `@clementina/debug` explicitly rejects a
-non-assembly project rather than assuming ld65 debug records exist. An LSP remains
-pending.
+non-assembly project rather than assuming ld65 debug records exist.
+
+`@clementina/basic-lsp` is a baseline Language Server Protocol server. Its
+protocol-agnostic core (`analyzeDiagnostics`, `hoverAt`, `completionsFor`) reuses
+`@clementina/basic`'s parser/tokenizer/tables: whole-document diagnostics (every
+numbered-line format/length/range error plus program-size overflow, not just the
+first one `parseBasicSource` would stop at), hover (keyword category and exact
+token bytes, in the ROM's own tokenizer search order), and keyword completion. A
+Node entry (`clementina-basic-lsp`, on `vscode-languageserver`) wires that core to
+stdio JSON-RPC. GOTO/GOSUB line-number target validation, go-to-definition,
+signature help, formatting, and renumbering remain pending.

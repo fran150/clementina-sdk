@@ -70,8 +70,14 @@ same contract as assembly projects. The load plan's direct-launch mode (as oppos
 to a numbered bootstrap) issues MIA/CPU setup as direct BASIC commands, then `LOAD`
 and `RUN`. `program.kind: mixed` composition remains explicitly rejected until its
 rules are defined. `@clementina/debug`'s current source map is ld65-only and
-explicitly rejects a BASIC project rather than silently misbehaving. A BASIC
-LSP remains pending.
+explicitly rejects a BASIC project rather than silently misbehaving.
+
+`@clementina/basic-lsp` now provides a baseline BASIC language server: whole-document
+diagnostics (numbered-line format/length/range plus program-size overflow), hover
+(keyword category and exact token bytes), and keyword completion, all built on
+`@clementina/basic`'s existing tokenizer/tables rather than a second implementation.
+GOTO/GOSUB line-number target validation, go-to-definition, signature help,
+formatting, and renumbering remain pending.
 
 ## Phase 9 — agent workflows
 Vendor-neutral game/asset/code/debug workflows.
