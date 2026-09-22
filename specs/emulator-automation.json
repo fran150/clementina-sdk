@@ -1,0 +1,140 @@
+{
+  "format": "clementina-emulator-automation",
+  "version": 1,
+  "transport": {
+    "protocol": "HTTP",
+    "method": "POST",
+    "path": "/v1",
+    "bind": "127.0.0.1",
+    "defaultPort": 0,
+    "sdRoot": "optional existing host directory configured at process start; not mutable through protocol"
+  },
+  "request": {
+    "required": [
+      "version",
+      "method"
+    ],
+    "optional": [
+      "count",
+      "address",
+      "data"
+    ],
+    "unknownFields": "reject"
+  },
+  "response": {
+    "success": {
+      "version": 1,
+      "ok": true,
+      "result": "method-dependent"
+    },
+    "failure": {
+      "version": 1,
+      "ok": false,
+      "error": "human-readable string"
+    }
+  },
+  "methods": {
+    "capabilities": {
+      "result": "version, methods, maxCycles, maxRead"
+    },
+    "state": {
+      "result": "cycles (decimal string), pc, a, x, y, sp, p, paused (MIA execution pause), running, stopReason, instructionBoundary"
+    },
+    "reset": {
+      "result": "state",
+      "behavior": "assert reset for three existing computer cycles, then release; no cold recreation or cycle-counter reset; stop background execution; preserve breakpoints"
+    },
+    "step": {
+      "params": [
+        "count"
+      ],
+      "result": "state",
+      "behavior": "execute up to count complete cycles; stop when MIA pauses; reject while background execution is running; ignore address breakpoints"
+    },
+    "readMemory": {
+      "params": [
+        "address",
+        "count"
+      ],
+      "result": "array of CPU-mapped bytes; null for unsupported side-effect-free reads; no wrapping"
+    },
+    "input": {
+      "params": [
+        "data"
+      ],
+      "result": "state",
+      "behavior": "inject raw console text bytes through existing MIA input hook; no Unicode conversion or implicit stepping"
+    },
+    "video": {
+      "result": "68944 numeric bytes of coherent MIA video state; not encoded pixels"
+    },
+    "run": {
+      "result": "execution state",
+      "behavior": "start unthrottled background execution; stop before an opcode at a breakpoint; does not clear MIA pause"
+    },
+    "pause": {
+      "result": "execution state",
+      "behavior": "synchronously stop background execution at a complete cycle boundary"
+    },
+    "resume": {
+      "result": "execution state",
+      "behavior": "clear MIA pause through host resume path, start execution, skip a just-hit breakpoint once"
+    },
+    "stepInstruction": {
+      "params": [
+        "count"
+      ],
+      "result": "execution state",
+      "behavior": "when not running, execute at least one cycle until next opcode boundary, MIA pause, STP, or count cycle budget; ignore address breakpoints"
+    },
+    "addBreakpoint": {
+      "params": [
+        "address"
+      ],
+      "result": "unique CPU address array in insertion order"
+    },
+    "removeBreakpoint": {
+      "params": [
+        "address"
+      ],
+      "result": "remaining CPU address array"
+    },
+    "breakpoints": {
+      "result": "CPU address array"
+    },
+    "clearBreakpoints": {
+      "result": "empty array"
+    }
+  },
+  "policyLimits": {
+    "maxCycles": 10000000,
+    "maxRead": 65536,
+    "maxInputBytes": 64,
+    "maxRequestBodyBytes": 8192
+  },
+  "execution": {
+    "serialized": true,
+    "backgroundCpuExecution": true,
+    "timeSource": "existing host wall clock",
+    "deterministicReplay": false,
+    "runner": "unthrottled; serialized ownership released every 256 cycles",
+    "stopReasons": [
+      "initial",
+      "running",
+      "pause",
+      "reset",
+      "breakpoint",
+      "instruction",
+      "cycle-limit",
+      "mia-paused",
+      "cpu-stopped"
+    ],
+    "breakpoints": "logical CPU addresses in currently mapped memory; checked only before opcode fetch, not during interrupt/reset entry"
+  },
+  "hardwareReferences": [
+    "machine.json",
+    "input.json",
+    "video.json",
+    "known-issues.json"
+  ]
+}

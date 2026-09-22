@@ -27,3 +27,9 @@ No command modifies project files.
 assembler, or BASIC capabilities. Build/run commands will be added with their
 respective reusable toolchain and automation packages; they are not placeholder
 successes today.
+
+A reusable headless emulator client is now available; see
+[emulator automation](emulator-automation.md). CLI build/run still require program
+assembly/linker and asset-output adapters and are not enabled by this baseline.
+The reusable load-plan and emulator launch layer is documented in
+[program loading](program-loading.md).

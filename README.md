@@ -8,6 +8,12 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 - **Phase 2:** portable project + asset format baseline complete
 - **Phase 3:** shared diagnostics, filesystem APIs, resolution, conformance and initial Studio integration implemented
 
+- **Phase 4:** validation CLI implemented
+- **Phase 5:** headless emulator automation baseline; see `docs/emulator-automation.md`
+
+Assembly and mixed projects use the BASIC bootstrap and portable load-plan contract
+described in `docs/program-loading.md`.
+
 See `docs/shared-packages.md` for package APIs and versioning policy.
 
 Phase 2 defines `clementina.yaml` and portable versioned assets for palettes,

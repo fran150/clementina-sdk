@@ -68,3 +68,16 @@ Build the SDK before building Studio. Its session persistence and legacy validat
 remain in Studio because they accept older identities and optional tileset bindings
 that portable schemas do not. Further validator removal requires explicit legacy
 normalization and parity tests; replacing them outright would break existing files.
+
+## Emulator client
+
+`@clementina/emulator-client` provides a transport-independent `EmulatorClient` and
+`createHttpEmulatorClient` for the Go automation server. It validates requests and
+responses and has no Studio or Node runtime dependency. See
+[emulator automation](emulator-automation.md) for API semantics and integration tests.
+
+`@clementina/basic` provides the versioned runtime load-plan validator, exact PRG
+packing/inspection, and BASIC bootstrap source generation. Despite the package
+name, it does not yet tokenize arbitrary BASIC programs. The emulator client's
+`launchLoadPlan` method enters generated source through the real ROM tokenizer.
+See [program loading](program-loading.md).

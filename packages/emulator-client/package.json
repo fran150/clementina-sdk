@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@clementina/basic": "0.2.0"
   }
 }

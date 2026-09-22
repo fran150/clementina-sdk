@@ -30,7 +30,14 @@ cross-reference validation, Studio v2 conversion, examples, and tests.
 and stable exit codes. Build/run depend on later adapters.
 
 ## Phase 5 — emulator automation
-Stable control/debug API plus `@clementina/emulator-client`.
+**Headless baseline implemented.** Serialized Go automation, bounded cycle stepping,
+inspection, console-byte input, video snapshots, and `@clementina/emulator-client`.
+Run/pause/resume, bounded instruction stepping and pre-opcode address breakpoints
+are implemented through the same serialized machine owner.
+The existing Go video compositor is exposed for headless PNG rendering. See
+`docs/emulator-automation.md` for verification and pending debugger capabilities.
+The program-loading increment adds validated PRG packing, ordered MIA/CPU load plans,
+generated BASIC bootstrap source, SD-root mounting, and real-ROM emulator launch.
 
 ## Phase 6 — Studio integration completion
 Studio becomes a client of SDK contracts instead of a parallel implementation.

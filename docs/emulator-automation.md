@@ -1,0 +1,137 @@
+# Emulator automation baseline
+
+`@clementina/emulator-client` talks to the Go headless automation command in
+`../clementina-6502`. It has no Studio dependency. The reusable Go `Automation`
+session owns its computer exclusively and serializes all calls and cleanup.
+It does not attach to a running terminal emulator or share its pause flag.
+The protocol is recorded in `specs/emulator-automation.json`.
+
+Build and start from the emulator repository:
+
+```sh
+go build -o /tmp/clementina-automation ./cmd/clementina-automation
+/tmp/clementina-automation -sd /path/to/generated-build-output
+```
+
+The command prints its endpoint once (an automatically chosen loopback port by
+default). `-port` selects an explicit port. Stop the process to dispose of the
+session. `-sd` mounts an existing host directory for ROM filesystem operations;
+omitting it leaves the SD slot empty. No UDP services or serial input are enabled. This is a trusted
+local tooling endpoint with no authentication; it rejects browser Origin headers
+and mismatched Host headers. HTTP requests use POST `/v1` with one JSON object.
+Protocol errors return `{version:1,ok:false,error:string}`; HTTP access errors use
+HTTP status codes. Error strings are for people, not stable diagnostic codes.
+
+```ts
+import {createHttpEmulatorClient} from '@clementina/emulator-client';
+const client = createHttpEmulatorClient('http://127.0.0.1:PORT/v1');
+await client.capabilities();
+await client.reset();
+await client.step(4_000_000);
+await client.input([65, 13]); // raw console bytes, not Unicode
+const state = await client.state();
+const bytes = await client.readMemory(0, 256);
+const video = await client.video();
+```
+
+The boot cycle count above is a test budget, not a readiness guarantee. Requests
+are never retried automatically. A transport failure may occur after a mutation
+completed. Supply a custom fetch implementation for cancellation/timeouts; aborting
+HTTP does not roll back or necessarily stop a bounded Go operation. Await dependent
+calls. Concurrent calls are serialized by the server, but their order is unspecified.
+`EmulatorClient` also accepts a transport callback for other hosts.
+
+`reset` follows the upstream headless harness: three cycles with reset asserted,
+then release. It does not clear all RAM, recreate the machine, wait for BASIC, or
+zero the cycle counter. `step` advances complete Tick/PostTick cycles and stops
+when MIA requests execution pause. `paused` describes that MIA state, not whether
+a request is currently executing. Background execution starts only through `run`
+or `resume`. Cycle counts are decimal strings to preserve uint64 precision. Timing retains upstream
+host wall-clock semantics; cycle stepping does not provide deterministic replay.
+
+Memory reads use the existing mapped peek, including the selected external-RAM
+bank. Unsupported I/O peeks return `null`, never a fabricated zero. The upstream
+MIA peek currently mirrors its register window throughout the high CPU region;
+this is emulator behavior, not a hardware guarantee for reserved `$E000-$FFDF`.
+Text bytes pass through `DebugQueueInput`; source-mode and existing FIFO overflow
+semantics still apply. A successful call means injection, not ROM consumption.
+No runtime memory allocation is added, and the sequencer/SD overlap is unresolved.
+
+Video snapshots contain the complete 68,944-byte MIA video region at one serialized
+machine boundary. The video client's new public Go `pkg/render.Snapshot` API calls
+its existing compositor and returns a native 320×200 image. Its `clementina-render`
+command accepts the JSON byte array on stdin and emits PNG on stdout. There is no
+second SDK compositor or dependency from core/assets/project onto rendering.
+
+Cross-repository verification:
+
+```sh
+# In clementina-video-client:
+go test ./internal/render ./pkg/render
+go build -o /tmp/clementina-render ./cmd/clementina-render
+# In clementina-6502:
+go test -race ./pkg/computers/clementina -run '^TestAutomation'
+# In clementina-sdk, after npm run build:
+node scripts/test-emulator-integration.mjs /tmp/clementina-automation /tmp/clementina-render
+```
+
+The integration check boots the real emulator, generates and enters a BASIC
+bootstrap, loads a PRG and MIA asset from the mounted SD directory, stops at a
+pre-instruction breakpoint, checks memory, and renders through the existing Go
+compositor. SDK unit tests run without sibling checkouts. Held HID/gamepad injection,
+process-launch APIs, assembly, and CLI build/run remain future work. This is the Phase 5
+baseline, not completion of every debugger capability.
+
+The load-plan and launch contract is documented in [program loading](program-loading.md).
+
+## Execution control and breakpoints
+
+The server advertises `run`, `pause`, `resume`, `stepInstruction`, `addBreakpoint`,
+`removeBreakpoint`, `breakpoints`, and `clearBreakpoints` in `capabilities().methods`.
+The client validates their responses as `ExecutionState`. The general state type
+retains optional execution fields to support earlier v1 servers; query capabilities
+before using new methods against an older server.
+
+```ts
+await client.addBreakpoint(entryAddress); // caller's verified CPU address
+await client.run();                       // returns immediately
+// Poll client.state() until running is false; stopReason explains why.
+await client.stepInstruction(10000);      // maximum cycle budget, not instruction count
+await client.resume();                   // continue past a just-hit breakpoint
+await client.pause();                    // returns after CPU execution has stopped
+```
+
+The background runner is unthrottled and releases its machine lock every 256
+cycles. It does not promise the requested hardware PHI2 rate. Inspection and input
+share that lock; each response is coherent, but successive reads can observe
+different cycles. Pause first when multiple reads must describe one fixed state.
+`pause` stops at a full cycle boundary, which may be inside an instruction.
+`reset` stops execution and preserves breakpoints. Closing a Go session joins its
+runner; concurrent closes are safe.
+
+Breakpoints refer to logical CPU addresses (including the currently selected RAM
+bank), not physical RAM offsets. They stop **before** opcode fetch. Operand reads
+and reset/interrupt entry do not trigger them. Adding an existing breakpoint or
+removing a missing one is idempotent; lists are unique and keep insertion order.
+`run` at a breakpoint stops there again. `resume` skips that boundary once only
+when continuing from a breakpoint stop, so a loop can hit the same address again.
+Manual cycle/instruction steps ignore address breakpoints and require the runner
+to be stopped.
+
+`stepInstruction(maxCycles = 10000)` advances to the next opcode boundary. From
+inside an instruction it finishes that instruction; during reset or interrupt entry
+it advances to the next opcode fetch. It reports `cycle-limit` if the cycle budget
+is exhausted, including a CPU waiting without an interrupt. `STP` reports
+`cpu-stopped`; resume cannot release it. Reset is required. This is machine
+instruction stepping, not source-line stepping or debugger step-over.
+
+State includes `running`, `instructionBoundary`, and `stopReason`:
+`initial`, `running`, `pause`, `reset`, `breakpoint`, `instruction`, `cycle-limit`,
+`mia-paused`, or `cpu-stopped`. The existing `paused` field continues to mean MIA
+execution pause. `resume` clears that flag through the existing MIA host-resume
+path; this does not invent a CPU-visible resume command.
+
+Upstream caveat: the current computer wiring shares VCC with CPU RDY and NMI, while
+CPU WAI emulation drives RDY low. This can wake WAI through NMI. The bounded-wait
+test isolates these control lines as the CPU test harness does; automation does
+not alter the board wiring or claim to fix its WAI behavior.
