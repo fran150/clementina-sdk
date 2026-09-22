@@ -8,6 +8,17 @@ export function checkProject(value: PortableProject): ValidationResult<PortableP
   const diagnostics = [...m.diagnostics, ...a.diagnostics];
   if (m.ok && a.ok) {
     const sources = new Set([m.value.program.entry, ...(m.value.program.sources ?? []), 'clementina.yaml']);
+    if (m.value.build) {
+      sources.add(m.value.build.assembly.linkerConfig);
+      const output = m.value.build.outputDirectory;
+      const buildInputs = [...sources, ...(m.value.build.assembly.includeDirectories ?? []), ...assetKinds.flatMap(kind => m.value.assets[kind])];
+      for (const path of buildInputs) if (path === output || path.startsWith(output + '/')) diagnostics.push(diagnostic('project.build.output-collision', '/build/outputDirectory', `Build output contains project input: ${path}`));
+      const paletteConfigId = m.value.build.video?.paletteConfigId;
+      if (paletteConfigId && !a.value.paletteConfigs.some(asset => asset.id === paletteConfigId)) diagnostics.push(diagnostic('project.build.palette-config', '/build/video/paletteConfigId', `Unknown palette configuration ${paletteConfigId}`));
+      m.value.build.video?.tilesets?.forEach((placement, index) => {
+        if (!a.value.tilesets.some(asset => asset.id === placement.tilesetId)) diagnostics.push(diagnostic('project.build.tileset', `/build/video/tilesets/${index}/tilesetId`, `Unknown tileset ${placement.tilesetId}`));
+      });
+    }
     const destinations = [...sources, ...assetKinds.flatMap(kind => m.value.assets[kind])];
     for (const path of destinations) {
       if (destinations.some(other => other !== path && other.startsWith(path + "/"))) diagnostics.push(diagnostic("project.path.collision", "/assets", `A file is also used as a directory: ${path}`));

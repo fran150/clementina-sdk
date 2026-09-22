@@ -220,3 +220,34 @@ projects and implemented the reusable program-loading layer, still uncommitted:
 Next implementation layer: ca65/ld65 and portable-asset output adapters that
 produce and verify load-plan files, followed by CLI build/run and debug-symbol
 mapping. Preserve Studio's unrelated uncommitted work. Do not commit without asking.
+
+## Update — initial assembly and asset output adapters (2026-09-21)
+
+- `@clementina/assembler` now performs ordered multi-source ca65/ld65 builds,
+  writes binary/PRG/listing/map/label/debug artifacts, verifies linked segments
+  against the declared PRG load address, resolves the terminal entry symbol, and
+  parses ld65 v2 debug records for source mapping.
+- Palette, palette-configuration, and tileset encoders emit the documented MIA
+  RGB565 and planar CHR bytes. Callers must select CHR banks explicitly.
+- No addresses are allocated automatically. Shape and animation runtime output is
+  deferred because no binary ABI exists for it.
+- Next: add explicit project build/placement declarations and a reusable project
+  artifact composer, then expose it through CLI `build` and `run`.
+- Verification: 29 SDK tests and all workspace typechecks pass, including a real
+  two-source ca65/ld65 build when those tools are installed.
+
+## Update — portable project build composition (2026-09-21)
+
+- `clementina.yaml` can now declare explicit assembler/linker settings, output
+  directory, palette configuration, and CHR bank assignments.
+- `@clementina/build` validates the whole project, calls the assembler adapter,
+  emits selected palette/CHR binaries, then writes `load-plan.json` and the BASIC
+  bootstrap. It does not infer addresses or emit shapes/animations.
+- CLI `build [directory]` calls the shared composer and provides artifact paths in
+  versioned JSON output. CLI `run` remains pending a process lifecycle API that can
+  guarantee the emulator mounts the same project root as SD storage.
+- Verification passed with 31 SDK tests, schema/spec freshness, and all workspace
+  typechecks. Project composition is tested with deterministic tool output; the
+  assembler suite separately uses real ca65/ld65 when installed.
+- Next: emulator lifecycle/spawn support and CLI `run`, followed by translating
+  ld65 source records into source breakpoint APIs.

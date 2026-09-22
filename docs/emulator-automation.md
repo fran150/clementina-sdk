@@ -79,7 +79,8 @@ The integration check boots the real emulator, generates and enters a BASIC
 bootstrap, loads a PRG and MIA asset from the mounted SD directory, stops at a
 pre-instruction breakpoint, checks memory, and renders through the existing Go
 compositor. SDK unit tests run without sibling checkouts. Held HID/gamepad injection,
-process-launch APIs, assembly, and CLI build/run remain future work. This is the Phase 5
+process-launch APIs, CLI `run`, and source-level breakpoint mapping remain future
+work. Assembly and CLI `build` are documented separately. This is the Phase 5
 baseline, not completion of every debugger capability.
 
 The load-plan and launch contract is documented in [program loading](program-loading.md).

@@ -11,6 +11,10 @@ result; existing `validate*` APIs throw `ValidationError` for compatibility.
 Semantic validation adds composition bounds, uniqueness, and cross-asset references.
 Reference checking follows successful structural validation to avoid cascading errors.
 IDs are case-sensitive and scoped by asset kind; names are unique ignoring case.
+The package also emits the specified runtime bytes for an individual RGB565 palette,
+a resolved 16-bank palette configuration, and a planar 6 KiB CHR tileset. CHR bank
+addresses require an explicit bank number. Shape and animation files remain authoring
+contracts because no runtime binary ABI for them has been specified.
 
 `@clementina/project` is browser-compatible and exports manifest validation,
 `checkProject`, `createAssetResolver`, and Studio v2 conversion. Resolver entries
@@ -81,3 +85,18 @@ packing/inspection, and BASIC bootstrap source generation. Despite the package
 name, it does not yet tokenize arbitrary BASIC programs. The emulator client's
 `launchLoadPlan` method enters generated source through the real ROM tokenizer.
 See [program loading](program-loading.md).
+
+`@clementina/assembler` is the Node adapter for ca65/ld65. Callers provide the
+source order, linker configuration, expected load address, optional bank, and
+entry symbol explicitly. The adapter assembles each source with debug information,
+links a binary plus `.dbg`, map, and label files, verifies every emitted segment's
+address against its binary offset, resolves the entry symbol, and writes the exact
+PRG consumed by the ROM loader. It parses ld65 debug records for later source-level
+debugger mapping. It deliberately does not select addresses or generate a linker
+map on the caller's behalf.
+
+`@clementina/build` loads and validates a portable project, delegates assembly to
+`@clementina/assembler`, emits only explicitly selected palette and CHR placements,
+then writes a validated load plan and generated BASIC bootstrap. This is the API
+used by CLI `build`; other consumers should call it instead of reproducing the
+artifact ordering or filenames.

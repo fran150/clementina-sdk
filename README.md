@@ -10,6 +10,8 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 
 - **Phase 4:** validation CLI implemented
 - **Phase 5:** headless emulator automation baseline; see `docs/emulator-automation.md`
+- **Phase 7:** ca65/ld65, explicit palette/CHR composition, and CLI build baseline;
+  see `docs/assembly.md`
 
 Assembly and mixed projects use the BASIC bootstrap and portable load-plan contract
 described in `docs/program-loading.md`.

@@ -51,6 +51,46 @@ assets:
 
 `target.phi2Hz` is optional; the machine default is 1.2 MHz.
 
+## Build declaration
+
+Assembly projects can declare an explicit reproducible build. All paths
+remain project-relative. The linker configuration owns CPU memory placement; the
+SDK verifies its output against `loadAddress` rather than choosing an address.
+
+```yaml
+program:
+  kind: assembly
+  entry: src/main.s
+  sources:
+    - src/player.s
+build:
+  outputDirectory: build
+  assembly:
+    linkerConfig: config/game.cfg
+    outputName: game
+    loadAddress: 24576       # $6000
+    entrySymbol: game_start
+    includeDirectories:
+      - src/include
+    defines:
+      DEBUG: 1
+  video:
+    paletteConfigId: palette-config:main
+    tilesets:
+      - tilesetId: tileset:player
+        bank: 3
+```
+
+Images linked at `$8000-$BFFF` must also declare a CPU `bank` from 1 through 31.
+Each tileset placement names a distinct CHR bank from 0 through 7. The build emits
+the selected complete palette configuration at MIA `$00100` and each tileset at
+its declared CHR bank. No placement is inferred from manifest array order.
+
+`@clementina/build` and `clementina build` produce the linked binary and PRG,
+debug artifacts, palette/CHR files, `load-plan.json`, and `bootstrap.bas` inside
+`outputDirectory`. Shape and animation files are not emitted because their runtime
+binary ABI is not defined yet.
+
 ## Portable asset envelopes
 
 Every asset is self-identifying and versioned:
@@ -83,5 +123,5 @@ They intentionally omit Studio session-only state:
 
 ## What Phase 2 does not define yet
 
-Scene files, room/background maps, audio authoring assets, final runtime packing,
-BASIC compilation, and assembly linking remain later phases.
+Scene files, room/background maps, audio authoring assets, shape/animation runtime
+packing, and BASIC compilation remain later phases.

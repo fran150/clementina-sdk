@@ -111,6 +111,6 @@ generation belongs to the later BASIC tooling phase. The same bootstrap can be
 entered and saved on a machine today; a future tokenizer will emit its saved form
 without changing the load-plan contract.
 
-Assembly, linker configuration, asset encoding, and CLI build commands remain the
-next layer. They should produce and verify the files described by this plan, then
-call these APIs instead of duplicating PRG or launch behavior.
+`@clementina/build` now combines explicit manifest placement, ca65/ld65 output,
+and palette/CHR encoding into the files described by this plan. CLI `build` calls
+that API. Emulator process lifecycle and CLI `run` remain the next layer.

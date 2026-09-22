@@ -20,7 +20,8 @@ test('CLI failures have predictable exit codes and JSON-only stdout',()=>{
   [['project','validate','missing'],1,'project.io'],
   [['sprite','validate'],2,'cli.usage'],
   [['doctor','extra'],2,'cli.usage'],
-  [['build'],2,'cli.usage'],
+  [['build','one','two'],2,'cli.usage'],
+  [['build','examples/minimal-game'],1,'build.configuration'],
  ]){const r=run(...args,'--json');assert.equal(r.status,status);assert.equal(r.stderr,'');assert.equal(JSON.parse(r.stdout).diagnostics[0].code,code);}
 });
 test('wrong asset kind is rejected and help documents reference scope',async()=>{

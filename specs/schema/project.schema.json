@@ -126,6 +126,61 @@
           }
         }
       }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outputDirectory", "assembly"],
+      "properties": {
+        "outputDirectory": {"type": "string", "minLength": 1},
+        "assembly": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linkerConfig", "outputName", "loadAddress", "entrySymbol"],
+          "properties": {
+            "linkerConfig": {"type": "string", "minLength": 1},
+            "outputName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"},
+            "loadAddress": {"type": "integer", "minimum": 1, "maximum": 49151},
+            "bank": {"type": "integer", "minimum": 1, "maximum": 31},
+            "entrySymbol": {"type": "string", "pattern": "^[A-Za-z_@][A-Za-z0-9_@.$]*$"},
+            "includeDirectories": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "defines": {
+              "type": "object",
+              "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+              "additionalProperties": {
+                "anyOf": [
+                  {"type": "string", "pattern": "^[A-Za-z0-9_.$+-]+$"},
+                  {"type": "integer"}
+                ]
+              }
+            }
+          }
+        },
+        "video": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "paletteConfigId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+            "tilesets": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tilesetId", "bank"],
+                "properties": {
+                  "tilesetId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+                  "bank": {"type": "integer", "minimum": 0, "maximum": 7}
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

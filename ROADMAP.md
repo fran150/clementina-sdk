@@ -43,7 +43,12 @@ generated BASIC bootstrap source, SD-root mounting, and real-ROM emulator launch
 Studio becomes a client of SDK contracts instead of a parallel implementation.
 
 ## Phase 7 — assembly
-ca65/ld65 integration, generated includes, linker configs, runtime support.
+**Build baseline implemented.** The Node ca65/ld65 adapter accepts explicit source
+order and linker placement, emits PRG/debug/map/label artifacts, verifies linked
+segment placement, and parses source symbols. Portable manifests can declare
+assembly and explicit palette/CHR placement; the shared project composer and CLI
+`build` emit the load plan and BASIC bootstrap. Generated includes/linker configs,
+runtime support, CLI `run`, and debugger source mapping remain pending.
 
 ## Phase 8 — BASIC
 Compiler/tokenizer/file output and later LSP.

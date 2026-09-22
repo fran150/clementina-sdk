@@ -57,6 +57,25 @@ See `docs/emulator-automation.md` for limits and remaining debugger work.
 Execution control and pre-opcode address breakpoints are now implemented.
 Program loading now has a versioned load-plan schema, PRG helpers, BASIC bootstrap
 generation, SD-backed real-ROM emulator launch, and end-to-end coverage.
-Next: assembly/linker and asset-output adapters, followed by CLI commands and
-source/debug-symbol support. Continue Studio legacy validator migration with
-explicit compatibility coverage before declaring Phase 6 complete.
+Next: emulator process lifecycle and CLI `run`, then debugger source mapping.
+Continue Studio legacy validator migration with explicit compatibility coverage
+before declaring Phase 6 complete.
+
+## Phase 7
+
+The first assembly layer is implemented in `@clementina/assembler`. It invokes
+ca65/ld65 without a shell, supports ordered multi-file builds, produces binary,
+PRG, listing, map, label and `.dbg` artifacts, validates linked placement, and
+parses source files, lines, segments and symbols for debugger consumers. Memory
+placement is still explicit input; project build declarations and asset output
+composition are the next increment.
+
+The asset package now emits exact palette-bank, complete palette-configuration,
+and CHR-bank bytes using the canonical video layout. CHR placement is explicit.
+Shapes and animations are not emitted because their runtime binary format remains
+undefined.
+
+Portable manifests now carry explicit build declarations for linker input, CPU
+placement, palette selection and CHR-bank assignments. `@clementina/build` composes
+those inputs into verified runtime artifacts, `load-plan.json`, and `bootstrap.bas`.
+CLI `build` calls that API and returns artifact paths in JSON mode.

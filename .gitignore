@@ -1,6 +1,11 @@
 node_modules/
 dist/
 build/
+!packages/build/
+!packages/build/package.json
+!packages/build/tsconfig.json
+!packages/build/src/
+!packages/build/src/**
 coverage/
 .DS_Store
 *.log

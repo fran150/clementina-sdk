@@ -1,22 +1,24 @@
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {checkAsset, type AssetKind} from '@clementina/assets';
+import {buildProject} from '@clementina/build';
 import {loadProject} from '@clementina/project/node';
 import type {ClementinaDiagnostic} from '@clementina/core';
 
-export interface CommandResult {ok: boolean; diagnostics: ClementinaDiagnostic[]; exitCode: number; message?: string}
+export interface CommandResult {ok: boolean; diagnostics: ClementinaDiagnostic[]; exitCode: number; message?: string; data?: unknown}
 const failure = (code: string, message: string, exitCode = 1, source?: string): CommandResult => ({ok: false, diagnostics: [{severity: 'error', code, message, ...(source ? {source} : {})}], exitCode});
 export const help = `Usage: clementina <command> [--json]
   project validate [directory]   Validate manifest, assets, references, and sources
   asset validate <file>          Validate any portable asset
   sprite validate <file>         Validate a portable shape (one or more sprites)
   animation validate <file>      Validate a portable animation
+  build [directory]              Assemble and emit project load artifacts
   doctor                        Check the SDK runtime
 
 Exit codes: 0 success, 1 validation/I/O failure, 2 invalid command.
 Standalone assets are checked structurally; use project validate for references.
 `;
-/** CLI operations are reusable and do not write output or terminate the process. */
+/** CLI operations are reusable and do not write terminal output or terminate the process. */
 export async function executeCommand(args: string[], cwd = process.cwd()): Promise<CommandResult> {
   if (args.length === 0 || args.length === 1 && ['--help', '-h', 'help'].includes(args[0])) return {ok: true, diagnostics: [], exitCode: 0, message: help};
   if (args[0] === 'doctor' && args.length === 1) {
@@ -26,6 +28,17 @@ export async function executeCommand(args: string[], cwd = process.cwd()): Promi
   if (args[0] === 'project' && args[1] === 'validate' && args.length <= 3 && !args[2]?.startsWith('-')) {
     const r = await loadProject(resolve(cwd, args[2] ?? '.'));
     return {ok: r.ok, diagnostics: r.diagnostics, exitCode: r.ok ? 0 : 1};
+  }
+  if (args[0] === 'build' && args.length <= 2 && !args[1]?.startsWith('-')) {
+    const r = await buildProject(resolve(cwd, args[1] ?? '.'));
+    if (!r.ok) return {ok: false, diagnostics: r.diagnostics, exitCode: 1};
+    const loadPlan = r.value.files.find(file => file.kind === 'load-plan')!.path;
+    const bootstrap = r.value.files.find(file => file.kind === 'bootstrap')!.path;
+    return {
+      ok: true, diagnostics: [], exitCode: 0,
+      message: `Built ${r.value.assembly.artifacts.prg} and ${loadPlan}.`,
+      data: {prg: r.value.assembly.artifacts.prg, loadPlan, bootstrap, entryAddress: r.value.assembly.entryAddress},
+    };
   }
   if (['asset', 'sprite', 'animation'].includes(args[0]) && args[1] === 'validate' && args.length === 3 && !args[2].startsWith('-')) {
     const source = args[2];
