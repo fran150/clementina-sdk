@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import {createAssemblySourceMap} from '@clementina/assembler';
 import {buildProject, type ProjectBuildResult} from '@clementina/build';
 import {diagnostic, result, type ValidationResult} from '@clementina/core';
@@ -8,7 +9,8 @@ import {
   type EmulatorProcessExit,
   type EmulatorProcessOptions,
 } from '@clementina/emulator-client/node';
-import {ClementinaDebugSession} from './index.js';
+import {resolveProjectPath} from '@clementina/project/node';
+import {ClementinaBasicDebugSession, ClementinaDebugSession} from './index.js';
 
 export interface ProjectDebugOptions extends Omit<EmulatorProcessOptions, 'sdRoot'> {
   threadName?: string;
@@ -16,7 +18,7 @@ export interface ProjectDebugOptions extends Omit<EmulatorProcessOptions, 'sdRoo
 
 export interface ProjectDebugRuntime {
   build: ProjectBuildResult;
-  session: ClementinaDebugSession;
+  session: ClementinaDebugSession | ClementinaBasicDebugSession;
   endpoint: string;
   pid: number;
   /** Reset, enter the generated BASIC bootstrap, and begin project execution. */
@@ -27,6 +29,7 @@ export interface ProjectDebugRuntime {
 export interface ProjectDebugDependencies {
   build?: typeof buildProject;
   startProcess?: typeof startEmulatorProcess;
+  readBasicSource?: (projectRoot: string, source: string) => Promise<{path: string; text: string}>;
 }
 
 /**
@@ -40,9 +43,6 @@ export async function createProjectDebugSession(
 ): Promise<ValidationResult<ProjectDebugRuntime>> {
   const build = await (dependencies.build ?? buildProject)(projectRoot);
   if (!build.ok) return build as ValidationResult<ProjectDebugRuntime>;
-  if (build.value.kind !== 'assembly') {
-    return result(undefined, [diagnostic('debug.program-kind', '/program/kind', 'The current source debugger requires an assembly project and ld65 debug records')]);
-  }
   let process: EmulatorProcess;
   const {threadName, ...processOptions} = options;
   try {
@@ -54,12 +54,21 @@ export async function createProjectDebugSession(
     return result(undefined, [diagnostic('debug.emulator-startup', '', error instanceof Error ? error.message : String(error))]);
   }
   try {
-    const bank = build.value.assembly.loadStep.bank;
-    const sourceMap = createAssemblySourceMap(build.value.assembly.debug, bank === undefined ? {} : {bank});
-    const session = new ClementinaDebugSession(process.client, sourceMap, {
-      ...(bank === undefined ? {} : {bank}),
-      ...(threadName === undefined ? {} : {threadName}),
-    });
+    let session: ClementinaDebugSession | ClementinaBasicDebugSession;
+    if (build.value.kind === 'assembly') {
+      const bank = build.value.assembly.loadStep.bank;
+      const sourceMap = createAssemblySourceMap(build.value.assembly.debug, bank === undefined ? {} : {bank});
+      session = new ClementinaDebugSession(process.client, sourceMap, {
+        ...(bank === undefined ? {} : {bank}),
+        ...(threadName === undefined ? {} : {threadName}),
+      });
+    } else {
+      const loadedSource = await (dependencies.readBasicSource ?? (async (root: string, source: string) => {
+        const path = await resolveProjectPath(root, source);
+        return {path, text: await readFile(path, 'utf8')};
+      }))(projectRoot, build.value.basic.source);
+      session = new ClementinaBasicDebugSession(process.client, loadedSource.path, loadedSource.text, threadName);
+    }
     let closing: Promise<EmulatorProcessExit> | undefined;
     return result({
       build: build.value,

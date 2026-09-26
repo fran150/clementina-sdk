@@ -28,6 +28,24 @@ export function activate(context: vscode.ExtensionContext): void {
   const clientOptions: LanguageClientOptions = {documentSelector: [{scheme: 'file', language: 'clementina-basic'}]};
   languageClient = new LanguageClient('clementinaBasic', 'Clementina BASIC Language Server', serverOptions, clientOptions);
   void languageClient.start();
+  context.subscriptions.push(vscode.commands.registerCommand('clementina.basic.renumberInteractive', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== 'clementina-basic') return;
+    const startText = await vscode.window.showInputBox({
+      title: 'Renumber Clementina BASIC', prompt: 'First line number', value: '10',
+      validateInput: value => /^(?:0|[1-9][0-9]*)$/u.test(value) && Number(value) <= 63999 ? undefined : 'Enter an integer from 0 through 63999',
+    });
+    if (startText === undefined) return;
+    const stepText = await vscode.window.showInputBox({
+      title: 'Renumber Clementina BASIC', prompt: 'Line-number increment', value: '10',
+      validateInput: value => /^[1-9][0-9]*$/u.test(value) ? undefined : 'Enter a positive integer',
+    });
+    if (stepText === undefined) return;
+    await languageClient?.sendRequest('workspace/executeCommand', {
+      command: 'clementina.basic.renumber',
+      arguments: [editor.document.uri.toString(), Number(startText), Number(stepText)],
+    });
+  }));
   context.subscriptions.push({dispose: () => { void languageClient?.stop(); }});
 }
 

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  basicRuntimeDebug,
   basicTokenTables,
   checkBootstrapSource,
   checkLoadPlan,
@@ -76,6 +77,9 @@ test('BASIC token tables stay synchronized with the developer spec', async () =>
   assert.deepEqual(basicTokenTables.extension2,spec.tokens.extension2);
   assert.deepEqual(basicTokenTables.extensionFunction,spec.tokens.extensionFunction);
   assert.equal(basicTokenTables.mon,spec.tokens.special.MON);
+  assert.equal(basicRuntimeDebug.statementBoundaryAddress,spec.runtimeDebug.statementBoundaryAddress);
+  assert.equal(basicRuntimeDebug.currentLineAddress,spec.runtimeDebug.currentLineAddress);
+  assert.equal(basicRuntimeDebug.directModeLine,spec.runtimeDebug.directModeLine);
 });
 
 test('BASIC tokenizer follows ROM table order and lexical modes', () => {

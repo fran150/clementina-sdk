@@ -14,7 +14,9 @@ debugging or language logic of its own:
   in the adapter itself.
 - **BASIC language support**: `@clementina/basic-lsp`'s existing
   `clementina-basic-lsp` server (see [the BASIC language server](basic-lsp.md)),
-  registered for `.bas` files through `vscode-languageclient`.
+  registered for `.bas` files through `vscode-languageclient`. It provides
+  diagnostics, hover, contextual completion, symbols/references/rename,
+  line-target navigation, signatures, semantic tokens, formatting, and renumbering.
 
 `packages/vscode-extension/src/extension.ts` is the entire integration: it
 registers a `DebugAdapterDescriptorFactory` that spawns
@@ -33,10 +35,11 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
   step-in/step-over.
 - A single stack frame and a read-only **Registers** scope
   (PC/A/X/Y/SP/P/cycles/MIA-paused) sourced directly from `DebugRegisters`.
-- Only assembly projects (`program.kind: assembly`) can be debugged. Launching
-  a BASIC project surfaces `@clementina/debug`'s own
-  `debug.program-kind` rejection as a clean DAP launch error, not a crash —
-  its current source map is ld65-only.
+- Assembly projects use ld65 source maps. BASIC projects use the ROM statement
+  boundary and current-line state for source breakpoints and line stepping, plus a
+  **BASIC Variables** scope and simple-variable hover/watch evaluation.
+- `.bas` files have a TextMate grammar and language configuration, and the
+  **Clementina BASIC: Renumber Program…** command prompts for start and step.
 
 Launch configuration:
 
@@ -58,13 +61,9 @@ defaults as CLI `run` (see [the CLI](cli.md)).
 
 ## What's deferred
 
-Instruction-level stepping/disassembly view, variables/expression evaluation,
-stack unwinding, and physical bank-selective breakpoints all require "separate
-verified contracts" that `@clementina/debug` itself does not have yet (see
-[editor debugger integration](debugger.md)). A BASIC/assembly TextMate grammar
-(real syntax highlighting) is a separate, orthogonal effort not attempted here;
-`.bas` files are still recognized as the `clementina-basic` language (required
-for the language client to attach) but are not colorized.
+Disassembly view, stack unwinding, physical bank-selective breakpoints, and richer
+evaluation of arbitrary BASIC expressions require separate verified contracts in
+`@clementina/debug`; see [editor debugger integration](debugger.md).
 
 ## Trying it
 

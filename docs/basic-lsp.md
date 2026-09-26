@@ -20,14 +20,35 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   matches a table entry (`STR$`, `TAB(`), not for an ordinary function call
   like `CUE(0)`.
 - **Completion**: every keyword across all four tables plus `MON`, filtered by
-  the in-progress word before the cursor.
+  statement or expression context, plus variables already used in the document.
+- **Line targets**: precise diagnostics and go-to-definition for static targets
+  after `GOTO`, `GO TO`, `GOSUB`, numeric `THEN`, and `RUN`, including the
+  comma-separated target lists used by `ON...GOTO`/`ON...GOSUB`. The analysis
+  follows the ROM tokenizer's no-boundary matching and ignores apparent keywords
+  inside quoted strings, `DATA`, and `REM`.
+- **Signature help**: argument names and the active argument for the ROM's
+  built-in numeric/string functions, core statements, and every Clementina
+  extension callable, including nested calls.
+- **Symbols and refactoring**: effective numbered lines and variables appear as
+  document symbols. References and rename work for variables and for numbered
+  lines plus their static targets, with new names checked against the ROM tokenizer.
+- **Semantic tokens**: tokenizer-derived keyword, operator, literal, comment,
+  variable, and line-number spans are available to any semantic-token client.
+- **Formatting**: round-trips through the canonical tokenizer and detokenizer,
+  producing ROM `LIST`-style source. Effective program lines are sorted, keywords
+  are uppercased, and quoted/`DATA`/`REM` text keeps its lexical content.
+- **Renumbering**: the `Renumber BASIC program` source action defaults to line 10
+  with a step of 10 and updates static references to existing lines. The VS Code
+  command prompts for both values. Undefined
+  targets are preserved so the target diagnostic remains visible. The operation
+  rejects results outside 0–63999 or beyond the ROM's input-line limit.
 
 ## Architecture
 
 `src/index.ts` is protocol-agnostic and has no LSP-library or Node dependency
-(browser-compatible, like `@clementina/debug`'s session core): `analyzeDiagnostics`,
-`hoverAt`, and `completionsFor` are plain functions over document text and
-positions. `src/server.ts` is the Node-only stdio wiring, built on
+(browser-compatible, like `@clementina/debug`'s session core): diagnostics,
+hover, completion, definition, signature, formatting, and renumbering are plain
+functions over document text and positions. `src/server.ts` is the Node-only stdio wiring, built on
 `vscode-languageserver`/`vscode-languageserver-textdocument` — the generic
 Language Server Protocol library (editor-agnostic despite the package name; it
 is not a VS Code dependency, the same way `@clementina/debug` avoids one).
@@ -49,12 +70,7 @@ The server always uses stdio (it passes explicit streams to `createConnection`
 rather than relying on a `--stdio` flag, so it works with any launcher). Point
 an editor's generic LSP client configuration at this binary for `.bas` files.
 
-## What's not implemented yet
-
-GOTO/GOSUB/THEN/`ON...GOTO` line-number target validation and go-to-definition
-for line numbers, signature help, formatting, and renumbering are deferred to
-a later increment. Diagnostics do not currently flag a `GOTO` to a
-non-existent line — the ROM itself does not validate this at `SAVE` time
-either (it is a runtime `UNDEF'D STATEMENT ERROR`), but a language server
-could reasonably catch it earlier; that is intentionally the next increment
-rather than a partial implementation now.
+The formatter and renumberer intentionally operate on the effective program the
+ROM would retain after numbered lines are entered in order. Duplicate line numbers
+therefore keep their last definition, and a bare numbered line deletes an earlier
+definition.

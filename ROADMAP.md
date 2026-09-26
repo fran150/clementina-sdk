@@ -69,15 +69,18 @@ program, discriminated from the assembly build result. CLI `build`/`run` use the
 same contract as assembly projects. The load plan's direct-launch mode (as opposed
 to a numbered bootstrap) issues MIA/CPU setup as direct BASIC commands, then `LOAD`
 and `RUN`. `program.kind: mixed` composition remains explicitly rejected until its
-rules are defined. `@clementina/debug`'s current source map is ld65-only and
-explicitly rejects a BASIC project rather than silently misbehaving.
+rules are defined. BASIC projects now have source debugging through the ROM's
+statement-dispatch hook and current-line variable; assembly projects continue to
+use exact ld65 address maps.
 
-`@clementina/basic-lsp` now provides a baseline BASIC language server: whole-document
-diagnostics (numbered-line format/length/range plus program-size overflow), hover
-(keyword category and exact token bytes), and keyword completion, all built on
-`@clementina/basic`'s existing tokenizer/tables rather than a second implementation.
-GOTO/GOSUB line-number target validation, go-to-definition, signature help,
-formatting, and renumbering remain pending.
+`@clementina/basic-lsp` now provides whole-document diagnostics (numbered-line
+format/length/range, program-size overflow, structural expression checks, known
+function arity, and missing static line targets), hover, contextual keyword and
+variable completion, line-number navigation, document symbols, references, rename,
+function and statement signatures, semantic tokens, canonical LIST-style formatting,
+and reference-aware renumbering. Its shared tokenizer exposes source spans so the
+language service follows the ROM's lexical behavior rather than maintaining a
+second tokenizer.
 
 ## Phase 9 — agent workflows
 Vendor-neutral game/asset/code/debug workflows.
@@ -86,14 +89,14 @@ Vendor-neutral game/asset/code/debug workflows.
 Structured agent tools.
 
 ## Phase 11 — VS Code
-**Baseline extension implemented.** `@clementina/debug`
+**Extension and BASIC source support implemented.** `@clementina/debug`
 provides editor-neutral thread/frame/register views, source breakpoint ownership,
 execution controls, source stepping, stop polling, and Node build/process/launch
 composition. `@clementina/debug-adapter` is a standalone stdio DAP server
 translating that layer's capabilities one-to-one (launch, source breakpoints,
-continue/pause/step, a single stack frame, and a read-only registers scope) —
+continue/pause/step, a single stack frame, registers, and BASIC variables/evaluation) —
 no debugging logic of its own. The `clementina` VS Code extension is a thin
-client registering that adapter plus `@clementina/basic-lsp`'s language server
-for `.bas` files; see `docs/vscode-extension.md`. Instruction-level
-stepping/disassembly, variables/expression evaluation, stack unwinding,
-physical bank-selective breakpoints, and syntax highlighting remain pending.
+client registering that adapter plus `@clementina/basic-lsp`'s language server and
+TextMate grammar for `.bas` files; see `docs/vscode-extension.md`. Disassembly,
+stack unwinding, and physical bank-selective breakpoints remain pending for the
+assembly debugger.

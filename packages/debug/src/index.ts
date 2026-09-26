@@ -8,6 +8,7 @@ import {
   type SourceStepResult,
 } from '@clementina/emulator-client';
 import type {LoadPlan} from '@clementina/basic';
+export * from './basic.js';
 
 export const CLEMENTINA_CPU_THREAD_ID = 1;
 export const CLEMENTINA_CPU_FRAME_ID = 1;

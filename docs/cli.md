@@ -48,9 +48,8 @@ assembler capabilities. `build`/`run` support a `program.kind: assembly` project
 (`build.assembly`, requires ca65 and ld65) or a `program.kind: basic` project
 (`build.basic`, compiled through `@clementina/basic`); `mixed` composition is not
 defined yet and is rejected during project validation. `--json` `data` distinguishes
-the two with `kind: "assembly"` or `kind: "basic"`. The current source debugger
-(`@clementina/debug`) requires an assembly project's ld65 debug records and rejects
-a BASIC project explicitly; see [the debugger](debugger.md).
+the two with `kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by
+the source debugger; see [the debugger](debugger.md).
 
 A reusable headless emulator client is now available; see
 [emulator automation](emulator-automation.md). CLI `build` uses the shared project

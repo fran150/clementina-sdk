@@ -1,7 +1,7 @@
 # Editor debugger integration
 
-`@clementina/debug` is the editor-neutral layer above the assembler source map and
-the transport-independent emulator client. It owns composite debugger behavior so
+`@clementina/debug` is the editor-neutral layer above the assembler/BASIC source
+mapping and the transport-independent emulator client. It owns composite debugger behavior so
 a VS Code extension or another editor does not have to reproduce breakpoint,
 stepping, frame, register, or process-lifecycle rules.
 
@@ -64,14 +64,18 @@ does not start project execution. This permits editor initialization and breakpo
 configuration before `launch` enters the BASIC bootstrap. `close` is idempotent and
 removes session-owned breakpoints before stopping the process.
 
-`createProjectDebugSession` requires an assembly project (`program.kind: assembly`)
-and rejects a BASIC project explicitly with diagnostic code `debug.program-kind`,
-without starting an emulator, because the current source map is built from ld65
-debug records and has no BASIC-source equivalent. `@clementina/basic` has no
-line/address mapping to feed the same session API yet.
+For an assembly project, `createProjectDebugSession` creates the exact ld65 source
+map described above. For a BASIC project it reads the entry source and creates a
+`ClementinaBasicDebugSession`. That session installs the ROM `NEWSTT2` statement
+boundary breakpoint and filters stops with the little-endian `CURLIN` value, whose
+addresses are recorded in `specs/basic.json`. This provides effective numbered-line
+breakpoints and line stepping without pretending that BASIC has one machine-code
+address per source line. It also decodes live simple numeric, integer, and string
+variables from the ROM variable table and supports variable lookup for DAP hover
+and watch evaluation.
 
 This package is not a Debug Adapter Protocol server and does not import VS Code.
 `@clementina/debug-adapter` is that translation (see
 [the VS Code extension](vscode-extension.md)), over this same session API.
-Stack unwinding, expression evaluation, variable symbols, disassembly, and
-physical bank breakpoints require separate verified contracts.
+Stack unwinding, disassembly, physical bank breakpoints, and richer evaluation of
+arbitrary BASIC expressions require separate verified contracts.

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Clementina BASIC",
+  "scopeName": "source.clementina-basic",
+  "patterns": [
+    {"name": "constant.numeric.line-number.clementina-basic", "match": "^\\s*[0-9]+"},
+    {"name": "comment.line.rem.clementina-basic", "begin": "(?i:REM)", "end": "$"},
+    {"name": "string.quoted.double.clementina-basic", "begin": "\"", "end": "\"|$"},
+    {
+      "name": "support.function.clementina-basic",
+      "match": "(?i:PLAYING|EOF|KEYDOWN|CONSDOWN|INPUTDEV|PADON|PADDIR|PADSTICK|PADBTN|PADAXIS|PADTRIG|TICKS|MPEEK|FPOS|FSIZE|DISKFREE|CUE|SGN|INT|ABS|USR|FRE|POS|SQR|RND|LOG|EXP|COS|SIN|TAN|ATN|PEEK|LEN|STR\\$|VAL|ASC|CHR\\$|LEFT\\$|RIGHT\\$|MID\\$|TAB\\(|SPC\\()"
+    },
+    {
+      "name": "keyword.control.clementina-basic",
+      "match": "(?i:END|FOR|NEXT|DATA|INPUT|DIM|READ|LET|GOTO|RUN|IF|RESTORE|GOSUB|RETURN|REM|STOP|ON|WAIT|LOAD|SAVE|DEF|POKE|COLOR|FLIPX|FLIPY|ALT|STYLE|CRSR|CLS|PRINT|CONT|LIST|CLEAR|GET|NEW|THEN|TO|STEP|GO|MON|BCOLOR|SNDON|SNDOFF|SNDCLR|VOL|WAVE|NOTE|FREQ|GATE|ADSR|PULSE|PAN|BGON|BGOFF|BGMODE|BGSET|SCROLL|BGBANK|BGALT|SPRON|SPROFF|SPRCOUNT|SPRBANK|CHRMODE|CHRPLANE|PALETTE|VIDON|VIDOFF|BGCHAR|CHRLOAD|PALLOAD|OAMLOAD|SPRITE|SPRTILE|SPRX|SPRY|SPRCOLOR|SPRFLIP|SPRPRI|OPEN|CLOSE|BGET#|BPUT#|NTREAD|NTLOAD|NTSAVE|ATRREAD|ATRLOAD|ATRSAVE|CHRREAD|CHRSAVE|PALREAD|PALSAVE|OAMREAD|OAMSAVE|MIALOAD|MIASAVE|SEEK#|KILL|RMDIR|MKDIR|NAME|CD|DIR|INPUTMODE|KEYCLEAR|KEYREPEAT|KEYRPT|MOUSE|PADREAD|OVLON|OVLOFF|OVLBANK|OVLALT|DELAY|MPOKE|MCOPY|MFILL|FLUSH|FSTAT|BLOAD|BSAVE|SYS|TRACK|BAND|VTAKE|VGIVE)"
+    },
+    {"name": "keyword.operator.clementina-basic", "match": "(?i:AND|OR|NOT)|[+\\-*/^=<>]"},
+    {"name": "constant.numeric.clementina-basic", "match": "(?i)(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:E[+\\-]?[0-9]+)?"},
+    {"name": "variable.other.clementina-basic", "match": "[A-Za-z][A-Za-z0-9]*[$%]?"}
+  ]
+}

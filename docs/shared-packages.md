@@ -108,13 +108,15 @@ a linker map on the caller's behalf.
 thread/frame, register snapshots, replacement-style source breakpoint ownership,
 execution controls, source stepping, memory reads, bounded stop polling, and
 cleanup. Its browser-compatible entry accepts structural emulator/source-map APIs.
-`@clementina/debug/node` builds a project, owns the emulator process, prepares the
-source map, and leaves execution stopped so an editor can configure breakpoints
-before launching the BASIC load plan. See [editor debugger integration](debugger.md).
+`@clementina/debug/node` builds a project, owns the emulator process, prepares an
+ld65 assembly session or ROM-hook BASIC session, and leaves execution stopped so
+an editor can configure breakpoints before launching the load plan. See
+[editor debugger integration](debugger.md).
 
 `@clementina/basic-lsp` is a Language Server Protocol server for BASIC source. Its
-browser-compatible core (`analyzeDiagnostics`, `hoverAt`, `completionsFor`) reuses
-`@clementina/basic`'s parser/tokenizer/token tables rather than re-deriving them; a
+browser-compatible core provides diagnostics, semantic navigation/refactoring,
+signatures, formatting, and renumbering while reusing `@clementina/basic`'s
+parser/tokenizer/token tables rather than re-deriving them; a
 separate Node entry (`clementina-basic-lsp`, built on `vscode-languageserver`) wires
 that core to stdio JSON-RPC. See [the BASIC language server](basic-lsp.md).
 
@@ -127,7 +129,8 @@ The `clementina` VS Code extension (`packages/vscode-extension`, npm name
 `clementina` since extension manifests cannot use a scoped package name) is a thin
 client registering both: a `DebugAdapterDescriptorFactory` spawning
 `clementina-debug-adapter`, and a `vscode-languageclient` spawning
-`clementina-basic-lsp` for `.bas` files. See [the VS Code extension](vscode-extension.md).
+`clementina-basic-lsp` for `.bas` files, plus BASIC syntax coloring and configurable
+renumbering. See [the VS Code extension](vscode-extension.md).
 
 `@clementina/build` loads and validates a portable project, emits only explicitly
 selected palette and CHR placements, then writes a validated load plan. Its result

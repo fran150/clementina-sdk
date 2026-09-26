@@ -32,16 +32,17 @@ test('the stdio DAP server declares only the capabilities it actually supports',
   }
 });
 
-test('launching a BASIC project surfaces the real debug.program-kind rejection as a DAP error, not a crash', async () => {
+test('launching a BASIC project reaches emulator startup instead of rejecting its program kind', async () => {
   const root = await basicProjectFixture();
   const dc = new DebugClient(process.execPath, binPath, 'clementina');
   await dc.start();
   try {
     await dc.initializeRequest();
-    await assert.rejects(
-      dc.launchRequest({program: root}),
-      /The current source debugger requires an assembly project and ld65 debug records/,
-    );
+    await assert.rejects(dc.launchRequest({program: root, emulator: '/definitely/missing/clementina-automation'}), error => {
+      assert.doesNotMatch(String(error), /requires an assembly project|program-kind/u);
+      assert.match(String(error), /ENOENT|spawn|executable|No such file/u);
+      return true;
+    });
   } finally {
     await dc.stop();
   }

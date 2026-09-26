@@ -62,10 +62,10 @@ Bounded source-line stepping and JSR step-over are now implemented over the same
 transport-independent client. The editor-neutral `@clementina/debug` layer now
 owns thread/frame/register views, replacement-style source breakpoints, command
 serialization, stop polling, and Node project build/emulator/launch composition.
-A thin DAP transport and VS Code extension are now implemented (Phase 11); held
+A DAP transport and VS Code extension are now implemented (Phase 11); held
 HID/gamepad automation remains pending. Phase 8 BASIC tooling now includes portable-project
-build/run composition and a baseline language server (diagnostics/hover/
-completion); GOTO/GOSUB target validation and go-to-definition remain pending.
+build/run/debug composition and a language server with diagnostics, semantic
+navigation/refactoring, signatures, formatting, and renumbering.
 Continue Studio legacy validator migration with explicit compatibility coverage
 before declaring Phase 6 complete.
 
@@ -95,28 +95,26 @@ interrupted. The transport-independent client remains browser-compatible.
 
 ## Phase 11
 
-`@clementina/debug` exposes one source-aware 65C02 thread/frame, raw registers,
-source breakpoint replacement and ownership, execution/step controls, memory reads,
-and cancellable bounded stop polling. Its Node entry builds the project, starts the
-owned emulator, creates the source map, permits breakpoints before launch, then
-delegates the generated BASIC load plan.
+`@clementina/debug` exposes one source-aware thread/frame, raw registers, source
+breakpoint replacement and ownership, execution/step controls, memory reads, and
+cancellable bounded stop polling. Assembly sessions use ld65 source maps. BASIC
+sessions use the specified ROM statement boundary and `CURLIN`, filter a shared
+address breakpoint by requested line number, and expose live simple variables and
+variable evaluation. Its Node entry supports both project kinds.
 
 `@clementina/debug-adapter` is a standalone stdio DAP server (`clementina-debug-adapter`,
 built on `@vscode/debugadapter`) that translates that layer one-to-one: launch,
-source breakpoints, continue/pause/step-in/step-over, a single stack frame, and a
-read-only "Registers" scope. It has no debugging logic of its own. A real DAP
+source breakpoints, continue/pause/step-in/step-over, a single stack frame,
+registers, and BASIC variables/evaluation. It has no debugging logic of its own. A real DAP
 request race (real clients, including VS Code, pipeline `setBreakpoints`
 alongside `launch` rather than waiting for it to finish) and an unhandled-exception
-crash path were found and fixed during verification. Only assembly projects work;
-`@clementina/debug`'s `debug.program-kind` rejection surfaces as a clean DAP
-launch error.
+crash path were found and fixed during verification.
 
 The `clementina` VS Code extension (`packages/vscode-extension`) registers that
-adapter plus `@clementina/basic-lsp`'s language server for `.bas` files — the
-entire extension is that registration, nothing more. See `docs/vscode-extension.md`.
-Instruction-level stepping/disassembly, variables/expression evaluation, stack
-unwinding, physical bank-selective breakpoints, and syntax highlighting remain
-pending.
+adapter plus `@clementina/basic-lsp`'s language server, BASIC TextMate grammar,
+language configuration, and interactive renumber command for `.bas` files. See
+`docs/vscode-extension.md`. Disassembly, stack unwinding, and physical
+bank-selective breakpoints remain pending for assembly debugging.
 
 ## Phase 8
 
@@ -133,15 +131,15 @@ files}` result alongside the existing `{kind: 'assembly', ...}` result; both wri
 `load-plan.json`. CLI `build`/`run` and `checkLoadPlanLaunch`'s direct-launch mode
 (load/setup commands issued directly, then `LOAD`+`RUN`, instead of a numbered
 bootstrap) share this contract with assembly projects. `program.kind: mixed` is
-rejected during project validation, and `@clementina/debug` explicitly rejects a
-non-assembly project rather than assuming ld65 debug records exist.
+rejected during project validation until its execution rules are defined.
 
-`@clementina/basic-lsp` is a baseline Language Server Protocol server. Its
-protocol-agnostic core (`analyzeDiagnostics`, `hoverAt`, `completionsFor`) reuses
-`@clementina/basic`'s parser/tokenizer/tables: whole-document diagnostics (every
-numbered-line format/length/range error plus program-size overflow, not just the
-first one `parseBasicSource` would stop at), hover (keyword category and exact
-token bytes, in the ROM's own tokenizer search order), and keyword completion. A
-Node entry (`clementina-basic-lsp`, on `vscode-languageserver`) wires that core to
-stdio JSON-RPC. GOTO/GOSUB line-number target validation, go-to-definition,
-signature help, formatting, and renumbering remain pending.
+`@clementina/basic-lsp` is an editor-neutral Language Server Protocol server. Its
+protocol-agnostic core reuses `@clementina/basic`'s parser/tokenizer/tables for
+whole-document parse/size/static-target/structural diagnostics, token hover,
+context-aware completion, line and variable symbols/references/rename, line-target
+definition lookup, full callable signatures, semantic tokens, canonical LIST-style
+formatting, and reference-aware renumbering. The canonical tokenizer exposes
+source spans so strings, DATA, REM, and the ROM's no-boundary keyword behavior stay
+consistent across compilation and editor analysis. A Node entry
+(`clementina-basic-lsp`, on `vscode-languageserver`) wires those capabilities to
+stdio JSON-RPC; VS Code also exposes configurable start/step renumbering.

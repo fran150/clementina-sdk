@@ -18,6 +18,7 @@ import type {DebugSnapshot} from '@clementina/debug';
 const THREAD_ID = 1;
 const FRAME_ID = 1;
 const REGISTERS_SCOPE_REF = 1;
+const BASIC_VARIABLES_SCOPE_REF = 2;
 
 interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   /** Portable project root. */
@@ -58,6 +59,7 @@ export class ClementinaDebugAdapter extends DebugSession {
   protected override initializeRequest(response: DebugProtocol.InitializeResponse): void {
     response.body = response.body ?? {};
     response.body.supportsConfigurationDoneRequest = true;
+    response.body.supportsEvaluateForHovers = true;
     this.sendResponse(response);
     this.sendEvent(new InitializedEvent());
   }
@@ -143,12 +145,26 @@ export class ClementinaDebugAdapter extends DebugSession {
   }
 
   protected override scopesRequest(response: DebugProtocol.ScopesResponse): void {
-    response.body = {scopes: [new Scope('Registers', REGISTERS_SCOPE_REF, false)]};
+    const scopes = [new Scope('Registers', REGISTERS_SCOPE_REF, false)];
+    if (this.runtime && 'variables' in this.runtime.session) scopes.push(new Scope('BASIC Variables', BASIC_VARIABLES_SCOPE_REF, false));
+    response.body = {scopes};
     this.sendResponse(response);
   }
 
-  protected override variablesRequest(response: DebugProtocol.VariablesResponse): Promise<void> {
+  protected override variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): Promise<void> {
     return this.guard(response, async () => {
+      if (args.variablesReference === BASIC_VARIABLES_SCOPE_REF) {
+        const runtime = await this.ready();
+        const variables = runtime && 'variables' in runtime.session ? await runtime.session.variables() : [];
+        response.body = {variables: variables.map(item => ({
+          name: item.name,
+          value: item.value,
+          type: item.type,
+          variablesReference: 0,
+        }))};
+        this.sendResponse(response);
+        return;
+      }
       const {registers: r} = await this.currentSnapshot();
       response.body = {
         variables: [
@@ -166,10 +182,22 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
+  protected override evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
+    return this.guard(response, async () => {
+      const runtime = await this.ready();
+      const value = runtime && 'evaluate' in runtime.session ? await runtime.session.evaluate(args.expression) : undefined;
+      response.body = value
+        ? {result: value.value, type: value.type, variablesReference: 0}
+        : {result: 'Expression evaluation is available for BASIC variables', variablesReference: 0};
+      this.sendResponse(response);
+    });
+  }
+
   protected override continueRequest(response: DebugProtocol.ContinueResponse): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.lastSnapshot = undefined;
       await runtime.session.continue();
       this.sendResponse(response);
       this.pollForStop();
@@ -190,6 +218,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.lastSnapshot = undefined;
       await runtime.session.next();
       this.lastSnapshot = await runtime.session.snapshot();
       this.sendResponse(response);
@@ -201,6 +230,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.lastSnapshot = undefined;
       await runtime.session.stepIn();
       this.lastSnapshot = await runtime.session.snapshot();
       this.sendResponse(response);

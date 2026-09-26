@@ -232,6 +232,12 @@ export const basicTokenTables = {
 } as const;
 
 export const basicSourceLimits = {maxLineNumber: 63999, maxInputCharacters: 71} as const;
+/** ROM interpreter hook used by source debuggers; synchronized with specs/basic.json. */
+export const basicRuntimeDebug = {
+  statementBoundaryAddress: 0x1cbd,
+  currentLineAddress: 0x0088,
+  directModeLine: 0xffff,
+} as const;
 const DATA_TOKEN = 0x83;
 const REM_TOKEN = 0x8e;
 const PRINT_TOKEN = 0x9d;
@@ -247,6 +253,15 @@ export class BasicProgramError extends Error {
 }
 
 export interface BasicSourceLine {number: number; text: string}
+export interface BasicLineLexeme {
+  /** Zero-based source columns in the original, untokenized line body. */
+  start: number;
+  end: number;
+  bytes: number[];
+  kind: 'keyword' | 'text' | 'literal' | 'data' | 'remark';
+  /** Canonical ROM keyword, including PRINT when the source used `?`. */
+  keyword?: string;
+}
 export interface BasicStyleRecord {literalOffset: number; attributes: number[]}
 export interface BasicStoredLine extends BasicSourceLine {
   offset: number;
@@ -312,52 +327,73 @@ export function parseBasicSource(source: string): BasicSourceLine[] {
   return [...byNumber.values()].sort((a, b) => a.number - b.number);
 }
 
-/** Tokenize one line body using the ROM's exact table order and lexical modes. */
-export function tokenizeBasicLine(text: string): Uint8Array {
+/** Tokenize one line body and retain source spans for editor tooling. */
+export function tokenizeBasicLineWithSpans(text: string): {bytes: Uint8Array; lexemes: BasicLineLexeme[]} {
   if (typeof text !== 'string') throw new TypeError('BASIC line must be a string');
   const input = asciiBytes(text, 'BASIC line');
   if (input.length > basicSourceLimits.maxInputCharacters) throw new BasicProgramError(`line exceeds ${basicSourceLimits.maxInputCharacters} characters`);
   const output: number[] = [];
+  const lexemes: BasicLineLexeme[] = [];
+  const emit = (start: number, end: number, bytes: number[], kind: BasicLineLexeme['kind'], keyword?: string) => {
+    output.push(...bytes);
+    lexemes.push({start, end, bytes, kind, ...(keyword === undefined ? {} : {keyword})});
+  };
   let at = 0, rawUntil: number | undefined, data = false;
   while (input[at] === 0x20) at++;
   while (at < input.length) {
     const code = input[at]!;
     if (rawUntil !== undefined) {
-      output.push(code); at++;
+      emit(at, at + 1, [code], rawUntil === 0 ? 'remark' : 'literal'); at++;
       if (code === rawUntil) rawUntil = undefined;
       continue;
     }
-    if (code === 0x20) { output.push(code); at++; continue; }
+    if (code === 0x20) { emit(at, at + 1, [code], 'text'); at++; continue; }
     if (data) {
-      output.push(code); at++;
+      emit(at, at + 1, [code], 'data'); at++;
       if (code === 0x3a) data = false;
       continue;
     }
-    if (code === 0x22) { output.push(code); at++; rawUntil = 0x22; continue; }
-    if (code === 0x3f) { output.push(PRINT_TOKEN); at++; continue; }
+    if (code === 0x22) { emit(at, at + 1, [code], 'literal'); at++; rawUntil = 0x22; continue; }
+    if (code === 0x3f) { emit(at, at + 1, [PRINT_TOKEN], 'keyword', 'PRINT'); at++; continue; }
     if ((upper(code) === 0x4d) && matches(input, at, 'MON')) {
       const after = input[at + 3];
-      if (after === undefined || after === 0x20 || after === 0x3a) { output.push(basicTokenTables.mon); at += 3; continue; }
+      if (after === undefined || after === 0x20 || after === 0x3a) { emit(at, at + 3, [basicTokenTables.mon], 'keyword', 'MON'); at += 3; continue; }
     }
     const extensionFunction = tableMatch(input, at, basicTokenTables.extensionFunction);
     if (extensionFunction) {
-      output.push(basicTokenTables.extensionFunctionPrefix, 0x80 + extensionFunction.index); at += extensionFunction.length; continue;
+      const keyword = basicTokenTables.extensionFunction[extensionFunction.index]!;
+      emit(at, at + extensionFunction.length, [basicTokenTables.extensionFunctionPrefix, 0x80 + extensionFunction.index], 'keyword', keyword);
+      at += extensionFunction.length; continue;
     }
     const extension = tableMatch(input, at, basicTokenTables.extension);
-    if (extension) { output.push(basicTokenTables.extensionPrefix, 0x80 + extension.index); at += extension.length; continue; }
+    if (extension) {
+      const keyword = basicTokenTables.extension[extension.index]!;
+      emit(at, at + extension.length, [basicTokenTables.extensionPrefix, 0x80 + extension.index], 'keyword', keyword);
+      at += extension.length; continue;
+    }
     const extension2 = tableMatch(input, at, basicTokenTables.extension2);
-    if (extension2) { output.push(basicTokenTables.extension2Prefix, 0x80 + extension2.index); at += extension2.length; continue; }
+    if (extension2) {
+      const keyword = basicTokenTables.extension2[extension2.index]!;
+      emit(at, at + extension2.length, [basicTokenTables.extension2Prefix, 0x80 + extension2.index], 'keyword', keyword);
+      at += extension2.length; continue;
+    }
     const primary = tableMatch(input, at, basicTokenTables.primary);
     if (primary) {
       const token = basicTokenTables.primaryStart + primary.index;
-      output.push(token); at += primary.length;
+      const keyword = basicTokenTables.primary[primary.index]!;
+      emit(at, at + primary.length, [token], 'keyword', keyword); at += primary.length;
       if (token === DATA_TOKEN) data = true;
       else if (token === REM_TOKEN) rawUntil = 0;
       continue;
     }
-    output.push(upper(code)); at++;
+    emit(at, at + 1, [upper(code)], 'text'); at++;
   }
-  return Uint8Array.from(output);
+  return {bytes: Uint8Array.from(output), lexemes};
+}
+
+/** Tokenize one line body using the ROM's exact table order and lexical modes. */
+export function tokenizeBasicLine(text: string): Uint8Array {
+  return tokenizeBasicLineWithSpans(text).bytes;
 }
 
 function compileLines(lines: readonly BasicSourceLine[], baseAddress: number | undefined): Uint8Array {

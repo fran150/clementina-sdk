@@ -11,7 +11,8 @@
   "categories": ["Debuggers", "Programming Languages"],
   "activationEvents": [
     "onDebug",
-    "onLanguage:clementina-basic"
+    "onLanguage:clementina-basic",
+    "onCommand:clementina.basic.renumberInteractive"
   ],
   "main": "./dist/extension.js",
   "scripts": {
@@ -20,7 +21,18 @@
   },
   "contributes": {
     "languages": [
-      {"id": "clementina-basic", "extensions": [".bas"], "aliases": ["Clementina BASIC"]}
+      {
+        "id": "clementina-basic",
+        "extensions": [".bas"],
+        "aliases": ["Clementina BASIC"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {"language": "clementina-basic", "scopeName": "source.clementina-basic", "path": "./syntaxes/clementina-basic.tmLanguage.json"}
+    ],
+    "commands": [
+      {"command": "clementina.basic.renumberInteractive", "title": "Clementina BASIC: Renumber Program…"}
     ],
     "debuggers": [
       {

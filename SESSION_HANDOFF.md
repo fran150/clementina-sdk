@@ -423,3 +423,47 @@ ld65-only.
 
 Next: a BASIC LSP and `program.kind: mixed` composition rules remain undefined.
 Do not commit without explicit user instruction.
+
+## Update — BASIC language navigation and editing (2026-09-22)
+
+- `@clementina/basic` now exposes tokenizer lexemes with exact source spans while
+  preserving the existing byte-for-byte tokenizer API. Editor analysis therefore
+  shares the ROM tokenizer's search order, no-boundary keyword matching, and
+  quoted-string/`DATA`/`REM` modes.
+- `@clementina/basic-lsp` diagnoses missing static targets for `GOTO`, `GO TO`,
+  `GOSUB`, numeric `THEN`, `RUN`, and `ON...GOTO`/`ON...GOSUB` lists and resolves
+  those targets with go-to-definition.
+- Function signature help covers the ROM numeric/string functions and Clementina
+  extension functions, including nested-call active parameters. Formatting uses
+  the canonical compile/detokenize path to emit LIST-style source.
+- Reference-aware renumbering is available through the protocol-neutral API and
+  an LSP source action/execute command (default start/step 10). It updates targets
+  that resolve to existing lines, preserves unresolved targets and lexical data,
+  and revalidates the ROM's line-number and input-length limits.
+- Focused core and real stdio-LSP coverage was added. Full repository verification
+  passed: schema freshness, spec validation, all workspace builds, test TypeScript
+  compilation, and all 69 tests. Nothing was committed or pushed.
+
+## Update — complete BASIC editor and debugger work (2026-09-22)
+
+- The language server now adds structural/function-arity diagnostics, contextual
+  statement/function/variable completion, line and variable document symbols,
+  references, validated rename, full core/extension callable signatures, and
+  semantic tokens. Variable identity follows the ROM's two-significant-character
+  rule. Real stdio-LSP tests cover the added protocol capabilities.
+- The VS Code extension now contributes a BASIC TextMate grammar and language
+  configuration. `Clementina BASIC: Renumber Program…` prompts for the first line
+  and increment and delegates the edit to the language server.
+- `specs/basic.json` records the current ROM's `NEWSTT2` statement hook and
+  `CURLIN` addresses. `ClementinaBasicDebugSession` uses those facts for effective
+  numbered-line breakpoints and line stepping, while preserving breakpoint
+  ownership. It exposes live simple numeric/integer/string variables and lookup
+  evaluation. Node debug composition, DAP, and VS Code now accept BASIC projects.
+- Documentation and status files were updated to remove the old BASIC-debugging
+  and syntax-coloring deferrals. Repository verification passes: schema freshness,
+  specs, all workspace builds, test TypeScript compilation, and all 74 tests.
+- `program.kind: mixed` remains rejected. Its ownership model is explicitly
+  unresolved and cannot be selected silently: either BASIC must remain the entry
+  program with returning assembly support loaded first, or assembly must take over
+  after BASIC setup. This is the only BASIC-scope product decision still required.
+- Nothing was committed or pushed.

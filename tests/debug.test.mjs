@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EmulatorClient} from '../packages/emulator-client/dist/index.js';
-import {ClementinaDebugSession, CLEMENTINA_CPU_FRAME_ID, CLEMENTINA_CPU_THREAD_ID} from '../packages/debug/dist/index.js';
+import {ClementinaBasicDebugSession, ClementinaDebugSession, CLEMENTINA_CPU_FRAME_ID, CLEMENTINA_CPU_THREAD_ID} from '../packages/debug/dist/index.js';
 import {createProjectDebugSession} from '../packages/debug/dist/node.js';
+import {basicRuntimeDebug} from '../packages/basic/dist/index.js';
 
 const machineState=(overrides={})=>({
  cycles:'12',pc:0x6000,a:1,x:2,y:3,sp:0xff,p:0x24,paused:false,
@@ -112,6 +113,33 @@ test('debug session waits for a stop and disposal removes only its breakpoints',
  await session.dispose();
 });
 
+test('BASIC debug session filters the shared ROM statement hook by CURLIN and maps source lines',async()=>{
+ let currentLine=10,polls=0;
+ const active=[];
+ const requests=[];
+ const client=new EmulatorClient(async request=>{
+  requests.push(request);
+  if(request.method==='breakpoints')return {version:1,ok:true,result:[...active]};
+  if(request.method==='addBreakpoint'){active.push(request.address);return {version:1,ok:true,result:[...active]};}
+  if(request.method==='removeBreakpoint'){active.splice(active.indexOf(request.address),1);return {version:1,ok:true,result:[...active]};}
+  if(request.method==='readMemory')return {version:1,ok:true,result:[currentLine&255,currentLine>>>8]};
+  if(request.method==='state'){
+   if(++polls===2)currentLine=30;
+   return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress,stopReason:'breakpoint'})};
+  }
+  if(request.method==='resume')return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress,running:true,stopReason:'running'})};
+  throw new Error(`unexpected ${request.method}`);
+ });
+ const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n20\n30 END\n');
+ const breakpoints=await session.setSourceBreakpoints('/project/main.bas',[2,3]);
+ assert.deepEqual(breakpoints.map(item=>item.verified),[false,true]);
+ const stopped=await session.waitForStop({timeoutMs:100,pollIntervalMs:1});
+ assert.deepEqual(stopped.frame.source,{path:'/project/main.bas',line:3});
+ assert.ok(requests.some(request=>request.method==='resume'));
+ await session.dispose();
+ assert.deepEqual(active,[]);
+});
+
 test('Node debug composition builds and prepares breakpoints before launching the BASIC plan',async()=>{
  const requests=[];
  const stopped=machineState({pc:0x6000,stopReason:'reset'}),running=machineState({pc:0x6000,running:true,stopReason:'running'});
@@ -159,12 +187,14 @@ test('Node debug composition reports build and emulator startup diagnostics',asy
  const notBuilt=await createProjectDebugSession('/project',{}, {build:async()=>buildFailure,startProcess:async()=>{throw new Error('must not start');}});
  assert.deepEqual(notBuilt,buildFailure);
 
- const basicBuild={kind:'basic',basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:0},loadPlan:{},files:[]};
- const rejectedBasic=await createProjectDebugSession('/project',{}, {
-  build:async()=>({ok:true,value:basicBuild,diagnostics:[]}),startProcess:async()=>{throw new Error('must not start');},
+ const basicBuild={kind:'basic',basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:1},loadPlan:{},files:[]};
+ const basicCreated=await createProjectDebugSession('/project',{}, {
+  build:async()=>({ok:true,value:basicBuild,diagnostics:[]}),
+  readBasicSource:async()=>({path:'/project/main.bas',text:'10 END\n'}),
+  startProcess:async()=>({endpoint:'http://127.0.0.1:1234/v1',client:new EmulatorClient(async request=>({version:1,ok:true,result:request.method==='breakpoints'?[]:machineState()})),pid:1,exited:Promise.resolve({code:0,signal:null}),close:async()=>({code:0,signal:null})}),
  });
- assert.equal(rejectedBasic.ok,false);
- assert.equal(rejectedBasic.diagnostics[0].code,'debug.program-kind');
+ assert.equal(basicCreated.ok,true);
+ await basicCreated.value.close();
 
  const minimal={kind:'assembly',assembly:{loadStep:{},debug:{files:[],lines:[],segments:[],spans:[]}},loadPlan:{},bootstrapSource:'',files:[]};
  const notStarted=await createProjectDebugSession('/project',{}, {
