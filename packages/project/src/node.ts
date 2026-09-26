@@ -38,7 +38,7 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
     if (!r.ok) return result(undefined, r.diagnostics.map(d => ({...d, source: 'clementina.yaml'})));
     manifest = r.value;
   } catch (e) { return result(undefined, ioDiagnostics(e, 'clementina.yaml')); }
-  const assets: PortableAssetSet = {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], shapes: [], animations: []};
+  const assets: PortableAssetSet = {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: []};
   for (const kind of assetKinds) for (const path of manifest.assets[kind]) {
     try {
       const value = JSON.parse(await readFile(await resolveProjectPath(root, path), 'utf8'));
@@ -65,7 +65,7 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
   const project = {manifest, assets};
   const checked = checkProject(project);
   return result(project, checked.diagnostics.map(d => {
-    const match = d.path?.match(/^\/(palettes|paletteConfigs|tilesets|backgrounds|shapes|animations)\/(\d+)(.*)$/);
+    const match = d.path?.match(/^\/(palettes|paletteConfigs|tilesets|backgrounds|overlays|shapes|animations)\/(\d+)(.*)$/);
     if (!match) return {...d, source: 'clementina.yaml'};
     const kind = match[1] as keyof PortableAssetSet;
     return {...d, source: manifest.assets[kind][Number(match[2])], path: match[3]};

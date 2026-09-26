@@ -56,6 +56,12 @@
             "type": "integer",
             "minimum": -512,
             "maximum": 511
+          },
+          "flipX": {
+            "type": "boolean"
+          },
+          "flipY": {
+            "type": "boolean"
           }
         }
       }

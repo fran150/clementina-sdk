@@ -15,6 +15,7 @@ assets:
   tilesets:
     - assets/tilesets/player.tileset.json
   backgrounds: []
+  overlays: []
   shapes:
     - assets/shapes/player_idle.shape.json
   animations:

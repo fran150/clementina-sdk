@@ -7,6 +7,7 @@
     "paletteConfig": "clementina-palette-config",
     "tileset": "clementina-tileset",
     "background": "clementina-background",
+    "overlay": "clementina-overlay",
     "shape": "clementina-shape",
     "animation": "clementina-animation",
     "project": "clementina-project"
@@ -27,6 +28,10 @@
     "maxFramesPerAnimation": 255,
     "maxBackgroundsPerProject": 255,
     "maxBackgroundDimension": 1024,
-    "maxBackgroundCells": 200000
+    "maxBackgroundCells": 200000,
+    "maxOverlaysPerProject": 255,
+    "overlayColumns": 40,
+    "overlayRows": 25,
+    "overlayCells": 1000
   }
 }

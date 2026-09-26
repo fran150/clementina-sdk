@@ -137,7 +137,7 @@ try {
   'format: clementina-project','version: 1','name: Debug Adapter Integration',
   'target:','  machine: clementina-6502',
   'program:','  kind: assembly','  entry: src/main.s','  sources:','    - src/data.s',
-  'assets:','  palettes: []','  paletteConfigs: []','  tilesets: []','  backgrounds: []','  shapes: []','  animations: []',
+  'assets:','  palettes: []','  paletteConfigs: []','  tilesets: []','  backgrounds: []','  overlays: []','  shapes: []','  animations: []',
   'build:','  outputDirectory: build','  assembly:','    linkerConfig: link.cfg',
   '    outputName: game','    loadAddress: 24576','    entrySymbol: game_start','',
  ].join('\n'));

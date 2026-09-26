@@ -18,6 +18,7 @@ my-game/
     ├── palette-configs/
     ├── tilesets/
     ├── backgrounds/
+    ├── overlays/
     ├── shapes/
     └── animations/
 ```
@@ -46,6 +47,8 @@ assets:
     - assets/tilesets/player.tileset.json
   backgrounds:
     - assets/backgrounds/level1.background.json
+  overlays:
+    - assets/overlays/hud.overlay.json
   shapes:
     - assets/shapes/player_idle.shape.json
   animations:
@@ -104,6 +107,7 @@ Every asset is self-identifying and versioned:
 | palette config | `clementina-palette-config` | 1 |
 | tileset | `clementina-tileset` | 1 |
 | background | `clementina-background` | 1 |
+| overlay | `clementina-overlay` | 1 |
 | shape | `clementina-shape` | 1 |
 | animation | `clementina-animation` | 1 |
 

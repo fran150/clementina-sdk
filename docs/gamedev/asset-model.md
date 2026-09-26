@@ -32,7 +32,10 @@ used by animation frames.
 ## Animation
 
 An animation contains 1-255 frames. Each frame references a shape, lasts 1-255 ticks
-at 60 Hz, and may offset the whole shape by `dx`/`dy`.
+at 60 Hz, may mirror the whole shape with `flipX`/`flipY`, and may offset it by
+`dx`/`dy`. A flip mirrors about the shape's origin: every sprite's flip bit toggles
+and its offset `x` becomes `-x - 8` (`y` likewise), since a hardware sprite is 8×8.
+The offset applies after the flip. Absent flips are `false`.
 
 All shapes referenced by one animation must use the same tileset, matching Studio's
 current validation and the hardware's single sprite CHR-bank constraint.

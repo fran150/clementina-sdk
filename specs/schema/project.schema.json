@@ -82,6 +82,7 @@
         "paletteConfigs",
         "tilesets",
         "backgrounds",
+        "overlays",
         "shapes",
         "animations"
       ],
@@ -111,6 +112,14 @@
           }
         },
         "backgrounds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "overlays": {
           "type": "array",
           "uniqueItems": true,
           "items": {

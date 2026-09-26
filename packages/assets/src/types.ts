@@ -19,7 +19,7 @@ export interface ShapeAsset {
   canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:OriginAnchor; originX?:number; originY?:number;
   sprites:ShapeSprite[];
 }
-export interface AnimationFrame { shapeId:string; ticks:number; dx?:number; dy?:number }
+export interface AnimationFrame { shapeId:string; ticks:number; dx?:number; dy?:number; flipX?:boolean; flipY?:boolean }
 export interface AnimationAsset {
   format:"clementina-animation"; version:1; id:string; name:string; frames:AnimationFrame[];
 }
@@ -28,7 +28,13 @@ export interface BackgroundAsset {
   format:"clementina-background"; version:1; id:string; name:string; width:number; height:number;
   tilesetId:string; altTilesetId:string; cells:BackgroundCell[];
 }
+export type OverlayCell = BackgroundCell;
+export interface OverlayPlaceholder { id:string; name:string; col:number; row:number; width:number; height:number }
+export interface OverlayAsset {
+  format:"clementina-overlay"; version:1; id:string; name:string;
+  tilesetId:string; altTilesetId:string; cells:OverlayCell[]; placeholders:OverlayPlaceholder[];
+}
 export interface PortableAssetSet {
   palettes:PaletteAsset[]; paletteConfigs:PaletteConfigAsset[]; tilesets:TilesetAsset[]; backgrounds:BackgroundAsset[];
-  shapes:ShapeAsset[]; animations:AnimationAsset[];
+  overlays:OverlayAsset[]; shapes:ShapeAsset[]; animations:AnimationAsset[];
 }

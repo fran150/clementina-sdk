@@ -290,6 +290,133 @@ export const schemas = {
       }
     }
   },
+  "overlay": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://clementina.dev/schema/overlay.schema.json",
+    "title": "Clementina overlay",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "format",
+      "version",
+      "id",
+      "name",
+      "tilesetId",
+      "altTilesetId",
+      "cells",
+      "placeholders"
+    ],
+    "properties": {
+      "format": {
+        "const": "clementina-overlay"
+      },
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+      },
+      "tilesetId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "altTilesetId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "cells": {
+        "type": "array",
+        "minItems": 1000,
+        "maxItems": 1000,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tile",
+            "paletteBank",
+            "flipX",
+            "flipY",
+            "priority",
+            "chrAlt"
+          ],
+          "properties": {
+            "tile": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "paletteBank": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            },
+            "flipX": {
+              "type": "boolean"
+            },
+            "flipY": {
+              "type": "boolean"
+            },
+            "priority": {
+              "type": "boolean"
+            },
+            "chrAlt": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "placeholders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "col",
+            "row",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+            },
+            "col": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 39
+            },
+            "row": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 24
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 40
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            }
+          }
+        }
+      }
+    }
+  },
   "shape": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://clementina.dev/schema/shape.schema.json",
@@ -455,6 +582,12 @@ export const schemas = {
               "type": "integer",
               "minimum": -512,
               "maximum": 511
+            },
+            "flipX": {
+              "type": "boolean"
+            },
+            "flipY": {
+              "type": "boolean"
             }
           }
         }
@@ -545,6 +678,7 @@ export const schemas = {
           "paletteConfigs",
           "tilesets",
           "backgrounds",
+          "overlays",
           "shapes",
           "animations"
         ],
@@ -574,6 +708,14 @@ export const schemas = {
             }
           },
           "backgrounds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "overlays": {
             "type": "array",
             "uniqueItems": true,
             "items": {

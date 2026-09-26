@@ -10,7 +10,7 @@ One Clementina hardware sprite is 8×8. Larger actors are shapes made from sever
 6. Generate each animation as one coherent pose set from the approved reference.
 7. Convert poses into shapes using the same tileset.
 8. Preserve one logical anchor, normally bottom-center/feet.
-9. Use frame offsets for small body bobbing instead of duplicating identical shapes.
+9. Use frame offsets for small body bobbing, and frame flips for mirrored poses, instead of duplicating shapes.
 10. Validate and preview at real 60 Hz tick durations.
 
 This avoids the scale/palette/anchor drift common to independent frame generation.
