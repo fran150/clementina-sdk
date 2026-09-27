@@ -156,7 +156,9 @@ The load-plan and launch contract is documented in [program loading](program-loa
 ## Execution control and breakpoints
 
 The server advertises `run`, `pause`, `resume`, `stepInstruction`, `addBreakpoint`,
-`removeBreakpoint`, `breakpoints`, and `clearBreakpoints` in `capabilities().methods`.
+`removeBreakpoint`, `breakpoints`, `clearBreakpoints`, `addBankBreakpoint`,
+`removeBankBreakpoint`, `bankBreakpoints`, `clearBankBreakpoints`, and
+`stackTrace` in `capabilities().methods`.
 The client validates their responses as `ExecutionState`. The general state type
 retains optional execution fields to support earlier v1 servers; query capabilities
 before using new methods against an older server.
@@ -178,13 +180,14 @@ different cycles. Pause first when multiple reads must describe one fixed state.
 `reset` stops execution and preserves breakpoints. Closing a Go session joins its
 runner; concurrent closes are safe.
 
-Breakpoints refer to logical CPU addresses (including the currently selected RAM
-bank), not physical RAM offsets. They stop **before** opcode fetch. Operand reads
+The original address breakpoints match a logical CPU address in every mapped
+bank. Bank breakpoints pair an address in `$8000-$BFFF` with physical ExRAM bank
+0–31. Both stop **before** opcode fetch. Operand reads
 and reset/interrupt entry do not trigger them. Adding an existing breakpoint or
 removing a missing one is idempotent; lists are unique and keep insertion order.
 `run` at a breakpoint stops there again. `resume` skips that boundary once only
 when continuing from a breakpoint stop, so a loop can hit the same address again.
-Manual cycle/instruction steps ignore address breakpoints and require the runner
+Manual cycle/instruction steps ignore both breakpoint kinds and require the runner
 to be stopped.
 
 Source breakpoints compose the assembler source map with this same address API:
@@ -199,19 +202,19 @@ await client.removeSourceBreakpoint(sourceMap, 'src/main.s', 12);
 
 Resolution is exact. A line that emitted no bytes raises `SourceBreakpointError`;
 the SDK does not move it to a nearby line. A line with disjoint spans installs one
-address breakpoint at each span start. The result reports the resolved addresses,
-whether their source metadata is banked, and the emulator's complete breakpoint
-list. Adding or removing several span starts uses the protocol's individual
+breakpoint at each span start, using `{address, bank}` when the source map has a
+bank. The result reports resolved locations and the resulting breakpoint lists.
+Adding or removing several span starts uses the protocol's individual
 idempotent mutations, so a transport failure can leave a prefix applied.
-The server stores address breakpoints rather than source-breakpoint identities;
-removing a source breakpoint also removes any manually added breakpoint at the same
-address.
+The server stores breakpoints rather than source-breakpoint identities; direct
+use of these helpers can remove a matching manually added breakpoint. The
+editor-neutral debug session manages ownership for multiple source paths.
 
-The Go engine still compares only the logical 16-bit CPU address. For a source
-location in `$8000-$BFFF`, `banked: true` reports that the map knows the build bank;
-it does not make the address breakpoint bank-selective. It can therefore stop at
-the same logical address while another RAM bank is selected. A future physical
-bank breakpoint requires an explicit emulator protocol change.
+Stopped state includes the selected physical `bank`. `readMemory` accepts an
+optional bank for a range wholly inside `$8000-$BFFF` and reads that backing RAM
+without changing the VIA. `stackTrace` returns observed and validated call or
+interrupt callers plus `unknownCaller: true` for frames before tracing began or
+whose stack evidence cannot be established.
 
 `stepInstruction(maxCycles = 10000)` advances to the next opcode boundary. From
 inside an instruction it finishes that instruction; during reset or interrupt entry
@@ -236,7 +239,7 @@ const afterCall = await client.stepOverSource(sourceMap, {
 
 Both operations require a stopped machine at an instruction boundary. A source
 position is the sorted set of every `path:line` mapping that contains the current
-PC; this preserves ld65 macro/include aliases. `stepSource` executes at least one
+PC and bank; this preserves ld65 macro/include aliases. `stepSource` executes at least one
 instruction and stops when that exact set changes. When the starting or resulting
 PC is not mapped, it performs one machine step and reports `unmapped` instead of
 guessing a nearby source line.

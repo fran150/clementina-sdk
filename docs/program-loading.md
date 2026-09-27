@@ -18,7 +18,8 @@ Load runtime games at `$1800` or higher so BLOAD's resident loader survives.
 The common Clementina runtime entry point is a small BASIC bootstrap. It loads
 generated assets into MIA RAM, loads any returning banked CPU images, and finally
 hands control to the main machine-code image. This uses the ROM's filesystem and
-loaders on hardware and in the emulator.
+loaders on hardware and in the emulator. An assembly project already generates
+this BASIC bootstrap; it does not need `program.kind: mixed`.
 
 Multiple assembly source files are a build concern. The assembler and linker
 normally produce one logical PRG image; separate PRGs are useful for banked data,

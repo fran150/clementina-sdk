@@ -6,9 +6,12 @@ import {
   type SourceStepLocation,
   type SourceStepOptions,
   type SourceStepResult,
+  type SourceBreakpointLocation,
 } from '@clementina/emulator-client';
 import type {LoadPlan} from '@clementina/basic';
+import {decodeInstructions} from './disassembly.js';
 export * from './basic.js';
+export * from './disassembly.js';
 
 export const CLEMENTINA_CPU_THREAD_ID = 1;
 export const CLEMENTINA_CPU_FRAME_ID = 1;
@@ -25,12 +28,22 @@ export interface DebugBreakpoint {
   verified: boolean;
   line?: number;
   addresses: number[];
-  /** Present for unresolved lines and logical-only banked breakpoints. */
+  locations?: SourceBreakpointLocation[];
+  /** Present for unresolved lines. */
   message?: string;
+}
+
+export interface DebugInstruction {
+  address: number;
+  bank?: number;
+  bytes: number[];
+  text: string;
+  source?: {path: string; line: number};
 }
 
 export interface DebugRegisters {
   pc: number;
+  bank?: number;
   a: number;
   x: number;
   y: number;
@@ -45,6 +58,7 @@ export interface DebugFrame {
   threadId: number;
   name: string;
   instructionPointer: number;
+  bank?: number;
   source?: {path: string; line: number};
   locations: SourceStepLocation[];
 }
@@ -55,6 +69,7 @@ export interface DebugSnapshot {
   frame: DebugFrame;
   registers: DebugRegisters;
 }
+export interface DebugStack {frames: DebugFrame[]; unknownCaller: boolean}
 
 export interface WaitForStopOptions {
   /** Host orchestration timeout, unrelated to emulated timing. */
@@ -75,8 +90,8 @@ const validBank = (value: unknown): value is number => Number.isInteger(value) &
 export class ClementinaDebugSession {
   private readonly bank?: number;
   private readonly threadName: string;
-  private readonly sourceBreakpoints = new Map<string, Map<number, number[]>>();
-  private readonly installedBySession = new Set<number>();
+  private readonly sourceBreakpoints = new Map<string, Map<number, SourceBreakpointLocation[]>>();
+  private readonly installedBySession = new Map<string, SourceBreakpointLocation>();
   private commandTail: Promise<void> = Promise.resolve();
   private disposed = false;
 
@@ -97,6 +112,25 @@ export class ClementinaDebugSession {
 
   snapshot(): Promise<DebugSnapshot> {
     return this.command(async () => this.snapshotFromState(await this.client.executionState()));
+  }
+
+  stackTrace(): Promise<DebugStack> {
+    return this.command(async () => {
+      const state = await this.client.executionState();
+      if (state.running) throw new DebugSessionError('Pause before stack inspection');
+      const leaf = this.snapshotFromState(state).frame;
+      const stack = await this.client.stackTrace();
+      const frames = [leaf];
+      for (const caller of stack.callers) {
+        const locations = this.sourceLocations(caller.pc, caller.bank);
+        const primary = locations[0];
+        frames.push({id: frames.length + 1, threadId: CLEMENTINA_CPU_THREAD_ID,
+          name: primary ? `${primary.path.replaceAll('\\', '/').split('/').pop()}:${primary.line} (${caller.kind})`
+            : `$${caller.pc.toString(16).toUpperCase().padStart(4, '0')} (${caller.kind})`,
+          instructionPointer: caller.pc, bank: caller.bank, ...(primary ? {source: {path: primary.path, line: primary.line}} : {}), locations});
+      }
+      return {frames, unknownCaller: stack.unknownCaller};
+    });
   }
 
   continue(): Promise<ExecutionState> {
@@ -131,6 +165,25 @@ export class ClementinaDebugSession {
     return this.command(() => this.client.readMemory(address, count));
   }
 
+  /** Read and decode at most 64 instructions from one stopped memory image. */
+  disassemble(address: number, count: number, selectedBank?: number): Promise<DebugInstruction[]> {
+    return this.command(async () => {
+      if (!validAddress(address) || !Number.isInteger(count) || count < 1 || count > 64) throw new RangeError('Invalid disassembly range');
+      if (selectedBank !== undefined && (!Number.isInteger(selectedBank) || selectedBank < 0 || selectedBank > 31)) throw new RangeError('Invalid RAM bank');
+      const state = await this.client.executionState();
+      if (state.running) throw new DebugSessionError('Pause before disassembly');
+      const bank = address >= 0x8000 && address < 0xc000 ? selectedBank ?? state.bank : undefined;
+      if (address >= 0x8000 && address < 0xc000 && bank === undefined) throw new DebugSessionError('Emulator did not report the selected RAM bank');
+      const end = Math.min(0x10000, bank === undefined ? 0x10000 : 0xc000, address + count * 3);
+      const data = await this.client.readMemory(address, end - address, bank);
+      return decodeInstructions(address, data, count).map(item => {
+        const source = this.sourceLocations(item.address, item.address >= 0x8000 && item.address < 0xc000 ? bank : undefined)[0];
+        return {...item, ...(item.address >= 0x8000 && item.address < 0xc000 ? {bank} : {}),
+          ...(source ? {source: {path: source.path, line: source.line}} : {})};
+      });
+    });
+  }
+
   /** Replace all source breakpoints for one path, preserving other paths and external addresses. */
   setSourceBreakpoints(path: string, lines: readonly number[]): Promise<DebugBreakpoint[]> {
     return this.command(() => this.setSourceBreakpointsNow(path, lines));
@@ -138,9 +191,9 @@ export class ClementinaDebugSession {
 
   clearSourceBreakpoints(): Promise<void> {
     return this.command(async () => {
-      for (const address of [...this.installedBySession].sort((a, b) => a - b)) {
-        await this.client.removeBreakpoint(address);
-        this.installedBySession.delete(address);
+      for (const [key, location] of this.installedBySession) {
+        await this.removeLocation(location);
+        this.installedBySession.delete(key);
       }
       this.sourceBreakpoints.clear();
     });
@@ -150,7 +203,7 @@ export class ClementinaDebugSession {
   dispose(): Promise<void> {
     if (this.disposed) return this.commandTail;
     return this.command(async () => {
-      for (const address of [...this.installedBySession].sort((a, b) => a - b)) await this.client.removeBreakpoint(address);
+      for (const location of this.installedBySession.values()) await this.removeLocation(location);
       this.installedBySession.clear();
       this.sourceBreakpoints.clear();
       this.disposed = true;
@@ -194,48 +247,57 @@ export class ClementinaDebugSession {
     return {...options, ...(options.bank === undefined && this.bank !== undefined ? {bank: this.bank} : {})};
   }
 
-  private resolveLine(path: string, line: number): {addresses: number[]; banked: boolean} {
+  private locationKey(location: SourceBreakpointLocation): string { return `${location.address}:${location.bank ?? ''}`; }
+
+  private async removeLocation(location: SourceBreakpointLocation): Promise<void> {
+    if (location.bank === undefined) await this.client.removeBreakpoint(location.address);
+    else await this.client.removeBankBreakpoint(location.address, location.bank);
+  }
+
+  private resolveLine(path: string, line: number): {addresses: number[]; locations: SourceBreakpointLocation[]} {
     const locations = this.sourceMap.locationsForSource(path, line);
     if (!Array.isArray(locations)) throw new TypeError('Invalid source map result');
-    let banked = false;
-    const addresses: number[] = [];
+    const selected = new Map<string, SourceBreakpointLocation>();
     for (const location of locations) {
       if (typeof location !== 'object' || location === null || !validAddress(location.address)
         || (location.bank !== undefined && !validBank(location.bank))) throw new TypeError('Invalid source map location');
       if (this.bank !== undefined && location.bank !== undefined && location.bank !== this.bank) continue;
-      if (location.bank !== undefined) banked = true;
-      if (!addresses.includes(location.address)) addresses.push(location.address);
+      const resolved = {address: location.address, ...(location.bank === undefined ? {} : {bank: location.bank})};
+      selected.set(this.locationKey(resolved), resolved);
     }
-    addresses.sort((a, b) => a - b);
-    return {addresses, banked};
+    const entries = [...selected.values()].sort((a, b) => a.address - b.address || (a.bank ?? -1) - (b.bank ?? -1));
+    return {addresses: [...new Set(entries.map(item => item.address))], locations: entries};
   }
 
   private async setSourceBreakpointsNow(path: string, lines: readonly number[]): Promise<DebugBreakpoint[]> {
     if (typeof path !== 'string' || path.length === 0) throw new TypeError('path must be a non-empty string');
     if (!Array.isArray(lines) || lines.some(line => !Number.isInteger(line) || line < 1)) throw new RangeError('lines must contain positive integers');
     const resolved = lines.map(line => ({line, ...this.resolveLine(path, line)}));
-    const replacement = new Map<number, number[]>();
-    for (const item of resolved) if (item.addresses.length > 0) replacement.set(item.line, item.addresses);
+    const replacement = new Map<number, SourceBreakpointLocation[]>();
+    for (const item of resolved) if (item.locations.length > 0) replacement.set(item.line, item.locations);
 
-    const desired = new Set<number>();
+    const desired = new Map<string, SourceBreakpointLocation>();
     for (const [existingPath, byLine] of this.sourceBreakpoints) {
       if (existingPath === path) continue;
-      for (const addresses of byLine.values()) for (const address of addresses) desired.add(address);
+      for (const locations of byLine.values()) for (const location of locations) desired.set(this.locationKey(location), location);
     }
-    for (const addresses of replacement.values()) for (const address of addresses) desired.add(address);
+    for (const locations of replacement.values()) for (const location of locations) desired.set(this.locationKey(location), location);
 
-    const active = new Set(await this.client.breakpoints());
-    for (const address of [...desired].sort((a, b) => a - b)) {
-      if (active.has(address)) continue;
-      const current = await this.client.addBreakpoint(address);
-      active.clear(); for (const value of current) active.add(value);
-      this.installedBySession.add(address);
+    const active = new Set((await this.client.breakpoints()).map(address => this.locationKey({address})));
+    if ([...desired.values(), ...this.installedBySession.values()].some(item => item.bank !== undefined)) {
+      for (const item of await this.client.bankBreakpoints()) active.add(this.locationKey(item));
     }
-    for (const address of [...this.installedBySession].sort((a, b) => a - b)) {
-      if (desired.has(address)) continue;
-      const current = await this.client.removeBreakpoint(address);
-      active.clear(); for (const value of current) active.add(value);
-      this.installedBySession.delete(address);
+    for (const [key, location] of desired) {
+      if (active.has(key)) continue;
+      if (location.bank === undefined) await this.client.addBreakpoint(location.address);
+      else await this.client.addBankBreakpoint(location.address, location.bank);
+      active.add(key);
+      this.installedBySession.set(key, location);
+    }
+    for (const [key, location] of this.installedBySession) {
+      if (desired.has(key)) continue;
+      await this.removeLocation(location);
+      this.installedBySession.delete(key);
     }
     if (replacement.size === 0) this.sourceBreakpoints.delete(path);
     else this.sourceBreakpoints.set(path, replacement);
@@ -243,13 +305,12 @@ export class ClementinaDebugSession {
     return resolved.map(item => item.addresses.length === 0
       ? {path, requestedLine: item.line, verified: false, addresses: [], message: 'No executable code at this line'}
       : {
-          path, requestedLine: item.line, verified: true, line: item.line, addresses: item.addresses,
-          ...(item.banked ? {message: 'Breakpoint uses a logical CPU address and is not bank-selective'} : {}),
+          path, requestedLine: item.line, verified: true, line: item.line, addresses: item.addresses, locations: item.locations,
         });
   }
 
   private snapshotFromState(state: ExecutionState): DebugSnapshot {
-    const locations = this.sourceLocations(state.pc);
+    const locations = this.sourceLocations(state.pc, state.bank ?? this.bank);
     const primary = locations[0];
     const leaf = primary?.path.replaceAll('\\', '/').split('/').pop();
     return {
@@ -259,15 +320,16 @@ export class ClementinaDebugSession {
         id: CLEMENTINA_CPU_FRAME_ID, threadId: CLEMENTINA_CPU_THREAD_ID,
         name: primary ? `${leaf}:${primary.line}` : `$${state.pc.toString(16).toUpperCase().padStart(4, '0')}`,
         instructionPointer: state.pc,
+        ...(state.bank === undefined ? {} : {bank: state.bank}),
         ...(primary === undefined ? {} : {source: {path: primary.path, line: primary.line}}),
         locations,
       },
-      registers: {pc: state.pc, a: state.a, x: state.x, y: state.y, sp: state.sp, p: state.p, cycles: state.cycles, miaPaused: state.paused},
+      registers: {pc: state.pc, ...(state.bank === undefined ? {} : {bank: state.bank}), a: state.a, x: state.x, y: state.y, sp: state.sp, p: state.p, cycles: state.cycles, miaPaused: state.paused},
     };
   }
 
-  private sourceLocations(address: number): SourceStepLocation[] {
-    const locations = this.sourceMap.locationsForAddress(address, this.bank);
+  private sourceLocations(address: number, bank = this.bank): SourceStepLocation[] {
+    const locations = this.sourceMap.locationsForAddress(address, bank);
     if (!Array.isArray(locations)) throw new TypeError('Invalid source map result');
     return locations.map(location => {
       if (typeof location !== 'object' || location === null || typeof location.path !== 'string' || location.path.length === 0

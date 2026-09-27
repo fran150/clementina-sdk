@@ -7,11 +7,12 @@ stepping, frame, register, or process-lifecycle rules.
 
 ## Session API
 
-`ClementinaDebugSession` exposes one `Clementina 65C02` thread and one current CPU
-frame. A snapshot contains the strict execution state, raw numeric registers,
-cycle count, MIA pause state, every source location containing PC, and the first
-location as the primary editor source position. The single frame is intentional:
-the SDK has no verified stack-unwind contract yet.
+`ClementinaDebugSession` exposes one `Clementina 65C02` thread. A snapshot
+contains the current CPU frame, strict execution state, raw numeric registers,
+cycle count, MIA pause state, and source locations selected by the physical RAM
+bank at the stop. `stackTrace()` adds callers verified from observed JSR or
+interrupt execution and preserved stack bytes. It reports `unknownCaller` below
+the verified frames; arbitrary stack bytes are never interpreted as a caller.
 
 The session provides:
 
@@ -19,15 +20,19 @@ The session provides:
 - `continue`, `pause`, and `reset`;
 - source `stepIn` and `next` plus machine-instruction stepping;
 - mapped memory reads;
+- bounded disassembly of up to 64 W65C02S instructions from stopped CPU memory,
+  with source locations and optional explicit physical bank selection;
+- verified call and interrupt frames for a stopped assembly session;
 - bounded stop polling with optional cancellation;
 - cleanup of address breakpoints installed by that session.
 
 Breakpoint requests return one result per requested line. Non-emitting lines are
 unverified with an explicit message. Addresses shared by several source lines or
 files remain installed until no configured source breakpoint needs them. Existing
-address breakpoints that were already present are preserved. Banked locations are
-reported as logical-only because the current Go breakpoint engine does not compare
-physical RAM banks.
+address breakpoints that were already present are preserved. Banked source
+locations use `{address, bank}` breakpoints and remain distinct even when they
+share a logical CPU address. The legacy address breakpoint API still matches
+every mapped bank.
 
 The session serializes editor commands, while `waitForStop` remains outside that
 queue so `pause` can interrupt a running wait. Its timeout and polling interval are
@@ -77,5 +82,4 @@ and watch evaluation.
 This package is not a Debug Adapter Protocol server and does not import VS Code.
 `@clementina/debug-adapter` is that translation (see
 [the VS Code extension](vscode-extension.md)), over this same session API.
-Stack unwinding, disassembly, physical bank breakpoints, and richer evaluation of
-arbitrary BASIC expressions require separate verified contracts.
+Richer evaluation of arbitrary BASIC expressions remains outside this phase.

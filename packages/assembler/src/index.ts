@@ -226,7 +226,7 @@ export function createAssemblySourceMap(debug: Ca65DebugInfo, options: {bank?: n
     },
     locationsForAddress(address, bank) {
       if (!Number.isInteger(address) || address < 0 || address > 0xffff) throw new RangeError('Invalid CPU address');
-      if (bank !== undefined && (!Number.isInteger(bank) || bank < 1 || bank > 31)) throw new RangeError('bank must be 1..31');
+      if (bank !== undefined && (!Number.isInteger(bank) || bank < 0 || bank > 31)) throw new RangeError('bank must be 0..31');
       return locations.filter(location => address >= location.address && address < location.address + location.size
         && (bank === undefined || location.bank === undefined || location.bank === bank));
     },

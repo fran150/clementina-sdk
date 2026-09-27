@@ -75,8 +75,10 @@ try {
  const c=emulator.client;
  const stops=['sprite_drawn','animation_started','animation_advanced','animation_moved','animation_stopped',
   'song_playing','song_stopped','sound_started','sound_second','sound_third','sound_released','sound_restarted','sound_stopped','finished'];
- for(const name of [...stops,'failed'])await c.addBreakpoint(address(name));
+ await c.addBreakpoint(address(stops[0]));
+ await c.addBreakpoint(address('failed'));
  await c.launchLoadPlan(build.loadPlan);
+ let stopIndex=0;
  async function nextStop(name){
   let state;
   for(let n=0;n<1500;n++){
@@ -86,6 +88,10 @@ try {
   }
   if(state.running)state=await c.pause();
   assert.equal(state.pc,address(name),`Expected ${name}; stopped at $${state.pc.toString(16)}`);
+  assert.equal(name,stops[stopIndex]);
+  await c.removeBreakpoint(address(name));
+  stopIndex++;
+  if(stopIndex<stops.length)await c.addBreakpoint(address(stops[stopIndex]));
  }
  const oam=(video,index)=>video.slice(0x10850+index*5,0x10850+(index+1)*5);
  await nextStop('sprite_drawn');

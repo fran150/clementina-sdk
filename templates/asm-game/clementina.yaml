@@ -1,0 +1,23 @@
+format: clementina-project
+version: 1
+name: Assembly Starter
+target:
+  machine: clementina-6502
+program:
+  kind: assembly
+  entry: src/main.s
+assets:
+  palettes: []
+  paletteConfigs: []
+  tilesets: []
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  assembly:
+    linkerConfig: link.cfg
+    outputName: game
+    loadAddress: 6144
+    entrySymbol: game_start

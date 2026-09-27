@@ -48,6 +48,7 @@ test('source maps resolve exact lines and containing addresses without inventing
   ]);
   assert.equal(sourceMap.locationsForSource('src/main.s', 5).length, 0);
   assert.deepEqual(sourceMap.locationsForAddress(0x8001, 7).map(location => location.line), [4]);
+  assert.equal(sourceMap.locationsForAddress(0x8001, 0).length, 0);
   assert.equal(sourceMap.locationsForAddress(0x8001, 8).length, 0);
   assert.equal(sourceMap.locationsForAddress(0x8003).length, 0);
 });

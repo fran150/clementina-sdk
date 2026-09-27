@@ -1,7 +1,7 @@
 # Assembly builds
 
 `@clementina/assembler` is the reusable Node adapter for ca65 and ld65. It is the
-assembly foundation for CLI `build` and the future source debugger. It does
+assembly foundation for CLI `build` and the source debugger. It does
 not depend on Studio or the emulator.
 
 The caller supplies all placement decisions:
@@ -61,4 +61,6 @@ Portable project build declarations are documented in
 [the project format](project-format.md), and
 `@clementina/build` composes assembler and video outputs into the load plan used by
 CLI `build`. CLI `run` composes that output with the owned emulator process API.
-Shape and animation runtime files will wait for an explicit binary ABI.
+With `build.assets`, the Builder encodes shapes and animations into one sprite
+file per tileset, generates `assets.inc` and `assets.s`, and archives the 6502
+asset routines into `runtime.lib`. See [the Builder](gamedev/builder.md).

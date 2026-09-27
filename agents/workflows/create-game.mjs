@@ -10,16 +10,16 @@ import {startEmulatorProcess} from '@clementina/emulator-client/node';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const templateRoot = join(sdkRoot, 'templates/basic-game');
+const templates = {basic: join(sdkRoot, 'templates/basic-game'), assembly: join(sdkRoot, 'templates/asm-game')};
 const videoSpec = JSON.parse(await readFile(join(sdkRoot, 'specs/video.json'), 'utf8'));
 const overlay = videoSpec.regions.find(region => region.name === 'OV_NT');
 const usage = `Usage:
-  node agents/workflows/create-game.mjs init <new-directory> [--name <name>]
+  node agents/workflows/create-game.mjs init <new-directory> [--name <name>] [--kind basic|assembly]
   node agents/workflows/create-game.mjs check <project-directory> [--emulator <path>] [--renderer <path>]
 
 check validates assets and references, builds, launches the ROM, captures video
-state and CPU state, and runs checks/smoke.json when present. The renderer is the
-optional clementina-render command; it creates native 320x200 PNGs.
+state and CPU state, and runs checks/smoke.json or checks/code.json when present.
+The renderer is the optional clementina-render command; it creates native 320x200 PNGs.
 `;
 
 function options(args, names) {
@@ -33,13 +33,14 @@ function options(args, names) {
   return values;
 }
 
-export async function initGame(destination, name = 'Catch the Star') {
+export async function initGame(destination, name = 'Catch the Star', kind = 'basic') {
   const root = resolve(destination);
   if (typeof name !== 'string' || !name.trim() || name.length > 80) throw new Error('Project name must be 1..80 characters');
+  if (!templates[kind]) throw new Error('Project kind must be basic or assembly');
   try { await lstat(root); throw new Error(`Destination already exists: ${root}`); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   await mkdir(dirname(root), {recursive: true});
-  await cp(templateRoot, root, {recursive: true, errorOnExist: true, force: false});
+  await cp(templates[kind], root, {recursive: true, errorOnExist: true, force: false});
   const manifestPath = join(root, 'clementina.yaml');
   const document = parseDocument(await readFile(manifestPath, 'utf8'));
   document.set('name', name);
@@ -86,6 +87,24 @@ async function smokeConfig(root) {
   return config;
 }
 
+async function codeConfig(root) {
+  let raw;
+  try { raw = await readFile(await resolveProjectPath(root, 'checks/code.json'), 'utf8'); }
+  catch (error) { if (error.code === 'ENOENT') return undefined; throw error; }
+  const config = JSON.parse(raw);
+  if (!config || config.format !== 'clementina-code-check' || config.version !== 1
+    || !Number.isInteger(config.settleCycles) || config.settleCycles < 1 || config.settleCycles > 10_000_000
+    || !Array.isArray(config.memory) || config.memory.length < 1
+    || config.memory.some(item => !item || !Number.isInteger(item.address) || item.address < 0
+      || item.address > 65535 || !Array.isArray(item.bytes) || item.bytes.length < 1
+      || item.bytes.length > 256 || item.address + item.bytes.length > 65536
+      || item.bytes.some(byte => !Number.isInteger(byte) || byte < 0 || byte > 255)
+      || !['before', 'after'].includes(item.phase ?? 'before'))) {
+    throw new Error('checks/code.json needs format, version 1, settleCycles (1..10000000), and bounded memory expectations');
+  }
+  return config;
+}
+
 function render(renderer, video, output) {
   const result = spawnSync(renderer, [], {input: JSON.stringify(video), maxBuffer: 4 * 1024 * 1024});
   if (result.error || result.status !== 0 || result.stdout.subarray(1, 4).toString() !== 'PNG'
@@ -101,6 +120,8 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
   const project = requireResult(await loadProject(root), 'Project validation');
   const build = requireResult(await buildProject(root), 'Build');
   const smoke = await smokeConfig(root);
+  const code = await codeConfig(root);
+  if (code?.memory.some(item => item.phase === 'after') && !smoke) throw Error('After-input memory checks require checks/smoke.json');
   const output = await resolveProjectPath(root, `${project.manifest.build.outputDirectory}/inspection`);
   await mkdir(output, {recursive: true});
   const emulator = await (dependencies.startEmulatorProcess ?? startEmulatorProcess)({
@@ -109,12 +130,21 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
   });
   let report;
   try {
+    const memory = [];
+    const checkMemory = async phase => {
+      for (const item of code?.memory.filter(check => (check.phase ?? 'before') === phase) ?? []) {
+        const observed = await emulator.client.readMemory(item.address, item.bytes.length);
+        memory.push({phase, address: item.address, expected: item.bytes,
+          observed, found: item.bytes.every((byte, index) => observed[index] === byte)});
+      }
+    };
     // A palette load can still be completing after the ROM has echoed a command.
     // This is an automation processing budget, not a hardware timing constant.
     await emulator.client.launchLoadPlan(build.loadPlan, {inputCycles: 1_000_000});
     await emulator.client.pause();
-    const beforeState = await emulator.client.step(smoke?.settleCycles ?? 3_000_000);
+    const beforeState = await emulator.client.step(smoke?.settleCycles ?? code?.settleCycles ?? 3_000_000);
     const beforeVideo = await emulator.client.video();
+    await checkMemory('before');
     const before = capture(beforeState, beforeVideo);
     const paletteFile = build.files.find(file => file.kind === 'palette');
     const palette = paletteFile ? await readFile(await resolveProjectPath(root, paletteFile.path)) : undefined;
@@ -131,6 +161,7 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
       await emulator.client.input(Array.from(smoke.input, char => char.charCodeAt(0)));
       const afterState = await emulator.client.step(smoke.settleCycles);
       const afterVideo = await emulator.client.video();
+      await checkMemory('after');
       after = capture(afterState, afterVideo);
       await writeFile(join(output, 'after.video.bin'), Buffer.from(afterVideo));
       if (settings.renderer) await render(settings.renderer, afterVideo, join(output, 'after.png'));
@@ -147,6 +178,7 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
           afterText: {expected: smoke.afterText, found: visible(after.overlayRows).includes(smoke.afterText)},
           videoChanged: before.videoSha256 !== after.videoSha256,
         } : {}),
+        ...(code ? {memory} : {}),
       },
     };
     await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
@@ -154,7 +186,8 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
     await emulator.close();
   }
   if (report.checks.loadedPalette?.found === false
-    || smoke && (!report.checks.beforeText.found || !report.checks.afterText.found || !report.checks.videoChanged)) {
+    || smoke && (!report.checks.beforeText.found || !report.checks.afterText.found || !report.checks.videoChanged)
+    || report.checks.memory?.some(item => !item.found)) {
     throw new Error(`Smoke inspection failed; see ${join(output, 'report.json')}`);
   }
   return {output, report};
@@ -165,8 +198,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const [command, directory, ...rest] = process.argv.slice(2);
     if (!directory || !['init', 'check'].includes(command)) throw new Error(usage);
     if (command === 'init') {
-      const args = options(rest, ['--name']);
-      const root = await initGame(directory, args['--name']);
+      const args = options(rest, ['--name', '--kind']);
+      const kind = args['--kind'] ?? 'basic';
+      const root = await initGame(directory, args['--name'] ?? (kind === 'assembly' ? 'Assembly Starter' : 'Catch the Star'), kind);
       console.log(`Created ${root}`);
     } else {
       const args = options(rest, ['--emulator', '--renderer']);

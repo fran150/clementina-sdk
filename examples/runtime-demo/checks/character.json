@@ -1,0 +1,10 @@
+{
+  "format": "clementina-character-check",
+  "version": 1,
+  "animationId": "animation:Player_Idle",
+  "frameIndex": 0,
+  "oamStart": 0,
+  "originX": 40,
+  "originY": 40,
+  "videoPath": "build/inspection/debug.video.bin"
+}

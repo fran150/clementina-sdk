@@ -120,6 +120,8 @@ poll:
  Check 28
  LoadShape SPR_PLAYER, #SHAPE_PLAYER_IDLE, #$81BFFC
  Check 29
+ SetLayers #4               ; sprites alone for native character preview
+ SetChrBanks #2, #2, #2, #2, #2
  DrawShape SPR_PLAYER, #SHAPE_PLAYER_IDLE, #0, #40, #40
  Check 30
  LoadAnimation SPR_PLAYER, #ANIM_PLAYER_IDLE

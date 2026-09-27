@@ -193,10 +193,9 @@ They intentionally omit Studio session-only state:
 
 `@clementina/project` provides conversion helpers for Studio project version 2.
 
-## What Phase 2 does not define yet
+## Deferred format work
 
 Scene files (which combine backgrounds, shapes, and a bank config, and decide
-sprite-versus-background priority) and BASIC-project build composition remain
-later phases. The
-standalone BASIC tokenizer and file compiler are documented in
-[BASIC tooling](basic-tooling.md).
+sprite-versus-background priority) are not defined in portable format version 1.
+BASIC-project build composition is implemented; see
+[BASIC tooling](basic-tooling.md) and [program loading](program-loading.md).

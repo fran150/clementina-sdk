@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EmulatorClient} from '../packages/emulator-client/dist/index.js';
-import {ClementinaBasicDebugSession, ClementinaDebugSession, CLEMENTINA_CPU_FRAME_ID, CLEMENTINA_CPU_THREAD_ID} from '../packages/debug/dist/index.js';
+import {ClementinaBasicDebugSession, ClementinaDebugSession, CLEMENTINA_CPU_FRAME_ID, CLEMENTINA_CPU_THREAD_ID, decodeInstructions} from '../packages/debug/dist/index.js';
 import {createProjectDebugSession} from '../packages/debug/dist/node.js';
 import {basicRuntimeDebug} from '../packages/basic/dist/index.js';
 
@@ -19,15 +19,28 @@ const sourceMap=(entries,observedBanks=[])=>({
  },
 });
 
+test('65C02 disassembly decodes branches and stops at unreadable bytes',()=>{
+ assert.deepEqual(decodeInstructions(0x6000,[0x80,0xfe,0x0f,0x20,0xfb,0x03,null],4),[
+  {address:0x6000,bytes:[0x80,0xfe],text:'BRA $6000'},
+  {address:0x6002,bytes:[0x0f,0x20,0xfb],text:'BBR0 $20,$6000'},
+  {address:0x6005,bytes:[0x03],text:'.byte $03'},
+ ]);
+ assert.throws(()=>decodeInstructions(0x6000,[0xea],65),RangeError);
+});
+
 test('debug session replaces source breakpoints while preserving external and shared addresses',async()=>{
  const active=[0x7000];
+ const bankActive=[];
  const requests=[];
  const client=new EmulatorClient(async request=>{
   requests.push(request);
   if(request.method==='breakpoints')return {version:1,ok:true,result:[...active]};
+  if(request.method==='bankBreakpoints')return {version:1,ok:true,result:[...bankActive]};
+  if(request.method==='addBankBreakpoint'&&!bankActive.some(item=>item.address===request.address&&item.bank===request.bank))bankActive.push({address:request.address,bank:request.bank});
+  if(request.method==='removeBankBreakpoint')bankActive.splice(bankActive.findIndex(item=>item.address===request.address&&item.bank===request.bank),1);
   if(request.method==='addBreakpoint'&&!active.includes(request.address))active.push(request.address);
   if(request.method==='removeBreakpoint'&&active.includes(request.address))active.splice(active.indexOf(request.address),1);
-  return {version:1,ok:true,result:[...active]};
+  return {version:1,ok:true,result:request.method.includes('BankBreakpoint')?[...bankActive]:[...active]};
  });
  const map=sourceMap([
   {path:'src/main.s',line:10,address:0x6000,size:2},
@@ -39,17 +52,42 @@ test('debug session replaces source breakpoints while preserving external and sh
  const session=new ClementinaDebugSession(client,map,{bank:3});
  const first=await session.setSourceBreakpoints('src/main.s',[10,12,99]);
  assert.deepEqual(first,[
-  {path:'src/main.s',requestedLine:10,verified:true,line:10,addresses:[0x6000,0x6004]},
-  {path:'src/main.s',requestedLine:12,verified:true,line:12,addresses:[0x8000],message:'Breakpoint uses a logical CPU address and is not bank-selective'},
+  {path:'src/main.s',requestedLine:10,verified:true,line:10,addresses:[0x6000,0x6004],locations:[{address:0x6000},{address:0x6004}]},
+  {path:'src/main.s',requestedLine:12,verified:true,line:12,addresses:[0x8000],locations:[{address:0x8000,bank:3}]},
   {path:'src/main.s',requestedLine:99,verified:false,addresses:[],message:'No executable code at this line'},
  ]);
- assert.deepEqual(active,[0x7000,0x6000,0x6004,0x8000]);
+ assert.deepEqual(active,[0x7000,0x6000,0x6004]);
+ assert.deepEqual(bankActive,[{address:0x8000,bank:3}]);
 
  await session.setSourceBreakpoints('src/main.s',[11]);
  assert.deepEqual(active,[0x7000,0x6004]);
+ assert.deepEqual(bankActive,[]);
  await session.clearSourceBreakpoints();
  assert.deepEqual(active,[0x7000]);
- assert.deepEqual(requests.filter(request=>request.method==='removeBreakpoint').map(request=>request.address),[0x6000,0x8000,0x6004]);
+ assert.deepEqual(requests.filter(request=>request.method==='removeBreakpoint').map(request=>request.address),[0x6000,0x6004]);
+ assert.deepEqual(requests.filter(request=>request.method==='removeBankBreakpoint').map(request=>[request.address,request.bank]),[[0x8000,3]]);
+});
+
+test('source breakpoints at one logical address retain independent physical banks',async()=>{
+ const active=[];
+ const client=new EmulatorClient(async request=>{
+  if(request.method==='breakpoints')return {version:1,ok:true,result:[]};
+  if(request.method==='bankBreakpoints')return {version:1,ok:true,result:[...active]};
+  if(request.method==='addBankBreakpoint')active.push({address:request.address,bank:request.bank});
+  if(request.method==='removeBankBreakpoint')active.splice(active.findIndex(item=>item.address===request.address&&item.bank===request.bank),1);
+  return {version:1,ok:true,result:[...active]};
+ });
+ const session=new ClementinaDebugSession(client,sourceMap([
+  {path:'one.s',line:1,address:0x8000,size:1,bank:1},
+  {path:'two.s',line:1,address:0x8000,size:1,bank:2},
+ ]));
+ await session.setSourceBreakpoints('one.s',[1]);
+ await session.setSourceBreakpoints('two.s',[1]);
+ assert.deepEqual(active,[{address:0x8000,bank:1},{address:0x8000,bank:2}]);
+ await session.setSourceBreakpoints('one.s',[]);
+ assert.deepEqual(active,[{address:0x8000,bank:2}]);
+ await session.dispose();
+ assert.deepEqual(active,[]);
 });
 
 test('debug session exposes one source-aware CPU frame and raw registers',async()=>{
@@ -66,6 +104,34 @@ test('debug session exposes one source-aware CPU frame and raw registers',async(
  assert.equal(snapshot.frame.name,'main.s:8');
  assert.deepEqual(snapshot.registers,{pc:0x6000,a:1,x:2,y:3,sp:0xff,p:0x24,cycles:'12',miaPaused:false});
  assert.deepEqual(observedBanks,[3]);
+});
+
+test('debug session uses the stopped physical bank for source, disassembly, and verified callers',async()=>{
+ const requests=[];
+ const map=sourceMap([
+  {path:'bank1.s',line:3,address:0x8000,size:3,bank:1},
+  {path:'bank2.s',line:7,address:0x8000,size:3,bank:2},
+  {path:'main.s',line:10,address:0x6003,size:1},
+ ]);
+ const client=new EmulatorClient(async request=>{
+  requests.push(request);
+  let result;
+  if(request.method==='state')result=machineState({pc:0x8000,bank:2,sp:0xfd});
+  else if(request.method==='readMemory')result=[0x20,0x03,0x60,0xea,0xea,0xea].slice(0,request.count);
+  else if(request.method==='stackTrace')result={callers:[{pc:0x6003,bank:2,kind:'call'}],unknownCaller:true};
+  else throw new Error(request.method);
+  return {version:1,ok:true,result};
+ });
+ const session=new ClementinaDebugSession(client,map);
+ const snapshot=await session.snapshot();
+ assert.equal(snapshot.frame.source.path,'bank2.s');
+ assert.equal(snapshot.frame.bank,2);
+ assert.equal(snapshot.registers.bank,2);
+ assert.deepEqual(await session.disassemble(0x8000,1),[{address:0x8000,bytes:[0x20,0x03,0x60],text:'JSR $6003',bank:2,source:{path:'bank2.s',line:7}}]);
+ const stack=await session.stackTrace();
+ assert.deepEqual(stack.frames.map(frame=>frame.source?.path),['bank2.s','main.s']);
+ assert.equal(stack.unknownCaller,true);
+ assert.ok(requests.some(request=>request.method==='readMemory'&&request.bank===2));
 });
 
 test('debug session maps execution controls and source stepping without editor-specific transport',async()=>{

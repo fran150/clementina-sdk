@@ -17,6 +17,7 @@
     "optional": [
       "count",
       "address",
+      "bank",
       "data",
       "usagePage",
       "usageId",
@@ -42,7 +43,7 @@
       "result": "version, methods, maxCycles, maxRead"
     },
     "state": {
-      "result": "cycles (decimal string), pc, a, x, y, sp, p, paused (MIA execution pause), running, stopReason, instructionBoundary"
+      "result": "cycles (decimal string), pc, a, x, y, sp, p, paused (MIA execution pause), running, stopReason, instructionBoundary, bank (physical ExRAM bank selected by VIA PA0-PA4)"
     },
     "reset": {
       "result": "state",
@@ -60,7 +61,7 @@
         "address",
         "count"
       ],
-      "result": "array of CPU-mapped bytes; null for unsupported side-effect-free reads; no wrapping"
+      "result": "array of CPU-mapped bytes; null for unsupported side-effect-free reads; no wrapping. Optional bank 0..31 selects a physical ExRAM bank and requires the full read range within $8000-$BFFF"
     },
     "input": {
       "params": [
@@ -131,6 +132,24 @@
     },
     "clearBreakpoints": {
       "result": "empty array"
+    },
+    "addBankBreakpoint": {
+      "params": ["address", "bank"],
+      "result": "unique {address,bank} array in insertion order; address must be $8000-$BFFF and bank 0..31"
+    },
+    "removeBankBreakpoint": {
+      "params": ["address", "bank"],
+      "result": "remaining {address,bank} array"
+    },
+    "bankBreakpoints": {
+      "result": "{address,bank} array"
+    },
+    "clearBankBreakpoints": {
+      "result": "empty array"
+    },
+    "stackTrace": {
+      "result": "callers in innermost-first order with pc, bank, and kind (call or interrupt), plus unknownCaller boolean",
+      "behavior": "stop before inspecting; only executed JSR and interrupt entries with verified pushed PC words appear; return frames are removed by matching RTS/RTI; preserved stack bytes are rechecked; unknownCaller remains true because execution before tracing cannot be established"
     }
   },
   "policyLimits": {
@@ -158,7 +177,7 @@
       "mia-paused",
       "cpu-stopped"
     ],
-    "breakpoints": "logical CPU addresses in currently mapped memory; checked only before opcode fetch, not during interrupt/reset entry"
+    "breakpoints": "logical CPU breakpoints apply in any mapped bank; bank breakpoints compare the physical bank selected by VIA Port A. Both are checked only before opcode fetch, not during interrupt/reset entry"
   },
   "hardwareReferences": [
     "machine.json",

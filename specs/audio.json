@@ -31,8 +31,8 @@
     "durationBytes": 3,
     "opcodes": [
       {"id":0,"name":"END","payload":[],"durationConsuming":false,"effect":"stop decoding this voice's track"},
-      {"id":1,"name":"NOTE","payload":["freq_l","freq_h","dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"write FREQ_L/FREQ_H, gate on with phase reset, hold for dur samples, advance note_index"},
-      {"id":2,"name":"REST","payload":["dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"gate off, hold for dur samples, advance note_index"},
+      {"id":1,"name":"NOTE","payload":["freq_l","freq_h","dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"write FREQ_L/FREQ_H, gate on with phase reset, occupy dur + 1 samples in normal playback, advance note_index"},
+      {"id":2,"name":"REST","payload":["dur_l","dur_m","dur_h"],"durationConsuming":true,"effect":"gate off, occupy dur + 1 samples in normal playback, advance note_index"},
       {"id":3,"name":"SET_WAVE","payload":["waveform"],"durationConsuming":false,"effect":"write WAVEFORM"},
       {"id":4,"name":"SET_ADSR","payload":["attack_decay","sustain_release"],"durationConsuming":false,"effect":"write both envelope bytes"},
       {"id":5,"name":"SET_PAN","payload":["pan"],"durationConsuming":false,"effect":"write PAN"},

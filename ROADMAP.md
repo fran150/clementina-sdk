@@ -1,109 +1,82 @@
 # Clementina SDK roadmap
 
-## Phase 0 — scaffold
-**Complete.**
+This is the current phase status. **Delivered** means the planned working path
+exists; it does not imply that every possible extension or physical-hardware
+test is complete. The format and hardware contracts live in `specs/` and
+`docs/architecture/`, not in this status summary.
 
-## Phase 1 — canonical machine specification
-**Baseline complete.** Current baseline uses the `$04B7` ascending loader, audio indexes `$E6-$EF`, a 1.2 MHz default PHI2, and the documented MIA audio-sequencer ABI.
+| Phase | Scope | Status | Current result |
+| --- | --- | --- | --- |
+| 0 | Scaffold | Delivered | SDK workspaces, build, and tests. |
+| 1 | Machine specification | Delivered | Versioned developer specs and compatibility record, including the ascending `$04B7` loader and relocatable audio tracks. |
+| 2 | Portable projects and assets | Delivered | `clementina.yaml`, versioned schemas, asset validation, cross-reference checks, and Studio conversion. |
+| 3 | Shared packages | Delivered | Structured diagnostics, project filesystem APIs, schema/type conformance, asset resolution, and Studio validator migration. |
+| 4 | CLI | Delivered | Validation, doctor, BASIC compilation, project build, and owned-emulator run with stable diagnostics and exit codes. |
+| 5 | Emulator automation | Delivered | Serialized Go automation, held input, snapshots, execution control, load plans, source stepping, and an SDK client. |
+| 6 | Studio integration | Delivered | Portable project open/save, SDK validation, preserved asset paths and identities, and the Builder tab. |
+| 7 | Assembly and runtime | Delivered | ca65/ld65 builds, exact source maps, asset files and descriptors, SD output, and the 6502 runtime library. |
+| 8 | BASIC | Delivered | ROM-compatible compiler/inspector, portable build/run/debug, and a language server with navigation and editing tools. |
+| 9 | Agent workflows | Delivered | Executable BASIC and assembly game starters, coding checks, source-aware debugging, and portable character/OAM inspection, with emulator evidence. |
+| 10 | MCP | Delivered | A stdio server exposes shared validation, build, and owned-emulator tools with structured results. |
+| 11 | VS Code | Delivered | Thin DAP and BASIC language clients over the editor-neutral debug and language-server packages. |
+| 12 | Advanced debugging | Delivered | Bank-selective breakpoints, bounded 65C02 disassembly, and verified call and interrupt frames across the emulator, SDK, and editor clients. |
 
-The former audio-sequencer/SD MIA-RAM overlap is now resolved via relocatable
-sequencer tracks; see `docs/compatibility.md`.
+The [agent workflows](agents/workflows/create-game.md) cover game creation,
+coding, character inspection, and debugging through the SDK. The
+[MCP server](docs/mcp.md) provides these shared SDK operations to local MCP
+hosts. Both paths use the portable project format and emulator automation.
 
-## Phase 2 — portable project and asset formats
-**Baseline complete.**
+The normal assembly startup already uses BASIC: the generated `BOOT.BAS`
+loads assets and hands control to the assembly image through terminal `BLOAD`.
+`LOAD "BOOT.BAS"` then `RUN` works on the card and in the emulator. The reserved
+`program.kind: mixed` enum is rejected by validation and is not needed for
+this path. `SYS` remains available for a loaded routine that returns safely
+to BASIC. See [program loading](docs/program-loading.md).
 
-Implemented project manifest, versioned JSON schemas, TypeScript types/validators,
-cross-reference validation, Studio v2 conversion, examples, and tests.
+## Phase 12: advanced debugging
 
-## Phase 3 — shared core packages
-**Implemented, including Studio validator migration.**
+1. Define an emulator protocol for breakpoints that distinguish physical RAM
+   banks at the same logical CPU address. Carry bank identity through source
+   mapping and debugger stop reports, then test execution in two banks at one
+   logical address.
+2. Add bounded 65C02 disassembly from captured CPU memory and bank state, with
+   source locations where the build supplies them. Expose it through the shared
+   debugger and the editor adapter.
+3. Define which call and interrupt frames can be reconstructed reliably. Expose
+   verified frames through the shared debugger and editor adapter; report an
+   unknown caller when stack contents cannot establish one. Test nested calls,
+   returns, interrupts, and ambiguous stacks in the emulator.
 
-1. structured diagnostics instead of exception-only validation;
-2. filesystem project reader/writer;
-3. schema ↔ TypeScript conformance tests/code generation;
-4. stable asset-id/path resolver;
-5. migration/golden-fixture policy;
-6. migrate Studio to `@clementina/assets` and `@clementina/project`.
+Callers are reported only when observed execution and preserved stack bytes
+establish them. The debugger reports an unknown caller below the verified
+frames. Disassembly uses the physical bank selected at the stop, and source
+breakpoints at one logical address remain distinct across ExRAM banks.
 
-## Phase 4 — CLI
-**Build/run baseline implemented.** Validation commands, `doctor`, assembly `build`,
-and owned headless-emulator `run` use shared APIs with JSON diagnostics and stable
-exit codes.
+## Defined limits and follow-up work
 
-## Phase 5 — emulator automation
-**Headless baseline implemented.** Serialized Go automation, bounded cycle stepping,
-inspection, console-byte input, video snapshots, and `@clementina/emulator-client`.
-Run/pause/resume, bounded instruction stepping and pre-opcode address breakpoints
-are implemented through the same serialized machine owner.
-Exact ld65 source-line/address maps and source-breakpoint translation reuse those
-address breakpoints. Bounded source-line stepping and JSR step-over reuse serialized
-instruction stepping. Physical bank-selective breakpoints remain pending.
-The existing Go video compositor is exposed for headless PNG rendering. See
-`docs/emulator-automation.md` for verification and pending debugger capabilities.
-The program-loading increment adds validated PRG packing, ordered MIA/CPU load plans,
-generated BASIC bootstrap source, SD-root mounting, and real-ROM emulator launch.
-The Node lifecycle entry point owns the Go process and powers CLI `run`.
+- Legacy logical CPU breakpoints still match every mapped bank by design;
+  source breakpoints with bank metadata use physical bank selection. See
+  [debugger integration](docs/debugger.md).
+- The [asset runtime](docs/gamedev/builder.md) and
+  [runtime demo](examples/runtime-demo/) have emulator integration coverage.
+  No physical Pico runtime test or audio signal capture is recorded here.
+  Emulator register snapshots validate programmed audio state, not the PWM
+  signal produced by a physical board.
+- MIA's sequencer guide still says NOTE and REST hold for `dur` samples.
+  Firmware and emulator normal playback occupy `dur + 1` samples because
+  decoding applies the event before later samples decrement its countdown.
+  The SDK song compiler writes the requested duration minus one. Reconcile
+  that upstream prose with the implementation before changing event timing.
+- ROM `TRACK` emits adjacent notes without a gate-off, so they do not
+  retrigger the envelope as the SDK song compiler's non-legato notes do. The
+  sequencer has no instantaneous frequency-only opcode for smooth pitch slides.
+- CPU placement and linker configuration stay explicit project inputs by
+  design. The Builder generates asset includes, descriptors, an SD card folder,
+  and `runtime.lib`; it does not choose a game's memory map.
+- Scene files are not part of portable format version 1. Define their ownership
+  and validation rules before adding them; see [project format](docs/project-format.md).
 
-## Phase 6 — Studio integration completion
-**Portable open/save and validator migration implemented.** Studio opens
-portable projects with SDK loading and conversion, retains animation identities
-and asset paths when saving, and uses the SDK project writer. Studio v2 session
-validation now delegates to `@clementina/project`; its legacy optional fields
-and identity rules are preserved at that boundary.
-
-## Phase 7 — assembly
-**Build baseline implemented.** The Node ca65/ld65 adapter accepts explicit source
-order and linker placement, emits PRG/debug/map/label artifacts, verifies linked
-segment placement, and parses source symbols. Portable manifests can declare
-assembly and explicit palette/CHR placement; the shared project composer and CLI
-`build` emit the load plan and BASIC bootstrap. Generated includes, linker configs,
-and runtime support remain pending. ld65 span parsing, bidirectional source maps, and
-exact source breakpoints and source stepping are implemented.
-
-## Phase 8 — BASIC
-**Tokenizer/file baseline and portable-project build/run composition implemented.**
-`@clementina/basic` mirrors the current ROM's primary and extension token tables,
-lexical behavior, numbered-source limits, raw SAVE/LOAD records, optional absolute
-links, style-sidecar inspection, and canonical detokenization. CLI `basic compile`
-writes relocatable files whose links are rebuilt by ROM `LOAD`.
-
-A `program.kind: basic` manifest can now declare `build.basic`; `@clementina/build`
-compiles the entry source and emits a load plan whose terminal step is the compiled
-program, discriminated from the assembly build result. CLI `build`/`run` use the
-same contract as assembly projects. The load plan's direct-launch mode (as opposed
-to a numbered bootstrap) issues MIA/CPU setup as direct BASIC commands, then `LOAD`
-and `RUN`. `program.kind: mixed` composition remains explicitly rejected until its
-rules are defined. BASIC projects now have source debugging through the ROM's
-statement-dispatch hook and current-line variable; assembly projects continue to
-use exact ld65 address maps.
-
-`@clementina/basic-lsp` now provides whole-document diagnostics (numbered-line
-format/length/range, program-size overflow, structural expression checks, known
-function arity, and missing static line targets), hover, contextual keyword and
-variable completion, line-number navigation, document symbols, references, rename,
-function and statement signatures, semantic tokens, canonical LIST-style formatting,
-and reference-aware renumbering. Its shared tokenizer exposes source spans so the
-language service follows the ROM's lexical behavior rather than maintaining a
-second tokenizer.
-
-## Phase 9 — agent workflows
-**First end-to-end path implemented.** The vendor-neutral BASIC create-game
-workflow initializes a portable project with assets, validates and builds it,
-launches it in the emulator, and checks its input response against CPU/video
-inspection artifacts. Asset, code, and debug workflows remain outlines.
-
-## Phase 10 — MCP
-Structured agent tools.
-
-## Phase 11 — VS Code
-**Extension and BASIC source support implemented.** `@clementina/debug`
-provides editor-neutral thread/frame/register views, source breakpoint ownership,
-execution controls, source stepping, stop polling, and Node build/process/launch
-composition. `@clementina/debug-adapter` is a standalone stdio DAP server
-translating that layer's capabilities one-to-one (launch, source breakpoints,
-continue/pause/step, a single stack frame, registers, and BASIC variables/evaluation) —
-no debugging logic of its own. The `clementina` VS Code extension is a thin
-client registering that adapter plus `@clementina/basic-lsp`'s language server and
-TextMate grammar for `.bas` files; see `docs/vscode-extension.md`. Disassembly,
-stack unwinding, and physical bank-selective breakpoints remain pending for the
-assembly debugger.
+For implementation details, use [shared packages](docs/shared-packages.md),
+[CLI](docs/cli.md), [assembly](docs/assembly.md),
+[BASIC tooling](docs/basic-tooling.md), and
+[VS Code integration](docs/vscode-extension.md).

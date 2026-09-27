@@ -33,8 +33,9 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
 - Launch (build the project and start an owned emulator via
   `createProjectDebugSession`), source breakpoints, continue/pause,
   step-in/step-over.
-- A single stack frame and a read-only **Registers** scope
-  (PC/A/X/Y/SP/P/cycles/MIA-paused) sourced directly from `DebugRegisters`.
+- Verified stack frames for assembly projects, with an explicit unknown caller
+  boundary, and a read-only **Registers** scope
+  (PC/bank/A/X/Y/SP/P/cycles/MIA-paused) sourced directly from `DebugRegisters`.
 - Assembly projects use ld65 source maps. BASIC projects use the ROM statement
   boundary and current-line state for source breakpoints and line stepping, plus a
   **BASIC Variables** scope and simple-variable hover/watch evaluation.
@@ -59,11 +60,12 @@ Launch configuration:
 `clementina-automation` on `PATH` and an automatic loopback port — the same
 defaults as CLI `run` (see [the CLI](cli.md)).
 
-## What's deferred
-
-Disassembly view, stack unwinding, physical bank-selective breakpoints, and richer
-evaluation of arbitrary BASIC expressions require separate verified contracts in
-`@clementina/debug`; see [editor debugger integration](debugger.md).
+Assembly debugging also provides physical bank-selective source breakpoints,
+bounded disassembly, and verified JSR/interrupt stack frames. An explicit
+“Unknown caller” frame marks the limit of observed execution. Reverse
+disassembly is unavailable because instruction boundaries before a given PC
+cannot always be established. Arbitrary BASIC expression evaluation remains
+outside this phase; see [editor debugger integration](debugger.md).
 
 ## Trying it
 

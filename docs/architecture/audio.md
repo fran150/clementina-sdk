@@ -29,9 +29,12 @@ The 32 video direct-OAM descriptors remain contiguous at `$C0-$DF`.
 
 Each voice has a compact event stream played by MIA inside the audio engine.
 Durations are 24-bit little-endian 24 kHz sample counts, resolved before playback.
-The public event-stream contract, including the full opcode table, is documented
-in the MIA repository (`docs/audio-sequencer.md`); `specs/audio.json`'s
-`sequencer` block mirrors it for tooling.
+In normal playback, a NOTE or REST occupies its encoded duration plus one sample:
+the event is applied on the decode sample, then its countdown is decremented on
+later samples. The SDK song compiler writes the desired sample count minus one.
+The opcode layout is documented in the MIA repository (`docs/audio-sequencer.md`);
+`specs/audio.json` records the current SDK tooling contract. The MIA guide's
+duration prose still says `dur` samples and needs reconciliation with playback.
 
 A track has no declared length and no header: it is opcode bytes at a
 per-voice `track_base`, decoded live until an `END`, an unrecognized opcode,

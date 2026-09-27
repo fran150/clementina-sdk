@@ -1,2 +1,1 @@
-/** @clementina/mcp — implementation begins in a later roadmap phase. */
-export {};
+export {createClementinaMcpServer} from './server.js';

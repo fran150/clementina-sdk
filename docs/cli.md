@@ -51,11 +51,13 @@ result include `sdRoot`.
 
 `doctor` checks the Node runtime requirement. It does not yet probe emulator or
 assembler capabilities. `build`/`run` support a `program.kind: assembly` project
-(`build.assembly`, requires ca65 and ld65; asset builds also require ar65) or a `program.kind: basic` project
-(`build.basic`, compiled through `@clementina/basic`); `mixed` composition is not
-defined yet and is rejected during project validation. `--json` `data` distinguishes
-the two with `kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by
-the source debugger; see [the debugger](debugger.md).
+(`build.assembly`, requires ca65 and ld65; asset builds also require ar65) or
+a `program.kind: basic` project (`build.basic`, compiled through
+`@clementina/basic`). Assembly builds already generate a BASIC loader, so this
+startup does not require `program.kind: mixed`; the reserved `mixed` enum is
+rejected during project validation. `--json` `data` distinguishes the two with
+`kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by the source
+debugger; see [the debugger](debugger.md).
 
 A reusable headless emulator client is now available; see
 [emulator automation](emulator-automation.md). CLI `build` uses the shared project

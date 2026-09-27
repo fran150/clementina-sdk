@@ -11,10 +11,11 @@ result; existing `validate*` APIs throw `ValidationError` for compatibility.
 Semantic validation adds composition bounds, uniqueness, and cross-asset references.
 Reference checking follows successful structural validation to avoid cascading errors.
 IDs are case-sensitive and scoped by asset kind; names are unique ignoring case.
-The package also emits the specified runtime bytes for an individual RGB565 palette,
-a resolved 16-bank palette configuration, and a planar 6 KiB CHR tileset. CHR bank
-addresses require an explicit bank number. Shape and animation files remain authoring
-contracts because no runtime binary ABI for them has been specified.
+The package emits runtime bytes for an individual RGB565 palette, a resolved
+16-bank palette configuration, a planar 6 KiB CHR tileset, backgrounds,
+overlays, sprite files, songs, and sounds. CHR bank addresses require an
+explicit bank number. The sprite file groups a tileset's shapes and animations;
+see [the Builder](gamedev/builder.md) for its binary layout.
 
 `@clementina/project` is browser-compatible and exports manifest validation,
 `checkProject`, `createAssetResolver`, and Studio v2 conversion. Resolver entries
@@ -110,9 +111,10 @@ assembler package. The adapter deliberately does not select addresses or generat
 a linker map on the caller's behalf.
 
 `@clementina/debug` is the editor-neutral orchestration layer. It presents one CPU
-thread/frame, register snapshots, replacement-style source breakpoint ownership,
-execution controls, source stepping, memory reads, bounded stop polling, and
-cleanup. Its browser-compatible entry accepts structural emulator/source-map APIs.
+thread, register snapshots, bank-selective source breakpoint ownership,
+execution controls, source stepping, bounded disassembly, verified call and
+interrupt frames, memory reads, bounded stop polling, and cleanup. Its
+browser-compatible entry accepts structural emulator/source-map APIs.
 `@clementina/debug/node` builds a project, owns the emulator process, prepares an
 ld65 assembly session or ROM-hook BASIC session, and leaves execution stopped so
 an editor can configure breakpoints before launching the load plan. See
@@ -137,14 +139,22 @@ client registering both: a `DebugAdapterDescriptorFactory` spawning
 `clementina-basic-lsp` for `.bas` files, plus BASIC syntax coloring and configurable
 renumbering. See [the VS Code extension](vscode-extension.md).
 
-`@clementina/build` loads and validates a portable project, emits only explicitly
-selected palette and CHR placements, then writes a validated load plan. Its result
+`@clementina/build` loads and validates a portable project, emits explicitly
+selected asset placements, and writes a validated load plan. With
+`build.assets`, it also writes asset files, generated includes and descriptors,
+a memory report, an SD card folder, and `runtime.lib`. Its result
 is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates
 to `@clementina/assembler` and also writes a generated numbered BASIC bootstrap;
 a BASIC project (`build.basic`) compiles `program.entry` through `@clementina/basic`
 and produces a load plan whose terminal step is the compiled program itself (no
 bootstrap file, since the emulator client launches it with direct ROM commands —
-see [program loading](program-loading.md)). `program.kind: mixed` is rejected during
-project validation; its composition rules are not defined yet. This is the API used
-by CLI `build`/`run`; other consumers should call it instead of reproducing the
-artifact ordering or filenames.
+see [program loading](program-loading.md)). The assembly build's generated BASIC
+bootstrap covers the normal BASIC-to-assembly startup. `program.kind: mixed` is a
+reserved enum rejected during project validation and is not needed for that path.
+This is the API used by CLI `build`/`run`; other consumers should call it instead
+of reproducing the artifact ordering or filenames.
+
+`@clementina/mcp` is a stdio server that exposes project and asset validation,
+project builds, and an owned emulator session as structured MCP tools. It calls
+the shared packages above for all project, build, and machine operations. See
+[MCP server](mcp.md) for its tool list and host setup.

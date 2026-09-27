@@ -16,7 +16,6 @@ import {createProjectDebugSession, type ProjectDebugRuntime} from '@clementina/d
 import type {DebugSnapshot} from '@clementina/debug';
 
 const THREAD_ID = 1;
-const FRAME_ID = 1;
 const REGISTERS_SCOPE_REF = 1;
 const BASIC_VARIABLES_SCOPE_REF = 2;
 
@@ -60,6 +59,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     response.body = response.body ?? {};
     response.body.supportsConfigurationDoneRequest = true;
     response.body.supportsEvaluateForHovers = true;
+    response.body.supportsDisassembleRequest = true;
     this.sendResponse(response);
     this.sendEvent(new InitializedEvent());
   }
@@ -137,9 +137,41 @@ export class ClementinaDebugAdapter extends DebugSession {
   protected override stackTraceRequest(response: DebugProtocol.StackTraceResponse): Promise<void> {
     return this.guard(response, async () => {
       const snapshot = await this.currentSnapshot();
-      const frame = snapshot.frame;
-      const source = frame.source ? new Source(basename(frame.source.path), frame.source.path) : undefined;
-      response.body = {stackFrames: [new StackFrame(FRAME_ID, frame.name, source, frame.source?.line ?? 0)], totalFrames: 1};
+      const runtime = await this.ready();
+      const stack = runtime && 'stackTrace' in runtime.session ? await runtime.session.stackTrace() : {frames: [snapshot.frame], unknownCaller: false};
+      const frames = stack.frames.map(frame => {
+        const source = frame.source ? new Source(basename(frame.source.path), frame.source.path) : undefined;
+        const item = new StackFrame(frame.id, frame.name, source, frame.source?.line ?? 0);
+        item.instructionPointerReference = `0x${frame.instructionPointer.toString(16).toUpperCase()}${frame.bank !== undefined && frame.instructionPointer >= 0x8000 && frame.instructionPointer < 0xc000 ? `@${frame.bank}` : ''}`;
+        return item;
+      });
+      if (stack.unknownCaller) frames.push(new StackFrame(frames.length + 1, 'Unknown caller (unverified stack)', undefined, 0));
+      response.body = {stackFrames: frames, totalFrames: frames.length};
+      this.sendResponse(response);
+    });
+  }
+
+  protected override disassembleRequest(response: DebugProtocol.DisassembleResponse, args: DebugProtocol.DisassembleArguments): Promise<void> {
+    return this.guard(response, async () => {
+      const runtime = await this.ready();
+      if (!runtime || !('disassemble' in runtime.session)) throw new Error('Assembly debug session required for disassembly');
+      const match = /^(?:0x)?([0-9a-fA-F]{1,4})(?:@([0-9]|[12][0-9]|3[01]))?$/.exec(args.memoryReference);
+      if (!match) throw new Error('Expected a hexadecimal CPU memory reference');
+      const address = Number.parseInt(match[1], 16) + (args.offset ?? 0);
+      const skip = args.instructionOffset ?? 0;
+      if (!Number.isInteger(address) || address < 0 || address > 0xffff || !Number.isInteger(skip) || skip < 0
+        || !Number.isInteger(args.instructionCount) || args.instructionCount < 1 || args.instructionCount + skip > 64) {
+        throw new RangeError('Disassembly supports 1..64 forward instructions within CPU memory');
+      }
+      const decoded = (await runtime.session.disassemble(address, args.instructionCount + skip, match[2] === undefined ? undefined : Number(match[2]))).slice(skip);
+      const instructions: DebugProtocol.DisassembledInstruction[] = decoded.map(item => ({
+        address: `0x${item.address.toString(16).toUpperCase().padStart(4, '0')}`,
+        instructionBytes: item.bytes.map(byte => byte.toString(16).toUpperCase().padStart(2, '0')).join(' '),
+        instruction: item.text,
+        ...(item.source ? {location: new Source(basename(item.source.path), item.source.path), line: item.source.line} : {}),
+      }));
+      while (instructions.length < args.instructionCount) instructions.push({address: `0x${Math.min(0xffff, address + instructions.length).toString(16).toUpperCase().padStart(4, '0')}`, instruction: 'Unavailable', presentationHint: 'invalid'});
+      response.body = {instructions};
       this.sendResponse(response);
     });
   }
@@ -169,6 +201,7 @@ export class ClementinaDebugAdapter extends DebugSession {
       response.body = {
         variables: [
           new Variable('PC', hex(r.pc, 4)),
+          ...(r.bank === undefined ? [] : [new Variable('Bank', String(r.bank))]),
           new Variable('A', hex(r.a)),
           new Variable('X', hex(r.x)),
           new Variable('Y', hex(r.y)),

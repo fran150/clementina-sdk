@@ -1,0 +1,6 @@
+{
+  "format": "clementina-code-check",
+  "version": 1,
+  "settleCycles": 500000,
+  "memory": [{"address": 512, "bytes": [42]}]
+}

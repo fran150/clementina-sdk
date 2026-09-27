@@ -34,3 +34,22 @@ test('BASIC game workflow creates a buildable portable project and checks asset 
     await rm(temporary, {recursive: true, force: true});
   }
 });
+
+test('assembly game workflow creates a buildable portable project with an explicit linker map', async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'clementina-create-assembly-'));
+  const projectRoot = join(temporary, 'game');
+  try {
+    await initGame(projectRoot, 'Assembly Workflow Test', 'assembly');
+    const loaded = await loadProject(projectRoot);
+    assert.equal(loaded.ok, true, JSON.stringify(loaded.diagnostics));
+    assert.equal(loaded.value.manifest.name, 'Assembly Workflow Test');
+    assert.equal(loaded.value.manifest.program.kind, 'assembly');
+    const built = await buildProject(projectRoot);
+    assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+    assert.equal(built.value.kind, 'assembly');
+    assert.ok((await readFile(join(projectRoot, 'build/load-plan.json'))).length > 0);
+    assert.equal(JSON.parse(await readFile(join(projectRoot, 'checks/code.json'), 'utf8')).memory[0].bytes[0], 42);
+  } finally {
+    await rm(temporary, {recursive: true, force: true});
+  }
+});

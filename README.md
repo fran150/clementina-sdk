@@ -4,34 +4,17 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 
 ## Status
 
-- **Phase 1:** machine/developer specification baseline complete
-- **Phase 2:** portable project + asset format baseline complete
-- **Phase 3:** shared diagnostics, filesystem APIs, resolution, conformance and initial Studio integration implemented
+The planned paths for phases 0–12 are delivered. See the [roadmap](ROADMAP.md)
+for scope and defined limits.
 
-- **Phase 4:** validation CLI implemented
-- **Phase 5:** headless emulator automation, owned Node process lifecycle, and
-  ld65-backed source breakpoints/stepping;
-  see `docs/emulator-automation.md`
-- **Phase 7:** ca65/ld65, explicit palette/CHR composition, and CLI build baseline;
-  see `docs/assembly.md`
-- **Phase 8:** ROM-compatible BASIC tokenizer, SAVE/LOAD file compiler, inspector,
-  detokenizer, CLI output, portable-project build/run composition, and a baseline
-  language server; see `docs/basic-tooling.md`, `docs/program-loading.md`, and
-  `docs/basic-lsp.md`
-- **Phase 9:** first complete, vendor-neutral BASIC game creation workflow;
-  see `agents/workflows/create-game.md`
-- **Phase 11:** editor-neutral debug session and Node project-debug composition
-  (assembly projects only; see `docs/debugger.md`), plus a baseline VS Code
-  extension (DAP debugging + BASIC language client); see `docs/vscode-extension.md`
+The SDK provides portable `clementina.yaml` projects and versioned assets;
+validation and build APIs; assembly and BASIC tooling; a 6502 asset runtime;
+headless emulator automation; and editor-neutral debugging. Studio uses the
+SDK for portable projects and its Builder tab. Assembly and BASIC projects
+share the [load-plan contract](docs/program-loading.md). Assembly builds use a
+generated BASIC bootstrap to load assets and start machine code.
 
-Assembly and BASIC projects use the portable load-plan contract described in
-`docs/program-loading.md`. `program.kind: mixed` composition is not defined yet.
-
-See `docs/shared-packages.md` for package APIs and versioning policy.
-
-Phase 2 defines `clementina.yaml` and portable versioned assets for palettes,
-palette-bank configs, tilesets, shapes, and animations. The contracts are derived
-from Clementina Studio's actual current model and validators.
+See [shared packages](docs/shared-packages.md) for APIs and versioning.
 
 Start with:
 
@@ -41,7 +24,9 @@ Start with:
 4. `specs/schema/`
 5. `ROADMAP.md`
 
-To create and inspect a game end to end, follow `agents/workflows/create-game.md`.
+To create and inspect a game end to end, follow the
+[agent workflows](agents/workflows/create-game.md). For structured tools in an
+MCP host, see the [MCP server](docs/mcp.md).
 
 Run:
 
@@ -50,4 +35,4 @@ npm install
 npm test
 ```
 
-Initial CLI: `npx clementina --help` after building. See `docs/cli.md`.
+CLI: `npx clementina --help` after building. See [CLI usage](docs/cli.md).

@@ -83,20 +83,23 @@ test('execution controls preserve stop details and validate breakpoint replies',
 test('source breakpoints resolve exact emitted spans through the address API',async()=>{
  const requests=[];
  const active=[];
+ const bankActive=[];
  const client=new EmulatorClient(async request=>{
   requests.push(request);
+  if(request.method==='addBankBreakpoint'&&!bankActive.some(item=>item.address===request.address&&item.bank===request.bank))bankActive.push({address:request.address,bank:request.bank});
+  if(request.method==='removeBankBreakpoint')bankActive.splice(bankActive.findIndex(item=>item.address===request.address&&item.bank===request.bank),1);
   if(request.method==='addBreakpoint'&&!active.includes(request.address))active.push(request.address);
   if(request.method==='removeBreakpoint')active.splice(active.indexOf(request.address),active.includes(request.address)?1:0);
-  return {version:1,ok:true,result:[...active]};
+  return {version:1,ok:true,result:request.method.includes('BankBreakpoint')?[...bankActive]:[...active]};
  });
  const sourceMap={locationsForSource:(path,line)=>path==='src/main.s'&&line===8?[
   {address:0x8000,bank:3},{address:0x8004,bank:3},{address:0x8000,bank:3},
  ]:[]};
  assert.deepEqual(await client.addSourceBreakpoint(sourceMap,'src/main.s',8),{
-  path:'src/main.s',line:8,addresses:[0x8000,0x8004],banked:true,breakpoints:[0x8000,0x8004],
+  path:'src/main.s',line:8,addresses:[0x8000,0x8004],locations:[{address:0x8000,bank:3},{address:0x8004,bank:3}],banked:true,breakpoints:[],bankBreakpoints:[{address:0x8000,bank:3},{address:0x8004,bank:3}],
  });
  assert.deepEqual(requests.map(({method,address})=>({method,address})),[
-  {method:'addBreakpoint',address:0x8000},{method:'addBreakpoint',address:0x8004},
+  {method:'addBankBreakpoint',address:0x8000},{method:'addBankBreakpoint',address:0x8004},
  ]);
  assert.deepEqual((await client.removeSourceBreakpoint(sourceMap,'src/main.s',8)).breakpoints,[]);
  await assert.rejects(client.addSourceBreakpoint(sourceMap,'src/main.s',9),/No executable code/);
