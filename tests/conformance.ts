@@ -1,6 +1,6 @@
 import type {FromSchema} from 'json-schema-to-ts';
 import {schemas} from '../packages/core/src/schemas.js';
-import type {PaletteAsset, PaletteConfigAsset, TilesetAsset, BackgroundAsset, OverlayAsset, ShapeAsset, AnimationAsset} from '@clementina/assets';
+import type {PaletteAsset, PaletteConfigAsset, TilesetAsset, BackgroundAsset, OverlayAsset, ShapeAsset, AnimationAsset, InstrumentAsset, SoundAsset, SongAsset} from '@clementina/assets';
 import type {ClementinaProjectManifest} from '@clementina/project';
 import type {LoadPlan} from '@clementina/basic';
 // Both directions must remain assignable. Numeric/string bounds are runtime rules.
@@ -13,5 +13,8 @@ type Background = Assert<Both<BackgroundAsset, FromSchema<typeof schemas.backgro
 type Overlay = Assert<Both<OverlayAsset, FromSchema<typeof schemas.overlay>>>;
 type Shape = Assert<Both<ShapeAsset, FromSchema<typeof schemas.shape>>>;
 type Animation = Assert<Both<AnimationAsset, FromSchema<typeof schemas.animation>>>;
+type Instrument = Assert<Both<InstrumentAsset, FromSchema<typeof schemas.instrument>>>;
+type Sound = Assert<Both<SoundAsset, FromSchema<typeof schemas.sound>>>;
+type Song = Assert<Both<SongAsset, FromSchema<typeof schemas.song>>>;
 type Project = Assert<Both<ClementinaProjectManifest, FromSchema<typeof schemas.project>>>;
 type Loading = Assert<Both<LoadPlan, FromSchema<typeof schemas['load-plan']>>>;

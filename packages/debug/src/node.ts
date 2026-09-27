@@ -1,4 +1,5 @@
 import {readFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
 import {createAssemblySourceMap} from '@clementina/assembler';
 import {buildProject, type ProjectBuildResult} from '@clementina/build';
 import {diagnostic, result, type ValidationResult} from '@clementina/core';
@@ -48,7 +49,7 @@ export async function createProjectDebugSession(
   try {
     process = await (dependencies.startProcess ?? startEmulatorProcess)({
       ...processOptions,
-      sdRoot: projectRoot,
+      sdRoot: resolve(projectRoot, build.value.sdRoot),
     });
   } catch (error) {
     return result(undefined, [diagnostic('debug.emulator-startup', '', error instanceof Error ? error.message : String(error))]);

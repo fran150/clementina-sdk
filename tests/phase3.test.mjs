@@ -78,6 +78,14 @@ test('golden Studio conversion preserves portable content and excludes session s
   assert.deepEqual(fromStudioProjectV2(toStudioProjectV2(expected)),expected);
 });
 
+test('Studio conversion preserves an imported animation identity after renaming', async () => {
+  const portable=JSON.parse(await readFile(new URL('fixtures/portable-v1.json',import.meta.url),'utf8'));
+  const studio=toStudioProjectV2(portable);
+  assert.equal(studio.animations[0].id,portable.animations[0].id);
+  studio.animations[0].name='Renamed';
+  assert.equal(fromStudioProjectV2(studio).animations[0].id,portable.animations[0].id);
+});
+
 test('unknown versions and schema drift cases are rejected', async t => {
   const loaded=await loadProject(await example(t));
   for(const assets of Object.values(loaded.value.assets)) for(const asset of assets) {

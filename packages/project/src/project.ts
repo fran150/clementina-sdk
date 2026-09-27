@@ -1,8 +1,11 @@
 import {assetKinds, checkAssetSet, type AssetKind, type PortableAsset, type PortableAssetSet} from '@clementina/assets';
 import {assertValid, diagnostic, result, type ValidationResult} from '@clementina/core';
 import {checkProjectManifest} from './validate.js';
-import type {ClementinaProjectManifest} from './types.js';
+import {assetPaths, type ClementinaProjectManifest, type ProjectAssetBuildKind} from './types.js';
 export interface PortableProject { manifest: ClementinaProjectManifest; assets: PortableAssetSet }
+/** The asset list each kind of build entry names; a sprite file is named by its tileset. */
+const includeKinds: Record<ProjectAssetBuildKind, AssetKind> = {paletteConfig: 'paletteConfigs', tileset: 'tilesets', background: 'backgrounds', overlay: 'overlays', sprites: 'tilesets', song: 'songs', sound: 'sounds'};
+const includeNames: Record<ProjectAssetBuildKind, string> = {paletteConfig: 'palette configuration', tileset: 'tileset', background: 'background', overlay: 'overlay', sprites: 'tileset', song: 'song', sound: 'sound'};
 export function checkProject(value: PortableProject): ValidationResult<PortableProject> {
   const m = checkProjectManifest(value.manifest), a = checkAssetSet(value.assets);
   const diagnostics = [...m.diagnostics, ...a.diagnostics];
@@ -12,21 +15,27 @@ export function checkProject(value: PortableProject): ValidationResult<PortableP
       if ('assembly' in m.value.build && m.value.build.assembly) sources.add(m.value.build.assembly.linkerConfig);
       const output = m.value.build.outputDirectory;
       const includes = 'assembly' in m.value.build && m.value.build.assembly ? m.value.build.assembly.includeDirectories ?? [] : [];
-      const buildInputs = [...sources, ...includes, ...assetKinds.flatMap(kind => m.value.assets[kind])];
+      const buildInputs = [...sources, ...includes, ...assetKinds.flatMap(kind => assetPaths(m.value, kind))];
       for (const path of buildInputs) if (path === output || path.startsWith(output + '/')) diagnostics.push(diagnostic('project.build.output-collision', '/build/outputDirectory', `Build output contains project input: ${path}`));
       const paletteConfigId = m.value.build.video?.paletteConfigId;
       if (paletteConfigId && !a.value.paletteConfigs.some(asset => asset.id === paletteConfigId)) diagnostics.push(diagnostic('project.build.palette-config', '/build/video/paletteConfigId', `Unknown palette configuration ${paletteConfigId}`));
       m.value.build.video?.tilesets?.forEach((placement, index) => {
         if (!a.value.tilesets.some(asset => asset.id === placement.tilesetId)) diagnostics.push(diagnostic('project.build.tileset', `/build/video/tilesets/${index}/tilesetId`, `Unknown tileset ${placement.tilesetId}`));
       });
+      m.value.build.assets?.include.forEach((entry, index) => {
+        const path = `/build/assets/include/${index}/id`;
+        const list: ReadonlyArray<{id: string}> = a.value[includeKinds[entry.kind]];
+        if (!list.some(asset => asset.id === entry.id)) diagnostics.push(diagnostic('project.build.include.id', path, `Unknown ${includeNames[entry.kind]} ${entry.id}`));
+        else if (entry.kind === 'sprites' && !a.value.shapes.some(shape => shape.tilesetId === entry.id)) diagnostics.push(diagnostic('project.build.include.sprites', path, `No shape uses tileset ${entry.id}, so it has no sprite file`));
+      });
     }
-    const destinations = [...sources, ...assetKinds.flatMap(kind => m.value.assets[kind])];
+    const destinations = [...sources, ...assetKinds.flatMap(kind => assetPaths(m.value, kind))];
     for (const path of destinations) {
       if (destinations.some(other => other !== path && other.startsWith(path + "/"))) diagnostics.push(diagnostic("project.path.collision", "/assets", `A file is also used as a directory: ${path}`));
     }
     for (const kind of assetKinds) {
-      if (m.value.assets[kind].length !== a.value[kind].length) diagnostics.push(diagnostic('project.asset.count', `/assets/${kind}`, 'Paths and assets must have matching lengths'));
-      m.value.assets[kind].forEach((path, i) => {
+      if (assetPaths(m.value, kind).length !== a.value[kind].length) diagnostics.push(diagnostic('project.asset.count', `/assets/${kind}`, 'Paths and assets must have matching lengths'));
+      assetPaths(m.value, kind).forEach((path, i) => {
         if (sources.has(path)) diagnostics.push(diagnostic('project.path.collision', `/assets/${kind}/${i}`, 'An asset cannot overwrite a source or manifest'));
       });
     }
@@ -41,7 +50,7 @@ export function createAssetResolver(project: PortableProject) {
   for (const kind of assetKinds) {
     const ids = new Map<string, {kind: AssetKind; asset: PortableAsset; path: string}>();
     project.assets[kind].forEach((asset, i) => {
-      const entry = {kind, asset, path: project.manifest.assets[kind][i]};
+      const entry = {kind, asset, path: assetPaths(project.manifest, kind)[i]};
       ids.set(asset.id, entry); byPath.set(entry.path, entry);
     });
     byKind.set(kind, ids);

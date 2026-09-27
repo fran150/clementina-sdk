@@ -157,7 +157,7 @@ test('Node debug composition builds and prepares breakpoints before launching th
   segments:[{id:0,name:'CODE',start:0x6000,size:1}],
   spans:[{id:0,segmentId:0,start:0,size:1}],symbols:[],
  };
- const build={kind:'assembly',
+ const build={kind:'assembly',sdRoot:'build/sd',diagnostics:[],
   assembly:{binary:Uint8Array.of(0x60),prg:Uint8Array.of(0,0x60,0x60),loadStep:{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000},entryAddress:0x6000,debug,artifacts:{binary:'',prg:'',debug:'',map:'',labels:'',objects:[],listings:[]}},
   loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000}]},
   bootstrapSource:'10 BLOAD "build/game.prg",24576,24576\n',files:[],
@@ -166,7 +166,7 @@ test('Node debug composition builds and prepares breakpoints before launching th
  const created=await createProjectDebugSession('/project',{threadName:'Editor CPU'},{
   build:async()=>({ok:true,value:build,diagnostics:[]}),
   startProcess:async options=>{
-   assert.equal(options.sdRoot,'/project');
+   assert.equal(options.sdRoot,'/project/build/sd');
    return {endpoint:'http://127.0.0.1:1234/v1',client,pid:42,exited:Promise.resolve({code:0,signal:null}),close:async()=>{closed++;return {code:0,signal:null};}};
   },
  });
@@ -187,7 +187,7 @@ test('Node debug composition reports build and emulator startup diagnostics',asy
  const notBuilt=await createProjectDebugSession('/project',{}, {build:async()=>buildFailure,startProcess:async()=>{throw new Error('must not start');}});
  assert.deepEqual(notBuilt,buildFailure);
 
- const basicBuild={kind:'basic',basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:1},loadPlan:{},files:[]};
+ const basicBuild={kind:'basic',sdRoot:'.',diagnostics:[],basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:1},loadPlan:{},files:[]};
  const basicCreated=await createProjectDebugSession('/project',{}, {
   build:async()=>({ok:true,value:basicBuild,diagnostics:[]}),
   readBasicSource:async()=>({path:'/project/main.bas',text:'10 END\n'}),
@@ -196,7 +196,7 @@ test('Node debug composition reports build and emulator startup diagnostics',asy
  assert.equal(basicCreated.ok,true);
  await basicCreated.value.close();
 
- const minimal={kind:'assembly',assembly:{loadStep:{},debug:{files:[],lines:[],segments:[],spans:[]}},loadPlan:{},bootstrapSource:'',files:[]};
+ const minimal={kind:'assembly',sdRoot:'.',diagnostics:[],assembly:{loadStep:{},debug:{files:[],lines:[],segments:[],spans:[]}},loadPlan:{},bootstrapSource:'',files:[]};
  const notStarted=await createProjectDebugSession('/project',{}, {
   build:async()=>({ok:true,value:minimal,diagnostics:[]}),startProcess:async()=>{throw new Error('spawn failed');},
  });

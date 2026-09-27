@@ -8,10 +8,10 @@
     "encoding": "7-bit ASCII for portable source"
   },
   "runtimeDebug": {
-    "statementBoundaryAddress": 7357,
+    "statementBoundaryAddress": 7826,
     "currentLineAddress": 136,
     "directModeLine": 65535,
-    "source": "current ROM kernel.lbl symbols NEWSTT2=$1CBD and CURLIN=$0088",
+    "source": "current ROM kernel.lbl symbols NEWSTT2=$1E92 and CURLIN=$0088",
     "behavior": "NEWSTT2 runs immediately before each statement dispatch, after CURLIN is updated for a new numbered line; an address breakpoint there can be filtered by the little-endian CURLIN value"
   },
   "savedProgram": {

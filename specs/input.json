@@ -7,7 +7,7 @@
   "regions":[{"name":"KEYBOARD_BITMAP","start":69632,"size":32,"hidUsagePage":7},{"name":"CONSUMER_BITMAP","start":69664,"size":32,"hidUsagePage":12},{"name":"MOUSE_STATE","start":69696,"size":5},{"name":"INPUT_CONTROL","start":69701,"size":11},{"name":"GAMEPAD_0","start":69712,"size":10},{"name":"GAMEPAD_1","start":69722,"size":10},{"name":"GAMEPAD_2","start":69732,"size":10},{"name":"GAMEPAD_3","start":69742,"size":10},{"name":"CLOCK_MS","start":69752,"size":4},{"name":"CLOCK_TI","start":69756,"size":3},{"name":"CLOCK_VERSION","start":69759,"size":1}],
   "indexes":{"keyboardProbes":"$50-$57","consumerProbes":"$58-$5F","all":"$60","keyboard":"$61","consumer":"$62","mouse":"$63","gamepads":"$64-$67","control":"$68"},
   "mouse":{"buttonsBits":5,"deltaAccumulators":"wrapping uint8; subtract samples as int8"},
-  "gamepads":{"count":4,"recordBytes":10},
+  "gamepads":{"count":4,"recordBytes":10,"fields":[{"name":"dpad","offset":0,"connectedBit":7,"directionBits":{"up":0,"down":1,"left":2,"right":3}},{"name":"sticks","offset":1,"description":"left up/down/left/right bits 0-3; right up/down/left/right bits 4-7"},{"name":"button0","offset":2,"description":"buttons 0-7"},{"name":"button1","offset":3,"description":"buttons 8-15"},{"name":"lx","offset":4,"type":"int8"},{"name":"ly","offset":5,"type":"int8"},{"name":"rx","offset":6,"type":"int8"},{"name":"ry","offset":7,"type":"int8"},{"name":"lt","offset":8,"type":"uint8"},{"name":"rt","offset":9,"type":"uint8"}]},
   "repeat":{"defaultDelayMs":400,"defaultIntervalMs":60},
   "clock":{"millisecondsBits":32,"tiHz":60,"tiModulo":5184000,"snapshotCommand":85,"setTiCommand":86}
 }

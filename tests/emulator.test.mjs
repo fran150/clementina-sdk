@@ -16,10 +16,42 @@ test('automation client validates requests before transport and checks replies',
   await assert.rejects(new EmulatorClient(async()=>reply).state(),EmulatorError);
  }
 });
-test('memory holes are retained and invalid video bytes are rejected',async()=>{
+test('memory holes are retained and video/audio snapshots are validated',async()=>{
  const c=new EmulatorClient(async()=>({version:1,ok:true,result:[null,255]}));
  assert.deepEqual(await c.readMemory(49151,2),[null,255]);
  await assert.rejects(c.video(),EmulatorError);
+ await assert.rejects(c.audio(),EmulatorError);
+ const audio=new Array(80).fill(0);audio[0]=2;audio[3]=4;
+ const client=new EmulatorClient(async request=>({version:1,ok:true,result:request.method==='audio'?audio:[]}));
+ assert.deepEqual(await client.audio(),audio);
+ for(const bad of [[...audio,0],audio.map((value,i)=>i===20?256:value),audio.map((value,i)=>i===20?null:value)]){
+  await assert.rejects(new EmulatorClient(async()=>({version:1,ok:true,result:bad})).audio(),EmulatorError);
+ }
+});
+test('held HID and gamepad controls validate records and retain press/release requests',async()=>{
+ const requests=[];
+ const client=new EmulatorClient(async request=>{requests.push(request);return {version:1,ok:true,result:state};});
+ await client.setHidUsage(7,4,true);
+ await client.setHidUsage(7,4,false);
+ await client.setHidUsage(12,0xe9,true);
+ await client.setHidBitmap(7,new Array(32).fill(0));
+ await client.setGamepadState(2,[0x85,0,1,0,0x80,0,0,0,0,0]);
+ await client.clearGamepad(2);
+ assert.deepEqual(requests,[
+  {version:1,method:'setHidUsage',usagePage:7,usageId:4,down:true},
+  {version:1,method:'setHidUsage',usagePage:7,usageId:4,down:false},
+  {version:1,method:'setHidUsage',usagePage:12,usageId:0xe9,down:true},
+  {version:1,method:'setHidBitmap',usagePage:7,data:new Array(32).fill(0)},
+  {version:1,method:'setGamepadState',player:2,data:[0x85,0,1,0,0x80,0,0,0,0,0]},
+  {version:1,method:'clearGamepad',player:2},
+ ]);
+ for(const action of [
+  ()=>client.setHidUsage(8,4,true),()=>client.setHidUsage(7,256,true),()=>client.setHidUsage(7,4,1),
+  ()=>client.setHidBitmap(7,new Array(31).fill(0)),()=>client.setHidBitmap(7,new Array(32)),()=>client.setHidBitmap(12,new Array(32).fill(256)),
+  ()=>client.setGamepadState(4,new Array(10).fill(0)),()=>client.setGamepadState(0,new Array(9).fill(0)),
+  ()=>client.setGamepadState(0,new Array(10)),()=>client.clearGamepad(-1),
+ ])assert.throws(action);
+ assert.equal(requests.length,6);
 });
 test('HTTP errors and transport failures are not retried',async()=>{
  let calls=0;

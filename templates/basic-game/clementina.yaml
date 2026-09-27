@@ -1,0 +1,24 @@
+format: clementina-project
+version: 1
+name: Catch the Star
+target:
+  machine: clementina-6502
+program:
+  kind: basic
+  entry: src/main.bas
+assets:
+  palettes:
+    - assets/palettes/main.palette.json
+  paletteConfigs:
+    - assets/palette-configs/main.palette-config.json
+  tilesets: []
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  basic:
+    outputName: game
+  video:
+    paletteConfigId: palette-config:main

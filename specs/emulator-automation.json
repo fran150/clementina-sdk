@@ -17,7 +17,11 @@
     "optional": [
       "count",
       "address",
-      "data"
+      "data",
+      "usagePage",
+      "usageId",
+      "down",
+      "player"
     ],
     "unknownFields": "reject"
   },
@@ -65,8 +69,31 @@
       "result": "state",
       "behavior": "inject raw console text bytes through existing MIA input hook; no Unicode conversion or implicit stepping"
     },
+    "setHidUsage": {
+      "params": ["usagePage", "usageId", "down"],
+      "result": "state",
+      "behavior": "set or release one held usage ID 0..255 on Keyboard/Keypad page 7 or Consumer page 12; latch transition events; expose virtual device capability; no text bytes or implicit stepping"
+    },
+    "setHidBitmap": {
+      "params": ["usagePage", "data"],
+      "result": "state",
+      "behavior": "replace a 32-byte held bitmap on page 7 or 12; latch changed-bit events; expose virtual device capability; no text bytes or implicit stepping"
+    },
+    "setGamepadState": {
+      "params": ["player", "data"],
+      "result": "state",
+      "behavior": "replace one 10-byte gamepad record in slot 0..3 through existing MIA transition handling; dpad bit 7 controls connection; no implicit stepping"
+    },
+    "clearGamepad": {
+      "params": ["player"],
+      "result": "state",
+      "behavior": "release and disconnect gamepad slot 0..3 through existing MIA transition handling; no implicit stepping"
+    },
     "video": {
       "result": "68944 numeric bytes of coherent MIA video state; not encoded pixels"
+    },
+    "audio": {
+      "result": "80 numeric bytes of MIA audio registers $12000-$1204F, with live sequencer note index and running/taken status at voice offsets 9-11; read-only snapshot"
     },
     "run": {
       "result": "execution state",
@@ -110,6 +137,8 @@
     "maxCycles": 10000000,
     "maxRead": 65536,
     "maxInputBytes": 64,
+    "hidBitmapBytes": 32,
+    "gamepadStateBytes": 10,
     "maxRequestBodyBytes": 8192
   },
   "execution": {

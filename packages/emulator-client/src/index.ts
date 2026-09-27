@@ -151,8 +151,36 @@ export class EmulatorClient {
     if (!Array.isArray(data) || data.length<1 || data.length>64 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('input must contain 1..64 bytes');
     return this.call('input', {data:Array.from(data)}, state);
   }
+  /** Press or release one held Keyboard/Keypad (7) or Consumer (12) HID usage. Does not enqueue text. */
+  setHidUsage(usagePage: 7 | 12, usageId: number, down: boolean) {
+    if (usagePage !== 7 && usagePage !== 12) throw new RangeError('usagePage must be 7 or 12');
+    if (!integer(usageId,255)) throw new RangeError('usageId must be 0..255');
+    if (typeof down !== 'boolean') throw new TypeError('down must be a boolean');
+    return this.call('setHidUsage', {usagePage,usageId,down}, state);
+  }
+  /** Replace one complete 32-byte held HID bitmap; useful for releasing all keys. */
+  setHidBitmap(usagePage: 7 | 12, data: readonly number[]) {
+    if (usagePage !== 7 && usagePage !== 12) throw new RangeError('usagePage must be 7 or 12');
+    if (!Array.isArray(data) || data.length !== 32 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('HID bitmap must contain 32 bytes');
+    return this.call('setHidBitmap', {usagePage,data:Array.from(data)}, state);
+  }
+  /** Replace one complete 10-byte MIA gamepad record. The first byte includes the connected bit. */
+  setGamepadState(player: number, data: readonly number[]) {
+    if (!integer(player,3)) throw new RangeError('player must be 0..3');
+    if (!Array.isArray(data) || data.length !== 10 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('gamepad state must contain 10 bytes');
+    return this.call('setGamepadState', {player,data:Array.from(data)}, state);
+  }
+  /** Release and disconnect one gamepad slot. */
+  clearGamepad(player: number) {
+    if (!integer(player,3)) throw new RangeError('player must be 0..3');
+    return this.call('clearGamepad', {player}, state);
+  }
   video() {
     return this.call('video', {}, (v): v is number[] => Array.isArray(v) && v.length===68944 && v.every(b=>integer(b,255)));
+  }
+  /** Audio register block at $12000-$1204F, with live sequencer fields. */
+  audio() {
+    return this.call('audio', {}, (v): v is number[] => Array.isArray(v) && v.length===80 && v.every(b=>integer(b,255)));
   }
   /**
    * Reset, boot the ROM, enter the plan through the real BASIC command path,
@@ -163,7 +191,9 @@ export class EmulatorClient {
   async launchLoadPlan(plan: LoadPlan, options: LaunchLoadPlanOptions = {}): Promise<ExecutionState> {
     const launch = renderLoadPlanLaunch(plan);
     const bootCycles = options.bootCycles ?? 4_000_000;
-    const inputCycles = options.inputCycles ?? 200_000;
+    // ROM filesystem commands can still be completing after their text is
+    // consumed; leave a bounded processing budget before entering the next line.
+    const inputCycles = options.inputCycles ?? 1_000_000;
     const chunkBytes = options.inputChunkBytes ?? 48;
     if (!integer(bootCycles, 10_000_000) || bootCycles === 0) throw new RangeError('bootCycles must be 1..10000000');
     if (!integer(inputCycles, 10_000_000) || inputCycles === 0) throw new RangeError('inputCycles must be 1..10000000');

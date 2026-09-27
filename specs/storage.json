@@ -1,7 +1,7 @@
 {
   "format": "clementina-storage",
   "version": 1,
-  "protocolVersion": 6,
+  "protocolVersion": 7,
   "region": {
     "start": 77824,
     "endExclusive": 80896,
@@ -52,5 +52,17 @@
     "path2": "$E5"
   },
   "filesystem": "FAT via FatFs",
-  "fileInfoCommand": "$89"
+  "fileInfoCommand": "$89",
+  "loadPartCommand": {
+    "id": "$8A",
+    "fields": {
+      "offset": "$30-$33",
+      "rows": "$34-$35",
+      "fileStride": "$36-$39",
+      "ramStride": "$3A-$3C",
+      "bytesPerRow": "SD_TRANSFER_LEN ($2A-$2D)",
+      "destination": "SD_DEST_ADDR ($0C-$0E)"
+    },
+    "effect": "loads rows of SD_TRANSFER_LEN bytes; row r is read from offset + r*fileStride and written to destination + r*ramStride; rows 0 loads one contiguous run; EOF ends the load early and still succeeds"
+  }
 }

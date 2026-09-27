@@ -11,7 +11,12 @@ const arg = (args, name) => args[args.indexOf(name) + 1];
 async function deterministicTools(invocation) {
   if (invocation.command === 'ca65') {
     await writeFile(arg(invocation.args, '-o'), 'object');
-    await writeFile(arg(invocation.args, '--listing'), 'listing');
+    if (invocation.args.includes('--listing')) await writeFile(arg(invocation.args, '--listing'), 'listing');
+    return {exitCode: 0, stdout: '', stderr: ''};
+  }
+  if (invocation.command === 'ar65') {
+    assert.equal(invocation.args[0], 'r');
+    await writeFile(invocation.args[1], 'library');
     return {exitCode: 0, stdout: '', stderr: ''};
   }
   if (invocation.command === 'ld65') {

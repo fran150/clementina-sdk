@@ -5,8 +5,8 @@
 Audio sequencer track buffers used to default into `$13000-$13FFF`, overlapping
 SD/FS state at `$13000-$13BFF`. Current MIA firmware and emulator code have
 resolved this: sequencer tracks are relocatable (`AUDIO_SEQ_SET_BASE0-3`,
-commands `$68-$6B`), have no per-track size cap, and default to
-`$14000`/`$15000`/`$16000`/`$17000` (voices 0-3), outside SD/FS's region. See
+commands `$68-$6B`), have no per-track size cap, and have no default address at
+all: a voice has no track until the program sets its base. See
 `docs/architecture/audio.md` and `specs/known-issues.json` (status `resolved`)
 for the full contract and reconciliation record.
 

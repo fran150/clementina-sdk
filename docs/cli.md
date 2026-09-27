@@ -34,7 +34,8 @@ it is not a PRG and must not overwrite the source file. See
 [BASIC tooling](basic-tooling.md).
 
 `run` performs the same validated build, starts one owned headless emulator, mounts
-the project root as its SD root, enters the generated load plan through the ROM
+the build result's `sdRoot` (`<outputDirectory>/sd` for asset builds, otherwise
+the project root), enters the generated load plan through the ROM
 (a numbered bootstrap for an assembly project, direct commands for a BASIC project),
 and prints the loopback automation endpoint. It remains attached so debugger clients
 can use that endpoint; press Ctrl-C to stop and dispose of the emulator. The default
@@ -43,9 +44,14 @@ the host-only `CLEMENTINA_EMULATOR` environment variable. `--port 0` selects an
 available loopback port; values 1-65535 request a fixed port. These host settings
 are deliberately absent from the portable project manifest.
 
+With `build.assets`, copy the contents of `<outputDirectory>/sd` to the SD
+card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
+directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
+result include `sdRoot`.
+
 `doctor` checks the Node runtime requirement. It does not yet probe emulator or
 assembler capabilities. `build`/`run` support a `program.kind: assembly` project
-(`build.assembly`, requires ca65 and ld65) or a `program.kind: basic` project
+(`build.assembly`, requires ca65 and ld65; asset builds also require ar65) or a `program.kind: basic` project
 (`build.basic`, compiled through `@clementina/basic`); `mixed` composition is not
 defined yet and is rejected during project validation. `--json` `data` distinguishes
 the two with `kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by

@@ -142,6 +142,30 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "instruments": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sounds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "songs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -188,6 +212,46 @@
           "required": ["outputName"],
           "properties": {
             "outputName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"}
+          }
+        },
+        "assets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slots", "include"],
+          "properties": {
+            "folder": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$"},
+            "checks": {"type": "boolean"},
+            "slots": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "size"],
+                "properties": {
+                  "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"},
+                  "mia": {"type": "integer", "minimum": 0, "maximum": 262143},
+                  "bank": {"type": "integer", "minimum": 1, "maximum": 31},
+                  "address": {"type": "integer", "minimum": 32768, "maximum": 49151},
+                  "size": {"type": "integer", "minimum": 1, "maximum": 507904}
+                }
+              }
+            },
+            "include": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "id", "slot"],
+                "properties": {
+                  "kind": {"enum": ["paletteConfig", "tileset", "background", "overlay", "sprites", "song", "sound"]},
+                  "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+                  "slot": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"},
+                  "file": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}(\\.[A-Za-z0-9_-]{1,8})?$"}
+                }
+              }
+            }
           }
         },
         "video": {

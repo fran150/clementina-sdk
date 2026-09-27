@@ -1,9 +1,9 @@
 # Asset builder and runtime
 
-**Status: design.** Agreed with the project owner on 2026-09-26. Nothing here is
-implemented yet. The firmware, emulator and ROM behavior in "Firmware, emulator
-and ROM changes" does not exist until those changes land. Until then,
-`docs/architecture/`, `docs/compatibility.md` and `specs/` stay authoritative.
+**Status: implemented; runtime and Studio verification recorded below.** Agreed with the project owner on
+2026-09-26. Each change under "Firmware, emulator and ROM changes" says whether
+it has landed. Until a change lands, `docs/architecture/`,
+`docs/compatibility.md` and `specs/` stay authoritative for that behavior.
 
 ## Purpose
 
@@ -14,7 +14,7 @@ routines that load and use those files.
 | Who | Responsibility |
 | --- | --- |
 | Studio (Builder tab) | Edits the build settings: which assets are included, the memory slots, and each asset's default slot. Runs the SDK build and the emulator. |
-| SDK (`@clementina/build` and a new runtime package) | Encodes asset files, generates descriptors and constants, builds the runtime library, checks the layout, and assembles a bootable folder. |
+| SDK (`@clementina/build` and `@clementina/runtime`) | Encodes asset files, generates descriptors and constants, builds the runtime library, checks the layout, and assembles a bootable folder. |
 | The game's programmer | Decides when anything is loaded, drawn, played or ticked, and where it goes. |
 
 The runtime provides primitives and never orchestrates. It has no scenes, no
@@ -45,8 +45,8 @@ needs neither the kernel nor BASIC.
 Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
 `audio/audio.h`, `sd/sd.h`.
 
-- `$14000–$17FFF` is free only after change 1 below. Until then, every
-  `AUDIO_RESET` zeroes it.
+- `$14000–$17FFF` is free since change 1 below. Earlier firmware zeroed it on
+  every `AUDIO_RESET`.
 - The firmware assigns nothing to `$00040–$000FF`, `$10D50–$10FFF`,
   `$11080–$11FFF`, `$12050–$12FFF` or `$13C00–$13FFF`. The Builder shows these
   gaps but doesn't offer them as slots until the firmware documents them as free.
@@ -92,11 +92,10 @@ Build checks:
 | CPU bank ↔ MIA (through an index window) | 9–13 cycles per byte: about 90–130 KB/s at the default 1.2 MHz PHI2, and 0.6–0.85 MB/s at 8 MHz | busy, but starts at once and always takes the same time |
 
 MIA can't write CPU RAM, so every byte of an SD → bank load passes through the
-CPU. The runtime hides the SD time behind the copy:
-1. MIA loads the next chunk into a staging slot in MIA RAM (needs change 2).
-2. Meanwhile, the CPU copies the previous chunk into the bank.
-
-A load therefore costs about the CPU copy time alone.
+CPU. The current runtime reads at most 1,984 bytes at a time through FS handle 15
+and the SD transfer buffer, then copies each chunk into the bank. It handles
+bank boundaries and strided rows. Overlapping SD reads with CPU copies remains
+a future optimization; current bank loads block.
 
 Where each kind of data fits best (a recommendation):
 - **MIA RAM:** anything touched every frame. Copies from it are nearly free.
@@ -112,10 +111,10 @@ Where each kind of data fits best (a recommendation):
 The build writes one file per asset, except that all the shapes and animations
 of one tileset share a single sprite file.
 
-- **Names.** File names are ASCII and come from the asset names. They default to
-  8.3 form, because long-name support depends on MIA's bundled FatFs
-  configuration (`clementina-mia/docs/sd.md`). The Builder lets each name be
-  overridden.
+- **Names.** File names are ASCII and come from the asset names, defaulting to
+  8.3 form. Overrides may use long names: the bundled TinyUSB FatFs has
+  `FF_USE_LFN 1`. Paths are relative to the current SD directory
+  (`FF_FS_RPATH 2`, `FS_CHDIR`).
 - **No headers.** Dimensions, counts and item offsets go into the generated
   descriptor, not the file.
 - **Hardware layouts load directly.** A file that matches a hardware layout can
@@ -194,8 +193,11 @@ by number.
 
 ### Packaging
 
-- One ca65 source per routine, in a new SDK package (working name
-  `@clementina/runtime`).
+- The SDK package is `@clementina/runtime`. Related primitives share modules
+  across 17 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
+  and written with `ar65 r`. `ld65` includes referenced modules and their helpers.
+  `runtime/code-sizes.json` and the memory report record CODE bytes per module;
+  these are module sizes, not isolated per-routine costs.
 - The build assembles the sources with the project's defines, archives them into
   `runtime.lib` with `ar65`, and copies them into the build folder so they can
   be read and stepped through.
@@ -207,12 +209,16 @@ by number.
 
 - **Arguments.** Small values go in A, X and Y. The rest go in a zero-page
   argument block, which the `assets.inc` macros fill. The runtime's argument
-  block and scratch bytes form one `ZEROPAGE` segment.
+  block and scratch bytes form one `ZEROPAGE` segment (42 bytes).
+- **Initialization.** BLOAD does not clear BSS. The game must zero its BSS
+  before the first runtime call; `examples/runtime-demo/src/main.s` shows this.
+  Link at `$1800` or higher to preserve the resident loader. Keep zero page
+  below `$F0` while using the kernel IRQ, which updates `$F7–$F8`.
 - **Results.** Carry is clear on success. On failure carry is set and the
   reason is in `rt_error`.
 - **MIA resources.** Routines use both index windows, `CFG_SELECT` and the
   command registers, and leave them changed. They use a block of index
-  descriptors reserved for the runtime (see "Open details").
+  descriptors `$40` (window A, reads/source) and `$41` (window B, writes/destination).
 - **Commands.** Before sending a command, each routine waits for the previous
   MIA command and for any running copy to finish. MIA drops a command when its
   queue is full (`ERROR_DEFER_CMD_QUEUE_FULL`, `clementina-mia` `sys/mia.c`).
@@ -229,12 +235,18 @@ by number.
   call drawing, animation, sound and copy routines, provided it:
   1. writes PUSH to `MIA_CTX` on entry and POP before `RTI`;
   2. calls `RuntimeSave` before its first runtime call and `RuntimeRestore`
-     after its last. These push and pull the runtime's zero-page bytes, about
-     130 cycles for eight bytes.
+     after its last. These push and pull all 42 runtime zero-page bytes.
 - **Loads are never interrupt-safe.** MIA runs one SD job at a time, and the
   job's control block lives in MIA RAM.
 - **Shared state is the game's to guard.** That applies when both the main loop
   and a handler change the same animation or sound voice.
+
+`SetLayers`, `SetChrBanks`, `SetScroll` and `SetViewport` configure video.
+`SetCell` uses `rt_a6` for the tile and `rt_a7` for its attribute.
+`LoadStart` is asynchronous for MIA; bank loads finish before it returns.
+`LoadWait` reports completion and updates the descriptor. `LoadPart` is a raw
+byte transfer and does not reinterpret the asset descriptor; use `LoadRect`,
+`LoadRows`, `LoadColumns`, `LoadShape` or `LoadAnimation` for typed partial loads.
 
 Studio previews animations and sounds at 60 ticks a second. A game that ticks at
 60 Hz matches the previews.
@@ -246,11 +258,11 @@ the default slot.
 
 | Type | Routines |
 | --- | --- |
-| Every asset | `Load asset[, location]`; `LoadStart`/`LoadBusy`; `LoadPart asset, offset, length, location` (needs change 2); `Relocate asset, location`; `Forget asset` |
+| Every asset | `Load asset[, location]`; `LoadStart`/`LoadBusy`/`LoadWait`; `LoadPart asset, offset, length, location` (needs change 2); `Relocate asset, location`; `Forget asset` |
 | Global | `HideSprites first, count` (sets the disable bit); `SetSpriteCount n` (the last OAM index the renderer scans); `RuntimeSave`/`RuntimeRestore` |
 | Palette config | `UsePalettes config`; `UsePaletteBank config, bank[, target]` |
 | Tileset | `UseTileset tileset, chrBank`: copies the tileset in unless it's already there, and sets that bank's 1bpp flag |
-| Background | `DrawScreen bg, col, row, table` (40×25 cells); `DrawRect`; `DrawColumn`/`DrawRow` (for scrolling); `SetCell`; `LoadRows bg, row, count[, location]` and `LoadColumns bg, col, count[, location]` (needs changes 2 and 3) |
+| Background | `DrawScreen bg, col, row, table` (40×25 cells); `DrawRect`; `DrawColumn`/`DrawRow` (for scrolling); `GetCell`/`SetCell`; `LoadRect`; `LoadRows bg, row, count[, location]` and `LoadColumns bg, col, count[, location]` (needs changes 2 and 3) |
 | Overlay | `ShowOverlay overlay`; `FillPlaceholder overlay, placeholder, tiles`: writes tile numbers row by row and leaves attributes alone |
 | Sprite file | `LoadSprites file[, location]`; `LoadShape`/`LoadAnimation file, item[, location]`; `LoadAnimationShapes file, anim` (loads whichever of its shapes aren't loaded); `ForgetShape`; `DrawShape file, shape, sprite, x, y, flips` |
 | Animation | `StartAnimation inst, file, anim, sprite, x, y`; `TickAnimation inst`; `MoveAnimation inst, x, y`; `StopAnimation inst` |
@@ -269,7 +281,8 @@ Details:
   `rt_error`, never drawn from the wrong memory.
 - **`DrawShape`** returns the next free sprite, and raises the sprite count when
   the shape reaches past it, so the renderer scans those records.
-- **Animation instances** are blocks of `ANIM_SIZE` bytes that the game
+- **Animation instances** use the `RT_ANIM_*` field constants and are blocks of
+  `RT_ANIM_SIZE` (12) bytes that the game
   allocates. The runtime keeps one sound state per voice.
 
 ## Firmware, emulator and ROM changes
@@ -278,12 +291,12 @@ Each change lands in `clementina-mia` and is mirrored in `clementina-6502`. When
 it lands, `specs/` and `docs/architecture/` here are updated. Command ids and
 register addresses below are proposals for the firmware owner.
 
-### 1. Remove the legacy default track area
+### 1. Remove the legacy default track area (landed)
 
-Today `mia_audio_reset_runtime_state` (`audio/audio.c`) does two things at boot
-and on every `AUDIO_RESET`, which BASIC's `SNDCLR` issues:
-- it zeroes `$14000–$17FFF`;
-- it seeds each voice's track base to `$14000 + voice × $1000`.
+Before this change, `mia_audio_reset_runtime_state` (`audio/audio.c`) did two
+things at boot and on every `AUDIO_RESET`, which BASIC's `SNDCLR` issues:
+- it zeroed `$14000–$17FFF`;
+- it seeded each voice's track base to `$14000 + voice × $1000`.
 
 The new behavior:
 - A voice has no track until `AUDIO_SEQ_SET_BASE<v>` sets one. Boot and
@@ -312,27 +325,31 @@ Touches:
   in `specs/known-issues.json`.
 - `clementina-rom`: comments and doc wording only.
 
-### 2. Load part of a file into MIA RAM
+### 2. Load part of a file into MIA RAM (landed)
 
-A new command, `FS_LOAD_PART`:
-- It works like `FS_LOAD_TO_MIA_RAM`, but starts at a new 32-bit
-  `SD_PART_OFFSET` field and loads `SD_TRANSFER_LEN` bytes.
-- The new field goes in the control block's reserved `$2F–$3F`.
-- `FS_LOAD_TO_MIA_RAM` itself is unchanged. A separate command means a caller
-  that never heard of the new fields can't inherit values left there by another
-  caller.
+A new command, `FS_LOAD_PART` (`$8A`), SD protocol 7:
+- It loads `SD_TRANSFER_LEN` bytes, starting at file offset `SD_PART_OFFSET`
+  (`$30–$33`), to `SD_DEST_ADDR`.
+- It is a chunked job like `FS_LOAD_TO_MIA_RAM`, and uses its own file.
+- Reaching end of file ends it early and still succeeds, with `SD_FILE_POS`
+  holding the count loaded.
+- `FS_LOAD_TO_MIA_RAM` is unchanged. Its own command means a caller that never
+  heard of the new fields can't inherit values left there by another caller.
 
-### 3. Strided loads
+### 3. Strided loads (landed)
 
-`FS_LOAD_PART` with `SD_PART_ROWS` greater than 0:
+`FS_LOAD_PART` with `SD_PART_ROWS` (`$34–$35`) greater than 0:
 - It loads that many rows of `SD_TRANSFER_LEN` bytes each.
-- After each row, the file position advances by `SD_PART_FILE_STRIDE` (32-bit)
-  and the destination by `SD_PART_RAM_STRIDE` (24-bit).
-- All of the command's fields fit in `$2F–$3F`.
+- After each row, the file position advances by `SD_PART_FILE_STRIDE`
+  (`$36–$39`) and the destination by `SD_PART_RAM_STRIDE` (`$3A–$3C`).
+- A zero row length, or a rectangle past the top of MIA RAM, fails with
+  `ERROR_FS_INVALID_REQUEST` before anything is written.
+- Firmware in `sd/sd.c`, emulator in `sd.go`. Documented in `docs/sd.md`
+  ("Protocol version 7") and `specs/storage.json`.
 
-### 4. Rectangle copy inside MIA RAM
+### 4. Rectangle copy inside MIA RAM (landed)
 
-A new command, `COPY_RECT`:
+A new command, `COPY_RECT` (`$11`):
 - **Parameters.** p1 is the source descriptor, p2 the destination descriptor,
   and p3 the row count (0 means 256).
 - **Row length.** The source's limit minus its current address, as
@@ -340,60 +357,82 @@ A new command, `COPY_RECT`:
 - **Strides.** After each row, the source address advances by the source
   descriptor's step, and the destination's by its own step. The descriptors
   themselves don't move.
-- **Completion.** The whole rectangle is marked dirty, and completion is
-  signalled once.
+- **Completion.** Every row is marked dirty, and `IRQ_COMMAND` is raised once,
+  after the last row.
 - **Fills.** A source step of 0 repeats the first row, which is how rectangle
   fills work.
+- **Implementation.** It shares change 5's queue: a queued job is a rectangle,
+  and `COPY_INDEXES` is a one-row rectangle. Firmware in `mem/dma.c` and
+  `cmds/cmds.c`, emulator in `commands.go`.
 
-### 5. A copy waits for the running copy
+### 5. A copy waits for the running copy (landed)
 
-Today `command_copy_indexes` calls `mia_dma_transfer_init` (`mem/dma.c`), which
-reprograms the single DMA channel even while a copy is running. It also replaces
-the dirty range queued for the video update. The kernel's `MCOPY` avoids this by
-waiting after every copy.
+`command_copy_indexes` called `mia_dma_transfer_init` (`mem/dma.c`), which
+reprogrammed the single DMA channel even while a copy was running. It also
+replaced the dirty range queued for the video update. The kernel's `MCOPY`
+avoided this by waiting after every copy.
 
-The fix: `COPY_INDEXES` and `COPY_RECT` wait for, or queue behind, a running
-copy, and every copy's range gets marked dirty.
+The fix: a copy requested while another runs joins a queue of eight, and the
+completion interrupt starts the next one. Every copy's range is marked dirty and
+raises `IRQ_COMMAND` when it finishes. `MIA_STAT_DMA_RUNNING` stays set until the
+queue drains, and a full queue reports `ERROR_DMA_QUEUE_FULL` (`$13`).
+- It doesn't block, so the audio interrupt, which has a lower priority than
+  command handling, keeps its timing.
+- The emulator copies synchronously, so it only mirrors the new error code.
+- `COPY_RECT` (change 4) uses the same queue.
 
-### 6. Context stack for interrupt handlers
+### 6. Context stack for interrupt handlers (landed)
 
-- **Register.** `MIA_CTX` at `$FFF5`, one of the registers reserved today:
-  - writing 1 pushes and writing 2 pops;
-  - reading returns the current depth;
-  - overflow and underflow go to the error queue;
-  - four levels.
+- **Register.** `MIA_CTX` at `$FFF5`, formerly reserved:
+  - writing `$01` pushes and writing `$02` pops; other values do nothing;
+  - four levels deep;
+  - overflow queues `ERROR_CTX_OVERFLOW` (`$22`) and underflow
+    `ERROR_CTX_UNDERFLOW` (`$23`);
+  - reads return the last value written, not the depth. MIA commits a CPU
+    write to the register block asynchronously, so a depth that core 1 wrote
+    there could be overwritten by the CPU's own byte.
 - **What a push saves.** `IDXA_SELECT`, `IDXB_SELECT`, `CFG_SELECT`,
   `CMD_PARAM1–3`, and the full records of the two descriptors bound to the
   windows, including their current addresses.
 - **What a pop does.** It restores all of that, then reloads `IDXA_PORT`,
   `IDXB_PORT` and `CFG_PORT`, as select writes do.
-- **Why a register.** It has to take effect when the write lands, in core 1's
-  register-write handler where select writes are handled, not in the bus read
-  path. It can't be a queued command: commands reach core 0 through a FIFO and
-  run later, so a push would save whatever the handler had already changed.
+- **Why a register.** It takes effect when the write lands, in core 1's
+  register-write handler next to the select writes, not in the bus read path.
+  It can't be a queued command: commands reach core 0 through a FIFO and run
+  later, so a push would save whatever the handler had already changed.
 - **Cost.** About 12 CPU cycles per interrupt. Saving just the six registers in
   software takes about 90 cycles, and software can't cheaply save descriptor
   positions.
+- **Where it lives.** Firmware in `sys/mia.c`, emulator in `context.go`.
+  Documented in the MIA README's "Context stack" section and in
+  `specs/mia-registers.json`.
 
-### 7. BASIC
+### 7. BASIC and the kernel (landed)
 
 No new keywords, only optional trailing arguments:
 
 | Statement | Uses |
 | --- | --- |
-| `MIALOAD "path", addr[, maxlen[, offset]]` | change 2 when `offset` is given |
-| `MIALOAD "path", addr, len, offset, rows, filestride, ramstride` | change 3 |
+| `MIALOAD "path", addr[, len[, offset[, rows, filestride, ramstride]]]` | change 2 when `offset` is given or `len` is over 65535; change 3 when `rows` is given |
 | `MCOPY src, dst, len[, rows, srcstride, dststride]` | change 4 when `rows` is given |
-| `MFILL addr, len, value[, rows, stride]` | fills the first row, then change 4 with a source step of 0 |
+| `MFILL addr, len, value[, rows, stride]` | fills the first row, then change 4 with a source stride of 0 |
 
-With change 6, the kernel's interrupt handler pushes and pops. BASIC's MIA
-statements could then drop the `SEI` fences they use today because that handler
-moves window A.
+- **Kernel services.** `mia_mem_rect` and `mia_mem_fill_rect` (`memory.s`) do
+  the rectangle work:
+  - they check the whole rectangle before writing anything;
+  - they send `COPY_RECT` in batches of 256 rows;
+  - row lengths and strides are limited to 65535 bytes.
+- **Interrupts.** The kernel's interrupt handler brackets its cursor toggle with
+  `MIA_CTX` push and pop. BASIC's `SEI` fences stay as a second guard.
+- **Size.** The image grew by 786 bytes, so BASIC has 23,361 bytes free. The
+  kernel region's soft ceiling rose from `$1000` to `$1200`.
+- **Tests.** `clementina-rom` `tests/basic_memory_test.go` and
+  `tests/basic_fs_test.go`, run by `tests/run_input.py`.
 
 ## SDK changes
 
-- **Audio assets.** Portable formats for instruments, sounds and songs. Studio
-  has them (`clementina-studio` `packages/assets/audio.ts`); the SDK doesn't yet.
+- **Audio assets.** Portable instruments, sounds and songs, with the shared
+  compiler in `@clementina/assets/audio` (also used by Studio).
 - **Manifest.** A builder section in `clementina.yaml`, sketched below. Studio
   saves the Builder's settings here through the project APIs, so a CLI build
   produces the same output without Studio. `build.video` keeps working for
@@ -409,11 +448,11 @@ moves window A.
         - {name: LEVEL_MAP, mia: 0x18000, size: 0x10000}
         - {name: ACTORS, bank: 3, address: 0x8000, size: 0x4000}
       include:
-        - {id: palette-config:main, slot: palettes}
-        - {id: tileset:hero, slot: chr2}
-        - {id: background:level1, slot: LEVEL_MAP}
-        - {id: background:level2, slot: LEVEL_MAP}   # an alternative to level1
-        - {id: sprites:hero, slot: ACTORS, file: HERO.SPR}
+        - {kind: paletteConfig, id: palette-config:main, slot: palettes}
+        - {kind: tileset, id: tileset:hero, slot: chr2}
+        - {kind: background, id: background:level1, slot: LEVEL_MAP}
+        - {kind: background, id: background:level2, slot: LEVEL_MAP}   # an alternative to level1
+        - {kind: sprites, id: tileset:hero, slot: ACTORS, file: HERO.SPR}
   ```
 
 - **Build output:**
@@ -451,20 +490,28 @@ It is built from the shared editor shell (`clementina-studio`
 
 ## Implementation order
 
-1. Firmware and emulator changes 1–6 with their tests, then `specs/`.
-2. ROM BASIC forms (change 7).
-3. SDK: portable audio assets, file encoders, `assets.inc`/`assets.s`
-   generation, the manifest section and its checks.
-4. SDK runtime: locations, loads, copies and errors first, then each type.
-5. Studio's Builder tab.
-6. An example game in `examples/` that calls every routine, run headless in the
-   emulator tests.
+1. **Done:** firmware/emulator changes 1–6 and SDK specs.
+2. **Done:** ROM BASIC forms (change 7).
+3. **Done and tested:** portable audio, encoders, generated sources, manifest
+   checks and memory report; CLI and debugger mount the build's `sdRoot`.
+4. **Done and emulator-tested:** runtime loads, copies and every public primitive.
+5. **Done:** Studio Builder, shared shell/history, main-process SDK IPC,
+   portable-folder save/build, emulator launch and native renderer preview.
+6. **Done:** `examples/runtime-demo`, plus
+   `scripts/test-runtime-integration.mjs <automation> <renderer>`. The game
+   records checkpoints and errors at `$0700`; the script checks memory, bank
+   boundary crossings, an 80 KB relocation, placeholder 128, and a 320×200 PNG.
 
-## Open details
+## Resolved details
 
-- **Index descriptors.** Which block the runtime reserves. The firmware assigns
-  `$70` and up, and the kernel reserves `$F0–$FF` while its services are in use
-  (`clementina-rom` `kernel.inc`). A block inside `$00–$6F` is the candidate.
-- **Proposed ids.** The command ids and register addresses for changes 2–6.
-- **Long names.** Whether MIA's FatFs build allows long file names.
-- **Package name.** The runtime package's final name.
+- Index descriptors: `$40` and `$41`.
+- Long file names: supported by the bundled TinyUSB FatFs configuration
+  (`FF_USE_LFN 1`). Relative paths use the current directory (`FF_FS_RPATH 2`);
+  the runtime leaves it alone, so start the program in its card folder.
+- Package: `@clementina/runtime`.
+- Slot alternatives use the largest asset size in the report, not their sum.
+  Oversized backgrounds warn because typed partial loads can use a smaller
+  window slot; other oversized assets are errors.
+- Runtime bank loads are synchronous; pipelining is not implemented. Runtime
+  checks catch supported location/item/range errors; the game owns allocation,
+  non-overlapping copy destinations and the lifetime of slots and instances.

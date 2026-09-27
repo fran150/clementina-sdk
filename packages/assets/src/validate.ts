@@ -1,10 +1,12 @@
 import {assertValid, diagnostic, result, schemaDiagnostics, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
-import type {AnimationAsset, BackgroundAsset, OverlayAsset, PaletteAsset, PaletteConfigAsset, PortableAssetSet, ShapeAsset, TilesetAsset} from './types.js';
+import type {AnimationAsset, BackgroundAsset, InstrumentAsset, OverlayAsset, PaletteAsset, PaletteConfigAsset, PortableAssetSet, ShapeAsset, SongAsset, SoundAsset, TilesetAsset} from './types.js';
 
-export type PortableAsset = PaletteAsset | PaletteConfigAsset | TilesetAsset | ShapeAsset | AnimationAsset | BackgroundAsset | OverlayAsset;
-export const assetKinds = ['palettes', 'paletteConfigs', 'tilesets', 'backgrounds', 'overlays', 'shapes', 'animations'] as const;
+export type PortableAsset = PaletteAsset | PaletteConfigAsset | TilesetAsset | ShapeAsset | AnimationAsset | BackgroundAsset | OverlayAsset | InstrumentAsset | SoundAsset | SongAsset;
+export const assetKinds = ['palettes', 'paletteConfigs', 'tilesets', 'backgrounds', 'overlays', 'shapes', 'animations', 'instruments', 'sounds', 'songs'] as const;
 export type AssetKind = typeof assetKinds[number];
-export const assetSchemas = {palettes: 'palette', paletteConfigs: 'palette-config', tilesets: 'tileset', backgrounds: 'background', overlays: 'overlay', shapes: 'shape', animations: 'animation'} as const;
+/** Kinds a manifest may leave out; a missing list means no assets of that kind. */
+export const optionalAssetKinds: readonly AssetKind[] = ['instruments', 'sounds', 'songs'];
+export const assetSchemas = {palettes: 'palette', paletteConfigs: 'palette-config', tilesets: 'tileset', backgrounds: 'background', overlays: 'overlay', shapes: 'shape', animations: 'animation', instruments: 'instrument', sounds: 'sound', songs: 'song'} as const;
 
 /** Validate untrusted JSON without coercion, mutation, or throwing. */
 export function checkAsset(value: unknown, kind?: AssetKind): ValidationResult<PortableAsset> {
@@ -45,6 +47,19 @@ export function checkAsset(value: unknown, kind?: AssetKind): ValidationResult<P
       if (overlaps) diagnostics.push(diagnostic('asset.placeholder.overlap', `/placeholders/${j}`, `Placeholder "${q.name}" overlaps "${p.name}"`));
     }));
   }
+  if (a.format === 'clementina-song') {
+    if (a.loopStart !== undefined && a.loopStart >= a.length) diagnostics.push(diagnostic('asset.song.loop', '/loopStart', 'The loop starts outside the song'));
+    a.voices.forEach((voice, v) => {
+      let end = 0;
+      voice.notes.forEach((note, n) => {
+        const path = `/voices/${v}/notes/${n}`;
+        if (note.step + note.length > a.length) diagnostics.push(diagnostic('asset.song.note', path, 'A note runs past the end of the song'));
+        // A voice plays one note at a time.
+        if (note.step < end) diagnostics.push(diagnostic('asset.song.overlap', path, 'Notes on one voice overlap or are out of order'));
+        end = Math.max(end, note.step + note.length);
+      });
+    });
+  }
   return result(value, diagnostics);
 }
 
@@ -54,7 +69,7 @@ export function checkAssetSet(value: unknown): ValidationResult<PortableAssetSet
   const set = value as PortableAssetSet;
   for (const kind of assetKinds) {
     if (!Array.isArray(set[kind])) { diagnostics.push(diagnostic('asset.collection', `/${kind}`, 'Expected an array')); continue; }
-    if ((kind === 'shapes' || kind === 'animations' || kind === 'backgrounds' || kind === 'overlays') && set[kind].length > 255) diagnostics.push(diagnostic('asset.limit', `/${kind}`, 'At most 255 assets are supported'));
+    if (kind !== 'palettes' && kind !== 'paletteConfigs' && kind !== 'tilesets' && set[kind].length > 255) diagnostics.push(diagnostic('asset.limit', `/${kind}`, 'At most 255 assets are supported'));
     const ids = new Set<string>(), names = new Set<string>();
     set[kind].forEach((asset, i) => {
       const r = checkAsset(asset, kind);
@@ -84,6 +99,10 @@ export function checkAssetSet(value: unknown): ValidationResult<PortableAssetSet
     if (!tilesets.has(a.altTilesetId)) diagnostics.push(diagnostic('asset.reference', `/overlays/${i}/altTilesetId`, `Unknown tileset ${a.altTilesetId}`));
   });
   set.animations.forEach((a, i) => diagnostics.push(...animationReferences(a, shapes).map(d => ({...d, path: `/animations/${i}${d.path}`}))));
+  const instruments = new Set(set.instruments.map(a => a.id));
+  set.songs.forEach((a, i) => a.voices.forEach((voice, v) => voice.notes.forEach((note, n) => {
+    if (!instruments.has(note.instrumentId)) diagnostics.push(diagnostic('asset.reference', `/songs/${i}/voices/${v}/notes/${n}/instrumentId`, `Unknown instrument ${note.instrumentId}`));
+  })));
   return result(value, diagnostics);
 }
 function animationReferences(a: AnimationAsset, shapes: Map<string, ShapeAsset>): ClementinaDiagnostic[] {

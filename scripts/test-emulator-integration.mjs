@@ -31,6 +31,34 @@ try {
  await client.input(Array.from(Buffer.from('POKE 752,42\r','ascii')));
  await client.step(600000);
  assert.deepEqual(await client.readMemory(752,1),[42]);
+ const enterInputCheck=async line=>{
+  await client.input(Array.from(Buffer.from(`${line}\r`,'ascii')));
+  await client.step(600000);
+ };
+ const inputMethods=(await client.capabilities()).methods;
+ for(const method of ['setHidUsage','setHidBitmap','setGamepadState','clearGamepad'])assert.ok(inputMethods.includes(method));
+ await client.setHidUsage(7,0x50,true); // left arrow, held independently of text
+ await enterInputCheck('IF KEYDOWN(80) THEN POKE 754,1');
+ assert.deepEqual(await client.readMemory(754,1),[1]);
+ await client.setHidUsage(7,0x50,false);
+ await enterInputCheck('IF KEYDOWN(80)=0 THEN POKE 754,2');
+ assert.deepEqual(await client.readMemory(754,1),[2]);
+ await client.setHidUsage(12,0xe9,true);
+ await enterInputCheck('IF CONSDOWN(233) THEN POKE 758,1');
+ assert.deepEqual(await client.readMemory(758,1),[1]);
+ await client.setHidBitmap(12,new Array(32).fill(0));
+ await enterInputCheck('IF CONSDOWN(233)=0 THEN POKE 758,2');
+ assert.deepEqual(await client.readMemory(758,1),[2]);
+ await client.setGamepadState(0,[0x84,0,1,0,0,0,0,0,0,0]);
+ await enterInputCheck('PADREAD 0');
+ await enterInputCheck('IF PADON(0) THEN POKE 755,1');
+ await enterInputCheck('IF PADDIR(0)=4 THEN POKE 756,1');
+ await enterInputCheck('IF PADBTN(0,0) THEN POKE 757,1');
+ assert.deepEqual(await client.readMemory(755,3),[1,1,1]);
+ await client.clearGamepad(0);
+ await enterInputCheck('PADREAD 0');
+ await enterInputCheck('IF PADON(0)=0 THEN POKE 755,2');
+ assert.deepEqual(await client.readMemory(755,1),[2]);
  await client.input(Array.from(Buffer.from('10 POKE 753,43\r','ascii')));
  await client.step(600000);
  await client.input(Array.from(Buffer.from('20 END\r','ascii')));

@@ -1,5 +1,20 @@
 # Program loading and BASIC bootstrap
 
+## Builder card folder
+
+An assembly project with `build.assets` emits a standalone SD folder at
+`<outputDirectory>/sd`: `<NAME>.PRG`, tokenized `BOOT.BAS` and the configured
+asset folder (default `ASSETS`). `assets.inc`, `assets.s`, runtime sources,
+`runtime.lib` and reports stay in the parent output folder. Copy the **contents**
+of `sd` to the card. From that directory, `LOAD "BOOT.BAS"` and `RUN` load the
+program. The game then loads its assets through the runtime.
+
+`buildProject().value.sdRoot` is project-relative. CLI `run`, SDK debug sessions
+and Studio mount `resolve(projectRoot, build.sdRoot)`; load-plan paths are
+relative to that mount. Builds without `build.assets` retain `sdRoot: "."`.
+Load runtime games at `$1800` or higher so BLOAD's resident loader survives.
+
+
 The common Clementina runtime entry point is a small BASIC bootstrap. It loads
 generated assets into MIA RAM, loads any returning banked CPU images, and finally
 hands control to the main machine-code image. This uses the ROM's filesystem and
@@ -76,7 +91,7 @@ SD/FS state permanently occupies MIA RAM `$13000-$13BFF` (see
 `docs/architecture/storage.md`). A `mia` step that overlaps that range always
 fails validation; there is no acknowledgement escape, since nothing else has a
 legitimate default claim on that range (the audio sequencer's tracks defaulted
-there previously but are now relocatable and default elsewhere — see
+there in early firmware; tracks now have no default address — see
 `docs/compatibility.md`).
 
 ## BASIC terminal step
@@ -128,6 +143,9 @@ direct load/setup commands for a BASIC plan) through the text FIFO, and enters
 budgets rather than a prompt-readiness protocol. The final `run` is asynchronous
 and honors address breakpoints. Poll `state()` or pause explicitly as described in
 `docs/emulator-automation.md`.
+The default per-line processing budget is 1,000,000 cycles so a preceding ROM
+filesystem command can complete before the next line is entered. Callers can
+override it with `inputCycles` for a particular emulator test.
 
 The SDK deliberately sends generated source through the ROM tokenizer rather than
 implementing a second one. For standalone BASIC programs outside a load plan,

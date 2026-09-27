@@ -67,11 +67,16 @@ pin this conversion; existing example projects also serve as filesystem fixtures
 
 ## Studio migration
 
-Studio now consumes SDK types and conversion helpers through local package links.
-Build the SDK before building Studio. Its session persistence and legacy validators
-remain in Studio because they accept older identities and optional tileset bindings
-that portable schemas do not. Further validator removal requires explicit legacy
-normalization and parity tests; replacing them outright would break existing files.
+Studio consumes SDK types, conversion helpers, and Studio v2 session validators
+through local package links. Build the SDK before building Studio. The
+`checkStudioProjectV2` and `validateStudioProject` APIs accept the legacy session
+model, including optional collection and animation identities, missing shape
+tileset bindings, older canvas fields, and session-only state. The check API
+returns a shallow normalized copy with absent collections filled in, leaving its
+input untouched. Studio uses the same validators for its session files and editor
+model. Portable export remains an explicit conversion through
+`fromStudioProjectV2` and the stricter versioned asset schemas; some valid legacy
+sessions require identity or tileset cleanup before they can be exported.
 
 ## Emulator client
 

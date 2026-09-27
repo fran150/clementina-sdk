@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clementina.dev/schema/song.schema.json",
+  "title": "Clementina song",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "id",
+    "name",
+    "bpm",
+    "stepsPerBeat",
+    "beatsPerBar",
+    "length",
+    "voices"
+  ],
+  "properties": {
+    "format": {
+      "const": "clementina-song"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+    },
+    "bpm": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 400
+    },
+    "stepsPerBeat": {
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        8
+      ]
+    },
+    "beatsPerBar": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "loopStart": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4095
+    },
+    "voices": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pan",
+          "notes"
+        ],
+        "properties": {
+          "pan": {
+            "type": "integer",
+            "minimum": -64,
+            "maximum": 63
+          },
+          "notes": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step",
+                "length",
+                "pitch",
+                "instrumentId"
+              ],
+              "properties": {
+                "step": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4095
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "pitch": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 95
+                },
+                "instrumentId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                },
+                "legato": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

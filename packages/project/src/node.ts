@@ -6,6 +6,7 @@ import {assetKinds, checkAsset, type PortableAssetSet} from '@clementina/assets'
 import {assertValid, diagnostic, result, ValidationError, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {checkProjectManifest, isProjectPath} from './validate.js';
 import {checkProject, type PortableProject} from './project.js';
+import {assetPaths} from './types.js';
 
 /** Reject symlinks in project paths, including dangling links and parent directories. */
 export async function resolveProjectPath(root: string, path: string): Promise<string> {
@@ -38,8 +39,8 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
     if (!r.ok) return result(undefined, r.diagnostics.map(d => ({...d, source: 'clementina.yaml'})));
     manifest = r.value;
   } catch (e) { return result(undefined, ioDiagnostics(e, 'clementina.yaml')); }
-  const assets: PortableAssetSet = {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: []};
-  for (const kind of assetKinds) for (const path of manifest.assets[kind]) {
+  const assets: PortableAssetSet = {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: [], instruments: [], sounds: [], songs: []};
+  for (const kind of assetKinds) for (const path of assetPaths(manifest, kind)) {
     try {
       const value = JSON.parse(await readFile(await resolveProjectPath(root, path), 'utf8'));
       const checked = checkAsset(value, kind);
@@ -65,10 +66,10 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
   const project = {manifest, assets};
   const checked = checkProject(project);
   return result(project, checked.diagnostics.map(d => {
-    const match = d.path?.match(/^\/(palettes|paletteConfigs|tilesets|backgrounds|overlays|shapes|animations)\/(\d+)(.*)$/);
+    const match = d.path?.match(/^\/(palettes|paletteConfigs|tilesets|backgrounds|overlays|shapes|animations|instruments|sounds|songs)\/(\d+)(.*)$/);
     if (!match) return {...d, source: 'clementina.yaml'};
     const kind = match[1] as keyof PortableAssetSet;
-    return {...d, source: manifest.assets[kind][Number(match[2])], path: match[3]};
+    return {...d, source: assetPaths(manifest, kind)[Number(match[2])], path: match[3]};
   }));
 }
 
@@ -79,7 +80,7 @@ export async function saveProject(root: string, project: PortableProject): Promi
   assertValid(checkProject(project));
   await mkdir(root, {recursive: true});
   const files: {path: string; text: string}[] = [];
-  for (const kind of assetKinds) project.assets[kind].forEach((asset, i) => files.push({path: project.manifest.assets[kind][i], text: JSON.stringify(asset, null, 2) + '\n'}));
+  for (const kind of assetKinds) project.assets[kind].forEach((asset, i) => files.push({path: assetPaths(project.manifest, kind)[i], text: JSON.stringify(asset, null, 2) + '\n'}));
   files.push({path: 'clementina.yaml', text: stringify(project.manifest)});
   for (const file of files) {
     const target = await resolveProjectPath(root, file.path);

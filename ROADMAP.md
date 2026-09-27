@@ -16,7 +16,7 @@ Implemented project manifest, versioned JSON schemas, TypeScript types/validator
 cross-reference validation, Studio v2 conversion, examples, and tests.
 
 ## Phase 3 — shared core packages
-**Baseline implemented; incremental Studio migration started.**
+**Implemented, including Studio validator migration.**
 
 1. structured diagnostics instead of exception-only validation;
 2. filesystem project reader/writer;
@@ -45,7 +45,11 @@ generated BASIC bootstrap source, SD-root mounting, and real-ROM emulator launch
 The Node lifecycle entry point owns the Go process and powers CLI `run`.
 
 ## Phase 6 — Studio integration completion
-Studio becomes a client of SDK contracts instead of a parallel implementation.
+**Portable open/save and validator migration implemented.** Studio opens
+portable projects with SDK loading and conversion, retains animation identities
+and asset paths when saving, and uses the SDK project writer. Studio v2 session
+validation now delegates to `@clementina/project`; its legacy optional fields
+and identity rules are preserved at that boundary.
 
 ## Phase 7 — assembly
 **Build baseline implemented.** The Node ca65/ld65 adapter accepts explicit source
@@ -83,7 +87,10 @@ language service follows the ROM's lexical behavior rather than maintaining a
 second tokenizer.
 
 ## Phase 9 — agent workflows
-Vendor-neutral game/asset/code/debug workflows.
+**First end-to-end path implemented.** The vendor-neutral BASIC create-game
+workflow initializes a portable project with assets, validates and builds it,
+launches it in the emulator, and checks its input response against CPU/video
+inspection artifacts. Asset, code, and debug workflows remain outlines.
 
 ## Phase 10 — MCP
 Structured agent tools.

@@ -1,0 +1,136 @@
+{
+  "format": "clementina-project",
+  "version": 1,
+  "name": "Runtime demo",
+  "target": {
+    "machine": "clementina-6502"
+  },
+  "program": {
+    "kind": "assembly",
+    "entry": "src/main.s"
+  },
+  "assets": {
+    "palettes": [
+      "assets/palettes/0.json"
+    ],
+    "paletteConfigs": [
+      "assets/paletteConfigs/0.json"
+    ],
+    "tilesets": [
+      "assets/tilesets/0.json"
+    ],
+    "backgrounds": [
+      "assets/backgrounds/0.json"
+    ],
+    "overlays": [
+      "assets/overlays/0.json"
+    ],
+    "shapes": [
+      "assets/shapes/0.json"
+    ],
+    "animations": [
+      "assets/animations/0.json"
+    ],
+    "instruments": [
+      "assets/instruments/0.json",
+      "assets/instruments/1.json"
+    ],
+    "sounds": [
+      "assets/sounds/0.json"
+    ],
+    "songs": [
+      "assets/songs/0.json"
+    ]
+  },
+  "build": {
+    "outputDirectory": "build",
+    "assembly": {
+      "linkerConfig": "link.cfg",
+      "outputName": "demo",
+      "loadAddress": 6144,
+      "entrySymbol": "game_start"
+    },
+    "assets": {
+      "slots": [
+        {
+          "name": "paletteConfig",
+          "mia": 81920,
+          "size": 8192
+        },
+        {
+          "name": "tileset",
+          "mia": 90112,
+          "size": 8192
+        },
+        {
+          "name": "background",
+          "mia": 98304,
+          "size": 8192
+        },
+        {
+          "name": "overlayData",
+          "mia": 106496,
+          "size": 8192
+        },
+        {
+          "name": "sprites",
+          "mia": 114688,
+          "size": 8192
+        },
+        {
+          "name": "song",
+          "mia": 122880,
+          "size": 8192
+        },
+        {
+          "name": "sound",
+          "mia": 131072,
+          "size": 8192
+        },
+        {
+          "name": "bank",
+          "bank": 1,
+          "address": 32768,
+          "size": 32768
+        }
+      ],
+      "include": [
+        {
+          "kind": "paletteConfig",
+          "id": "palette-config:main",
+          "slot": "paletteConfig"
+        },
+        {
+          "kind": "tileset",
+          "id": "tileset:player",
+          "slot": "tileset"
+        },
+        {
+          "kind": "background",
+          "id": "background:level1",
+          "slot": "background"
+        },
+        {
+          "kind": "overlay",
+          "id": "overlay:hud",
+          "slot": "overlayData"
+        },
+        {
+          "kind": "sprites",
+          "id": "tileset:player",
+          "slot": "sprites"
+        },
+        {
+          "kind": "song",
+          "id": "e4f5a6b7-c8d9-4e0f-9a1b-2c3d4e5f6a7b",
+          "slot": "song"
+        },
+        {
+          "kind": "sound",
+          "id": "c2a9f1e0-1b2c-4d3e-8f40-516273849abc",
+          "slot": "sound"
+        }
+      ]
+    }
+  }
+}

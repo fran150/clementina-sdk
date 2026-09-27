@@ -20,7 +20,10 @@ my-game/
     ├── backgrounds/
     ├── overlays/
     ├── shapes/
-    └── animations/
+    ├── animations/
+    ├── instruments/
+    ├── sounds/
+    └── songs/
 ```
 
 All manifest paths are project-relative POSIX-style paths. Absolute paths, `..`,
@@ -53,9 +56,17 @@ assets:
     - assets/shapes/player_idle.shape.json
   animations:
     - assets/animations/player_idle.animation.json
+  instruments:
+    - assets/instruments/lead.instrument.json
+  sounds:
+    - assets/sounds/jump.sound.json
+  songs:
+    - assets/songs/theme.song.json
 ```
 
-`target.phi2Hz` is optional; the machine default is 1.2 MHz.
+`target.phi2Hz` is optional; the machine default is 1.2 MHz. The three audio
+lists are optional, and a missing list means no assets of that kind; every other
+list is required, even when it is empty.
 
 ## Build declaration
 
@@ -94,8 +105,48 @@ its declared CHR bank. No placement is inferred from manifest array order.
 
 `@clementina/build` and `clementina build` produce the linked binary and PRG,
 debug artifacts, palette/CHR files, `load-plan.json`, and `bootstrap.bas` inside
-`outputDirectory`. Shape and animation files are not emitted because their runtime
-binary ABI is not defined yet.
+`outputDirectory`. With `build.assets`, sprite files contain each tileset's
+shapes followed by animations, with generated item/location tables.
+
+## Asset build (`build.assets`)
+
+For an assembly project, add:
+
+```yaml
+build:
+  outputDirectory: build
+  assembly:
+    linkerConfig: link.cfg
+    outputName: game
+    loadAddress: 6144       # $1800; retain the resident kernel loader
+    entrySymbol: game_start
+  assets:
+    folder: ASSETS
+    checks: true
+    slots:
+      - {name: maps, mia: 0x14000, size: 32768}
+      - {name: actors, bank: 1, address: 0x8000, size: 16384}
+    include:
+      - {kind: paletteConfig, id: palette-config:main, slot: palettes}
+      - {kind: tileset, id: tileset:player, slot: chr2}
+      - {kind: sprites, id: tileset:player, slot: actors, file: PLAYER.SPR}
+      - {kind: background, id: background:level1, slot: maps}
+```
+
+Kinds are `paletteConfig`, `tileset`, `background`, `overlay`, `sprites`, `song`
+and `sound`. A sprite file uses its **tileset ID**. `file` overrides the generated
+8.3 name; names are unique ignoring case. `folder` defaults to `ASSETS` and
+`checks` defaults to true. Built-in slots are `palettes`, `chr0`–`chr7` and
+`overlay`; user MIA slots stay inside `$14000–$3FFFF`. CPU slots name a bank
+1–31 and address `$8000–$BFFF`, and may span consecutive banks through bank 31.
+Overlapping slots, duplicate or unresolved includes, reserved locations and
+invalid assembly constants are rejected. Assets sharing a slot are alternatives.
+
+Output includes `assets.inc`, `assets.s`, `memory-report.json`, the runtime
+sources/library/listings and `runtime/code-sizes.json`. The deployable card is
+`build/sd`, containing `BOOT.BAS`, `GAME.PRG` and `ASSETS/`. Runtime calls own
+loading and playback; merely including an asset does not load or use it.
+See [the Builder](gamedev/builder.md) and `examples/runtime-demo`.
 
 ## Portable asset envelopes
 
@@ -110,8 +161,21 @@ Every asset is self-identifying and versioned:
 | overlay | `clementina-overlay` | 1 |
 | shape | `clementina-shape` | 1 |
 | animation | `clementina-animation` | 1 |
+| instrument | `clementina-instrument` | 1 |
+| sound effect | `clementina-sound` | 1 |
+| song | `clementina-song` | 1 |
 
 JSON Schemas live in `specs/schema/`.
+
+The audio assets are the ones Studio's Sounds and Music editors author. An
+instrument is what the sequencer's `SET_*` opcodes put on a voice: waveform,
+pulse width, envelope and volume. A song is four voices of notes on a step grid,
+at a tempo, with an optional loop start; its notes name instruments by id, and
+the notes on one voice must not overlap. A sound effect is one voice's register
+values frame by frame (60 frames a second) under one envelope and pan.
+`@clementina/assets` compiles them the way the hardware plays them:
+`compileSong` produces the sequencer tracks and `soundWrites` the per-frame
+register writes (see [Audio](architecture/audio.md)).
 
 ## Studio boundary
 
@@ -132,7 +196,7 @@ They intentionally omit Studio session-only state:
 ## What Phase 2 does not define yet
 
 Scene files (which combine backgrounds, shapes, and a bank config, and decide
-sprite-versus-background priority), audio authoring assets, shape/animation
-runtime packing, and BASIC-project build composition remain later phases. The
+sprite-versus-background priority) and BASIC-project build composition remain
+later phases. The
 standalone BASIC tokenizer and file compiler are documented in
 [BASIC tooling](basic-tooling.md).

@@ -18,6 +18,8 @@ Shared, vendor-neutral development SDK for the Clementina homebrew computer.
   detokenizer, CLI output, portable-project build/run composition, and a baseline
   language server; see `docs/basic-tooling.md`, `docs/program-loading.md`, and
   `docs/basic-lsp.md`
+- **Phase 9:** first complete, vendor-neutral BASIC game creation workflow;
+  see `agents/workflows/create-game.md`
 - **Phase 11:** editor-neutral debug session and Node project-debug composition
   (assembly projects only; see `docs/debugger.md`), plus a baseline VS Code
   extension (DAP debugging + BASIC language client); see `docs/vscode-extension.md`
@@ -38,6 +40,8 @@ Start with:
 3. `docs/gamedev/asset-model.md`
 4. `specs/schema/`
 5. `ROADMAP.md`
+
+To create and inspect a game end to end, follow `agents/workflows/create-game.md`.
 
 Run:
 

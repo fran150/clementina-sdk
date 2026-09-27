@@ -1,4 +1,158 @@
-# Clementina SDK session handoff — 2026-09-21
+# Clementina SDK session handoff — 2026-09-26
+
+## 2026-09-26: Phase 6 Studio validator migration
+
+Studio's session project and graphical validators now delegate to
+`@clementina/project`; its browser audio validators delegate to
+`@clementina/assets/audio`. The SDK's Studio v2 compatibility validator
+preserves legacy identity, optional binding, canvas, and session-state behavior.
+`checkStudioProjectV2` returns a copy with absent collections filled in without
+editing the source. Portable export still uses the stricter versioned schemas.
+
+SDK `npm test` and Studio `npm test` pass, as do Studio's audio and Builder
+Electron UI checks. Existing uncommitted work in both repositories was retained;
+no commit or push.
+
+## 2026-09-26: Portable project round trip with Studio
+
+Studio now opens `clementina.yaml` through File > Open and opens existing
+assembly folders through Builder. The SDK's Studio conversion preserves imported
+animation IDs; Builder preserves existing manifest asset paths by ID. File > Save
+writes portable assets back to their original folder, retaining the manifest's
+program/build declarations and source files. Missing assets still require an
+explicit removal confirmation. New and duplicated animations receive stable IDs.
+
+Verified: SDK `npm test` (101/101), Studio `npm test` (64/64), Studio Electron UI
+suite, and a focused Electron open/edit/save round-trip test. No commit or push.
+
+## 2026-09-26: Builder work (read this first)
+
+The asset builder and runtime from `docs/gamedev/builder.md` are built and
+tested, in the SDK and in Studio's Builder tab. Nothing is committed, and the
+user said not to commit until asked. The older sections below predate this
+work. This work spans the SDK and Studio: the older "do not take over Studio
+UI development" scope does not apply to Studio's Builder tab, which is part
+of it.
+
+**Done and verified** (all of builder.md's "Implementation order"):
+- Portable instrument, sound and song assets, the file encoders
+  (`packages/assets/src/runtime-files.ts`) and the song and sound compiler
+  (`@clementina/assets/audio`, which Studio also uses).
+- The `build.assets` manifest section with slot and include checks;
+  `packages/build/src/assets.ts` (planAssetBuild, assets.inc, assets.s, the
+  memory report); `buildProject` writing `<out>/sd` with `BOOT.BAS`, building
+  `runtime.lib` with ca65 and ar65, and returning `sdRoot`.
+- CLI `run` and `packages/debug/src/node.ts` mount `resolve(root, sdRoot)`.
+- `packages/runtime` (`@clementina/runtime`): 17 ca65 modules.
+- Tests: `tests/builder.test.mjs` covers manifest checks, planning, labels,
+  collisions, the generated text, the report, the descriptor and state
+  constants against `runtime.inc`, and a real-toolchain build (skipped
+  without cc65).
+- `examples/runtime-demo` calls every public routine and records checkpoints
+  at `$0700`. `scripts/test-runtime-integration.mjs <automation> <renderer>`
+  extends it with an 80 KB background, a relocation across banks and
+  placeholder 128, then checks memory, video registers, CHR and background
+  bytes, sprite and animation OAM transitions, scroll, viewport, song and sound
+  state, and renders a PNG.
+- Emulator automation now exposes `audio`: an 80-byte audio register snapshot
+  whose note-index and sequencer-status bytes come from live engine state.
+  `@clementina/emulator-client` validates the response. The emulator also
+  serves those live fields through general indexes, matching the Pico's RAM
+  reads and the runtime's `SongPosition` routine.
+- Docs: builder.md (status, resolved details, additions and renames, `kind`
+  in the manifest sketch), project-format.md, cli.md, program-loading.md.
+
+**Results on 2026-09-26:** SDK `npm test` 102/102; the runtime integration
+script reaches checkpoint 55 with video and audio assertions passing; focused
+Go automation/audio tests pass under `-race`; `test-emulator-integration.mjs`
+also passes with the rebuilt emulator. Build the binaries as
+`docs/emulator-automation.md` says
+(`go build` in clementina-6502 `./cmd/clementina-automation` and
+clementina-video-client `./cmd/clementina-render`).
+
+**Not verified:**
+- The runtime has run only in the Go emulator, never on the Pico firmware.
+- Audio output waveform and hardware behavior are not verified by the register
+  snapshots; the emulator's audio sample timing uses host wall-clock time.
+- Studio's Builder writes only the assets Studio holds. Saving into an SDK
+  project that lists others asks first (Cancel by default). Studio can now open
+  a portable project's assets before editing and saving them.
+
+**Studio side:** see the matching section of
+`../clementina-studio/SESSION_HANDOFF.md`.
+
+## Working context carried over from the previous agent (2026-09-26)
+
+This context lived in the previous agent's private memory, so it is written
+out here. Studio-specific conventions are in the same kind of section in
+`../clementina-studio/SESSION_HANDOFF.md`.
+
+**The user.** fran150 designed the whole stack and builds it end to end:
+- the Clementina 6502 machine;
+- the MIA video/audio chip (Pico firmware and a Go emulator);
+- the kernel and BASIC ROM, in assembly;
+- the SDK;
+- Clementina Studio, an Electron authoring app.
+
+They know the hardware deeply and will correct a model that doesn't match
+the silicon. On design trade-offs:
+- They ask for one recommendation backed by the hardware source, not a menu
+  of options. When unsure, re-read the source before answering.
+- Name real constraints (a 4-bit attribute field, a 16-bit DMA length)
+  rather than inventing conventions as limits.
+- They treat inconsistency between editors, and behavior unlike well-known
+  editors (Figma, Aseprite, Tiled), as usability bugs.
+
+**Standing instructions:**
+- Don't commit or push until asked.
+- Preserve other sessions' uncommitted work.
+- Never print, copy or mention the values in `clementina-mia/setup-env.sh`
+  (Wi-Fi credentials).
+- Don't edit `.claude/settings.local.json`.
+
+**Where hardware truth lives** (read before modeling a hardware resource, and
+say which file an answer came from):
+- `../clementina-video-client/internal/render/renderer.go`: pixel truth.
+  Attribute bits, palette indexing, which layers make color 0 transparent,
+  and OAM decoding.
+- `../clementina-6502/pkg/components/mia/*.go`: the emulated memory map,
+  indexes, commands, SD, audio and sequencer.
+- `../clementina-mia/src/mia/`: the real firmware (`video/`, `audio/audio.c`,
+  `sd/sd.c`, `cmds/cmds.c`, `mem/dma.c`, `sys/mia.c`). Its `docs/` sometimes
+  lag the code.
+- `../clementina-rom/src/kernel/`: kernel conventions layered on the
+  hardware (`kernel.inc` names, `memory.s` services). Tell convention from
+  silicon: the console's palette 0 for text is a convention, not a reserved
+  slot.
+- `../clementina-rom/docs/`: the BASIC layer, including `memory-map.md`.
+
+**Why the Builder design has its shape.** The user rejected earlier proposals
+that had:
+- per-level layouts;
+- a runtime-owned update loop;
+- memory regions locked for the system;
+- fixed 40x25 background pages.
+
+The split they set: Studio supplies assets in loadable form and primitives
+(TickAnimation and the like), and the game's programmer decides when anything
+loads, ticks or composes. Reject Builder features that decide load timing or
+sequencing. The Studio Builder tab only edits the `build.assets` settings,
+runs the SDK build and runs the emulator.
+
+**Open audio findings** (reported to the user in an earlier session, not acted
+on; check whether they are still open):
+1. MIA's sequencer doc says NOTE holds `dur` samples, but the ISR holds
+   `dur + 1`. The SDK compiler writes samples - 1 to match the ISR.
+2. The ROM's `TRACK` never gates off between notes, so a sustain-0
+   instrument sounds only the first note of a run.
+3. There is no zero-duration SET_FREQ opcode for smooth sequenced pitch
+   moves.
+
+If the firmware changes any of this:
+- revisit `compileSong` in `packages/assets/src/audio.ts` (it writes
+  samples - 1, and a one-sample REST to retrigger);
+- run Studio's `npm run test:firmware` and update the hashes in Studio's
+  `tests/audio.test.mjs`.
 
 ## Scope and user preferences
 
@@ -467,3 +621,19 @@ Do not commit without explicit user instruction.
   program with returning assembly support loaded first, or assembly must take over
   after BASIC setup. This is the only BASIC-scope product decision still required.
 - Nothing was committed or pushed.
+
+## Update — held HID/gamepad automation (2026-09-26)
+
+- `@clementina/emulator-client` and the sibling `clementina-6502` headless
+  automation server now expose held HID usage press/release, complete HID bitmap
+  replacement, complete 10-byte gamepad slot replacement, and gamepad clear.
+  The MIA test hooks reuse held-state, device, event, and status handling without
+  opening a UDP input session or advancing CPU cycles.
+- The protocol and input layout are recorded in `specs/emulator-automation.json`,
+  `specs/input.json`, and `docs/emulator-automation.md`.
+- Verified: all 102 SDK tests and workspace builds; Go automation tests under
+  `-race`; real emulator integration including BASIC `KEYDOWN`, `CONSDOWN`,
+  `PADON`, `PADDIR`, and `PADBTN` press/release queries, plus the existing
+  debugger, build, file, and renderer checks.
+- Existing unrelated work in both repositories was left in place. Nothing was
+  committed or pushed.

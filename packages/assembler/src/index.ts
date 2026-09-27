@@ -27,6 +27,8 @@ export interface AssemblyBuildRequest {
   bank?: number;
   includeDirectories?: string[];
   defines?: Record<string, string | number>;
+  /** Project-relative ar65 libraries ld65 searches after the objects. */
+  libraries?: string[];
   toolchain?: Ca65Toolchain;
 }
 
@@ -97,6 +99,7 @@ function validateRequest(request: AssemblyBuildRequest): ClementinaDiagnostic[] 
   if (!Array.isArray(request.sources) || request.sources.length === 0) diagnostics.push(diagnostic('assembler.sources', '/sources', 'At least one assembly source is required'));
   for (const [index, path] of (request.sources ?? []).entries()) if (!portablePath(path)) diagnostics.push(diagnostic('assembler.path', `/sources/${index}`, 'Expected a project-relative portable path'));
   for (const [index, path] of (request.includeDirectories ?? []).entries()) if (!portablePath(path)) diagnostics.push(diagnostic('assembler.path', `/includeDirectories/${index}`, 'Expected a project-relative portable path'));
+  for (const [index, path] of (request.libraries ?? []).entries()) if (!portablePath(path)) diagnostics.push(diagnostic('assembler.path', `/libraries/${index}`, 'Expected a project-relative portable path'));
   if (!portablePath(request.linkerConfig)) diagnostics.push(diagnostic('assembler.path', '/linkerConfig', 'Expected a project-relative portable path'));
   if (!portablePath(request.outputDirectory)) diagnostics.push(diagnostic('assembler.path', '/outputDirectory', 'Expected a project-relative portable path'));
   if (!outputPattern.test(request.outputName)) diagnostics.push(diagnostic('assembler.output-name', '/outputName', 'Expected a portable filename stem beginning with a letter'));
@@ -258,6 +261,7 @@ export async function buildAssembly(projectRoot: string, request: AssemblyBuildR
     const config = await resolveProjectPath(root, request.linkerConfig);
     const sources = await Promise.all(request.sources.map(path => resolveProjectPath(root, path)));
     const includeDirectories = await Promise.all((request.includeDirectories ?? []).map(path => resolveProjectPath(root, path)));
+    const libraries = await Promise.all((request.libraries ?? []).map(path => resolveProjectPath(root, path)));
     await mkdir(outputDirectory, {recursive: true});
 
     const objects: string[] = [], listings: string[] = [];
@@ -267,7 +271,7 @@ export async function buildAssembly(projectRoot: string, request: AssemblyBuildR
       const object = `${outputDirectory}/${stem}.o`, listing = `${outputDirectory}/${stem}.lst`;
       const args = ['--cpu', '65C02', '--debug-info', '--listing', listing];
       for (const directory of includeDirectories) args.push('--include-dir', directory);
-      for (const [name, value] of Object.entries(request.defines ?? {}).sort(([a], [b]) => a.localeCompare(b))) args.push('--define', `${name}=${value}`);
+      for (const [name, value] of Object.entries(request.defines ?? {}).sort(([a], [b]) => a.localeCompare(b))) args.push('-D', `${name}=${value}`);
       args.push('-o', object, source);
       const assembled = await runner({command: ca65, args, cwd: root});
       if (assembled.exitCode !== 0) return result(undefined, [toolFailure('ca65', request.sources[index], assembled)]);
@@ -276,7 +280,7 @@ export async function buildAssembly(projectRoot: string, request: AssemblyBuildR
 
     const base = `${outputDirectory}/${request.outputName}`;
     const binaryPath = `${base}.bin`, prgPath = `${base}.prg`, debugPath = `${base}.dbg`, mapPath = `${base}.map`, labelsPath = `${base}.lbl`;
-    const linked = await runner({command: ld65, args: ['--config', config, '-o', binaryPath, '--dbgfile', debugPath, '--mapfile', mapPath, '-Ln', labelsPath, ...objects], cwd: root});
+    const linked = await runner({command: ld65, args: ['--config', config, '-o', binaryPath, '--dbgfile', debugPath, '--mapfile', mapPath, '-Ln', labelsPath, ...objects, ...libraries], cwd: root});
     if (linked.exitCode !== 0) return result(undefined, [toolFailure('ld65', request.linkerConfig, linked)]);
 
     const [binaryBuffer, debugText] = await Promise.all([readFile(binaryPath), readFile(debugPath, 'utf8')]);

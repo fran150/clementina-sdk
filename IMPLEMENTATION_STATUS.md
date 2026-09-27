@@ -34,8 +34,9 @@ Implemented:
 Implemented structured schema-backed diagnostics with throwing compatibility APIs,
 Node project loading/saving, path and ID resolution, cross-asset checks, generated
 schema freshness checks, bidirectional schema/type conformance, version policy,
-and golden Studio conversion fixtures. Studio now imports SDK models/converters;
-legacy session validators remain pending normalization/parity coverage.
+and golden Studio conversion fixtures. Studio now imports SDK models/converters
+and delegates Studio v2 session validation to the SDK. Legacy optional fields and
+identity rules have compatibility coverage.
 
 See `docs/shared-packages.md` for filesystem atomicity and migration limitations.
 
@@ -62,12 +63,15 @@ Bounded source-line stepping and JSR step-over are now implemented over the same
 transport-independent client. The editor-neutral `@clementina/debug` layer now
 owns thread/frame/register views, replacement-style source breakpoints, command
 serialization, stop polling, and Node project build/emulator/launch composition.
-A DAP transport and VS Code extension are now implemented (Phase 11); held
-HID/gamepad automation remains pending. Phase 8 BASIC tooling now includes portable-project
+A DAP transport and VS Code extension are now implemented (Phase 11). Held
+HID/gamepad automation now exposes press/release, full HID bitmap replacement,
+and four complete gamepad slots through the SDK client and headless emulator.
+Phase 8 BASIC tooling now includes portable-project
 build/run/debug composition and a language server with diagnostics, semantic
 navigation/refactoring, signatures, formatting, and renumbering.
-Continue Studio legacy validator migration with explicit compatibility coverage
-before declaring Phase 6 complete.
+Phase 6 Studio validation migration is complete; Studio's project and graphical
+asset validators now delegate to `@clementina/project`, and its audio validators
+delegate to `@clementina/assets/audio`.
 
 ## Phase 7
 

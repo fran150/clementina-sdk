@@ -48,6 +48,11 @@
       "name": "COPY_INDEXES"
     },
     {
+      "id": 17,
+      "hex": "$11",
+      "name": "COPY_RECT"
+    },
+    {
       "id": 48,
       "hex": "$30",
       "name": "EXEC_PAUSE"
@@ -246,6 +251,11 @@
       "id": 137,
       "hex": "$89",
       "name": "FS_FILE_INFO"
+    },
+    {
+      "id": 138,
+      "hex": "$8A",
+      "name": "FS_LOAD_PART"
     }
   ]
 }

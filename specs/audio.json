@@ -23,7 +23,8 @@
   "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67","sequencerSetBase0":"$68","sequencerSetBase1":"$69","sequencerSetBase2":"$6A","sequencerSetBase3":"$6B"},
   "sequencer": {
     "trackFormat": "undeclared-length opcode stream at a per-voice track_base, decoded live until END, an unrecognized opcode byte, or a cursor past the top of MIA RAM",
-    "defaultTrackBase": {"voice0":81920,"voice1":86016,"voice2":90112,"voice3":94208},
+    "trackBaseAfterReset": "none: boot and reset forget every voice's track_base, and clear no MIA RAM",
+    "startWithoutTrack": "sequencerStart leaves a voice with no track_base stopped: no gate-off and no sequence-done IRQ",
     "setBaseCommand": {"voice0":"sequencerSetBase0","voice1":"sequencerSetBase1","voice2":"sequencerSetBase2","voice3":"sequencerSetBase3","payload":"24-bit little-endian address","effect":"sets track_base only; does not move cursor/note_index until the next sequencerLoad"},
     "callerReservedRegions": "track_base and its decoded bytes must avoid the video sync region, input/clock state, the audio register block, SD/FS state ($13000-$13BFF, see specs/storage.json), and any other voice's own track; the SDK does not allocate or check this",
     "durationUnit": "24 kHz audio samples",

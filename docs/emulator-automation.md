@@ -55,6 +55,7 @@ await client.input([65, 13]); // raw console bytes, not Unicode
 const state = await client.state();
 const bytes = await client.readMemory(0, 256);
 const video = await client.video();
+const audio = await client.audio();
 ```
 
 The boot cycle count above is a test budget, not a readiness guarantee. Requests
@@ -87,6 +88,14 @@ its existing compositor and returns a native 320×200 image. Its `clementina-ren
 command accepts the JSON byte array on stdin and emits PNG on stdout. There is no
 second SDK compositor or dependency from core/assets/project onto rendering.
 
+`audio` returns the 80-byte MIA audio register block at `$12000-$1204F`.
+The emulator supplies live note index and running/taken status in each voice's
+offsets 9-11, which it computes for indexed reads of those addresses rather
+than keeping in RAM. The read does not render samples or advance CPU cycles.
+The engine uses host wall-clock time, so voice registers and note positions can
+advance between separate requests even while CPU execution is stopped. Query
+`capabilities().methods` before calling `audio` against older emulator binaries.
+
 Cross-repository verification:
 
 ```sh
@@ -103,10 +112,44 @@ The integration check boots the real emulator, generates and enters a BASIC
 bootstrap, loads a PRG and MIA asset from the mounted SD directory, stops at a
 pre-instruction breakpoint, source-steps over a real JSR/RTS pair, checks memory,
 and renders through the existing Go compositor. SDK unit tests run without sibling
-checkouts. Held HID/gamepad injection remains future work; source mapping is covered
-below.
+checkouts. The integration check also exercises held HID and gamepad queries in
+the real BASIC ROM. Source mapping is covered below.
 Process lifecycle and CLI `run` now use the public Node adapter. This is the Phase 5
 baseline, not completion of every debugger capability.
+
+## Held input for gameplay tests
+
+The headless automation session can set held Keyboard/Keypad or Consumer HID
+usages and complete gamepad records while execution is stopped or running. Calls
+are serialized with CPU cycles and return the current state without stepping.
+Held values persist across calls and CPU cycles until released, replaced, cleared,
+or reset. The ordinary `input` method remains a separate raw text FIFO path.
+
+```ts
+await client.setHidUsage(7, 0x50, true); // hold Keyboard/Keypad Left Arrow
+await client.setGamepadState(0, [0x84, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]); // connected, d-pad left, A
+await client.step(100_000);
+await client.setHidUsage(7, 0x50, false);
+await client.clearGamepad(0);
+```
+
+`setHidUsage(page, usageId, down)` accepts page 7 or 12 and usage IDs 0–255.
+`setHidBitmap(page, bytes)` replaces exactly 32 bytes and can release all usages
+on a page with zero bytes. Neither method adds text to the FIFO, even for editing
+keys. `setGamepadState(player, bytes)` accepts slot 0–3 and exactly 10 bytes in
+the MIA gamepad layout: d-pad/connected, digital sticks, two button bytes, four
+signed stick axes encoded as bytes, and two unsigned triggers. Bit 7 of the first
+byte marks the slot connected. `clearGamepad(player)` releases and disconnects it.
+See [input architecture](architecture/input.md) for the field and bit layout.
+
+These hooks reuse MIA's held-state, event, status, and device-flag updates. HID
+calls mark the corresponding virtual keyboard or consumer device available;
+gamepad availability follows its connected bit. The headless session still
+reports the console source: injection is a test hook, not a Wi-Fi session or a
+change to `INPUTMODE`. Reset clears the injected state. Existing host wall-clock
+timing and key-repeat behavior remain unchanged; cycle counts do not define how
+long a control was held in real time. Query `capabilities().methods` when working
+with older automation binaries.
 
 The load-plan and launch contract is documented in [program loading](program-loading.md).
 

@@ -36,9 +36,10 @@ in the MIA repository (`docs/audio-sequencer.md`); `specs/audio.json`'s
 A track has no declared length and no header: it is opcode bytes at a
 per-voice `track_base`, decoded live until an `END`, an unrecognized opcode,
 or a cursor past the top of MIA RAM. There is no per-track size limit.
-`track_base` defaults to `$14000`/`$15000`/`$16000`/`$17000` (voices 0-3) and
-can be relocated anywhere in MIA RAM with `AUDIO_SEQ_SET_BASE0-3`
-(`$68`-`$6B`); the caller is responsible for avoiding the video sync region,
+A voice has no track until `AUDIO_SEQ_SET_BASE0-3` (`$68`-`$6B`) sets its
+`track_base`, which can be anywhere in MIA RAM. Boot and `AUDIO_RESET` forget
+every base and clear no MIA RAM, and `AUDIO_SEQ_START` leaves a voice without a
+base stopped. The caller is responsible for avoiding the video sync region,
 input/clock state, the audio register block, SD/FS state
 (`$13000-$13BFF`, see `docs/architecture/storage.md`), and other voices'
 tracks — the SDK does not allocate or check this beyond rejecting a load-plan

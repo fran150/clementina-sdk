@@ -85,9 +85,9 @@ export async function executeCommand(args: string[], cwd = process.cwd(), depend
     if (r.value.kind === 'assembly') {
       const bootstrap = r.value.files.find(file => file.kind === 'bootstrap')!.path;
       return {
-        ok: true, diagnostics: [], exitCode: 0,
-        message: `Built ${r.value.assembly.artifacts.prg} and ${loadPlan}.`,
-        data: {kind: 'assembly', prg: r.value.assembly.artifacts.prg, loadPlan, bootstrap, entryAddress: r.value.assembly.entryAddress},
+        ok: true, diagnostics: r.diagnostics, exitCode: 0,
+        message: `Built ${r.value.assembly.artifacts.prg} and ${loadPlan}. SD card: ${r.value.sdRoot}.`,
+        data: {kind: 'assembly', sdRoot: r.value.sdRoot, prg: r.value.assembly.artifacts.prg, loadPlan, bootstrap, entryAddress: r.value.assembly.entryAddress},
       };
     }
     return {
@@ -104,7 +104,7 @@ export async function executeCommand(args: string[], cwd = process.cwd(), depend
     if (!built.ok) return {ok: false, diagnostics: built.diagnostics, exitCode: 1};
     let emulator: EmulatorProcess | undefined;
     try {
-      emulator = await dependencies.startEmulatorProcess({executable: parsed.executable, sdRoot: root, port: parsed.port});
+      emulator = await dependencies.startEmulatorProcess({executable: parsed.executable, sdRoot: resolve(root, built.value.sdRoot), port: parsed.port});
       const initialState = await emulator.client.launchLoadPlan(built.value.loadPlan);
       return {
         ok: true, diagnostics: [], exitCode: 0, session: {emulator, initialState},

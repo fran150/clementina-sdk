@@ -594,6 +594,300 @@ export const schemas = {
       }
     }
   },
+  "instrument": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://clementina.dev/schema/instrument.schema.json",
+    "title": "Clementina instrument",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "format",
+      "version",
+      "id",
+      "name",
+      "wave",
+      "pulse",
+      "attack",
+      "decay",
+      "sustain",
+      "release",
+      "volume"
+    ],
+    "properties": {
+      "format": {
+        "const": "clementina-instrument"
+      },
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+      },
+      "wave": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4
+      },
+      "pulse": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      },
+      "attack": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "decay": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "sustain": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "release": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "volume": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      }
+    }
+  },
+  "sound": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://clementina.dev/schema/sound.schema.json",
+    "title": "Clementina sound effect",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "format",
+      "version",
+      "id",
+      "name",
+      "attack",
+      "decay",
+      "sustain",
+      "release",
+      "pan",
+      "frames"
+    ],
+    "properties": {
+      "format": {
+        "const": "clementina-sound"
+      },
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+      },
+      "attack": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "decay": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "sustain": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "release": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15
+      },
+      "pan": {
+        "type": "integer",
+        "minimum": -64,
+        "maximum": 63
+      },
+      "frames": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 600,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "freq",
+            "volume",
+            "pulse",
+            "wave",
+            "gate"
+          ],
+          "properties": {
+            "freq": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "volume": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "pulse": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "wave": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4
+            },
+            "gate": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  },
+  "song": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://clementina.dev/schema/song.schema.json",
+    "title": "Clementina song",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "format",
+      "version",
+      "id",
+      "name",
+      "bpm",
+      "stepsPerBeat",
+      "beatsPerBar",
+      "length",
+      "voices"
+    ],
+    "properties": {
+      "format": {
+        "const": "clementina-song"
+      },
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+      },
+      "name": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+      },
+      "bpm": {
+        "type": "integer",
+        "minimum": 20,
+        "maximum": 400
+      },
+      "stepsPerBeat": {
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          6,
+          8
+        ]
+      },
+      "beatsPerBar": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 16
+      },
+      "length": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4096
+      },
+      "loopStart": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4095
+      },
+      "voices": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pan",
+            "notes"
+          ],
+          "properties": {
+            "pan": {
+              "type": "integer",
+              "minimum": -64,
+              "maximum": 63
+            },
+            "notes": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "step",
+                  "length",
+                  "pitch",
+                  "instrumentId"
+                ],
+                "properties": {
+                  "step": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4095
+                  },
+                  "length": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  },
+                  "pitch": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 95
+                  },
+                  "instrumentId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                  },
+                  "legato": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "project": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://clementina.dev/schema/project.schema.json",
@@ -738,6 +1032,30 @@ export const schemas = {
               "type": "string",
               "minLength": 1
             }
+          },
+          "instruments": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "sounds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "songs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       },
@@ -843,6 +1161,99 @@ export const schemas = {
               "outputName": {
                 "type": "string",
                 "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+              }
+            }
+          },
+          "assets": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "slots",
+              "include"
+            ],
+            "properties": {
+              "folder": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$"
+              },
+              "checks": {
+                "type": "boolean"
+              },
+              "slots": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "size"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+                    },
+                    "mia": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 262143
+                    },
+                    "bank": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 31
+                    },
+                    "address": {
+                      "type": "integer",
+                      "minimum": 32768,
+                      "maximum": 49151
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 507904
+                    }
+                  }
+                }
+              },
+              "include": {
+                "type": "array",
+                "maxItems": 1024,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "id",
+                    "slot"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "paletteConfig",
+                        "tileset",
+                        "background",
+                        "overlay",
+                        "sprites",
+                        "song",
+                        "sound"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                    },
+                    "slot": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+                    },
+                    "file": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,32}(\\.[A-Za-z0-9_-]{1,8})?$"
+                    }
+                  }
+                }
               }
             }
           },

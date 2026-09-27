@@ -10,7 +10,10 @@
     "overlay": "clementina-overlay",
     "shape": "clementina-shape",
     "animation": "clementina-animation",
-    "project": "clementina-project"
+    "project": "clementina-project",
+    "instrument": "clementina-instrument",
+    "sound": "clementina-sound",
+    "song": "clementina-song"
   },
   "constraints": {
     "paletteColors": 8,
@@ -32,6 +35,26 @@
     "maxOverlaysPerProject": 255,
     "overlayColumns": 40,
     "overlayRows": 25,
-    "overlayCells": 1000
+    "overlayCells": 1000,
+    "maxInstrumentsPerProject": 255,
+    "maxSoundsPerProject": 255,
+    "maxSongsPerProject": 255,
+    "maxSoundFrames": 600,
+    "soundFrameHz": 60,
+    "maxSongSteps": 4096,
+    "songVoices": 4,
+    "songStepsPerBeat": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      8
+    ],
+    "songBpm": [
+      20,
+      400
+    ],
+    "audioSampleHz": 24000
   }
 }
