@@ -82,4 +82,4 @@ and watch evaluation.
 This package is not a Debug Adapter Protocol server and does not import VS Code.
 `@clementina/debug-adapter` is that translation (see
 [the VS Code extension](vscode-extension.md)), over this same session API.
-Richer evaluation of arbitrary BASIC expressions remains outside this phase.
+Evaluation of arbitrary BASIC expressions is not supported.

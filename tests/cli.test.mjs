@@ -28,6 +28,22 @@ test('CLI failures have predictable exit codes and JSON-only stdout',()=>{
   [['run','--port','70000'],2,'cli.usage'],
  ]){const r=run(...args,'--json');assert.equal(r.status,status);assert.equal(r.stderr,'');assert.equal(JSON.parse(r.stdout).diagnostics[0].code,code);}
 });
+test('doctor reports tool readiness and strict mode fails on missing capabilities',async()=>{
+ const calls=[];
+ const dependencies={
+  buildProject:async()=>assert.fail('doctor must not build'),
+  startEmulatorProcess:async()=>assert.fail('doctor must not start the emulator'),
+  probeTool:async(name,command,cwd)=>{calls.push({name,command,cwd});return name==='ar65'?{found:false,detail:'not installed'}:{found:true,path:'/tools/'+name};},
+ };
+ const advisory=await executeCommand(['doctor','--emulator','/tools/automation'],'/workspace',dependencies);
+ assert.equal(advisory.ok,true);assert.equal(advisory.exitCode,0);
+ assert.deepEqual(advisory.diagnostics.map(d=>[d.code,d.severity]),[['doctor.ar65','warning']]);
+ assert.equal(advisory.data.tools.emulator.path,'/tools/emulator');
+ assert.deepEqual(calls.map(c=>c.command),['ca65','ld65','ar65','/tools/automation']);
+ const strict=await executeCommand(['doctor','--strict'],'/workspace',dependencies);
+ assert.equal(strict.ok,false);assert.equal(strict.exitCode,1);
+ assert.deepEqual(strict.diagnostics.map(d=>[d.code,d.severity]),[['doctor.ar65','error']]);
+});
 test('run composes project build, owned emulator lifecycle, and load-plan launch',async()=>{
  const plan={format:'clementina-load-plan',version:1,steps:[{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000}]};
  const state={cycles:'1',pc:0x6000,a:0,x:0,y:0,sp:0xff,p:0x30,paused:false,running:true,stopReason:'running',instructionBoundary:true};

@@ -114,8 +114,8 @@ pre-instruction breakpoint, source-steps over a real JSR/RTS pair, checks memory
 and renders through the existing Go compositor. SDK unit tests run without sibling
 checkouts. The integration check also exercises held HID and gamepad queries in
 the real BASIC ROM. Source mapping is covered below.
-Process lifecycle and CLI `run` now use the public Node adapter. This is the Phase 5
-baseline, not completion of every debugger capability.
+Process lifecycle and CLI `run` use the public Node adapter. See
+[debugger integration](debugger.md) for the supported debugger capabilities.
 
 ## Held input for gameplay tests
 

@@ -49,8 +49,13 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
-`doctor` checks the Node runtime requirement. It does not yet probe emulator or
-assembler capabilities. `build`/`run` support a `program.kind: assembly` project
+`doctor` checks Node.js and probes `ca65`, `ld65`, and `ar65` by running their
+version commands. It checks whether the emulator automation executable is
+available without starting it. Missing optional tools produce warnings; use
+`doctor --strict` to require all four tools and return a nonzero exit code.
+`doctor --emulator /path/to/clementina-automation` checks an explicit binary,
+and `--json` includes machine-readable tool paths and results. `build`/`run`
+support a `program.kind: assembly` project
 (`build.assembly`, requires ca65 and ld65; asset builds also require ar65) or
 a `program.kind: basic` project (`build.basic`, compiled through
 `@clementina/basic`). Assembly builds already generate a BASIC loader, so this
@@ -59,7 +64,7 @@ rejected during project validation. `--json` `data` distinguishes the two with
 `kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by the source
 debugger; see [the debugger](debugger.md).
 
-A reusable headless emulator client is now available; see
+A reusable headless emulator client is available; see
 [emulator automation](emulator-automation.md). CLI `build` uses the shared project
 composer, and CLI `run` composes it with the Node emulator lifecycle API.
 The reusable load-plan and emulator launch layer is documented in

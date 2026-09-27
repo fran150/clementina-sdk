@@ -7,12 +7,14 @@ import {startEmulatorProcess, type EmulatorProcess, type EmulatorProcessOptions}
 import type {ExecutionState} from '@clementina/emulator-client';
 import {loadProject} from '@clementina/project/node';
 import type {ClementinaDiagnostic} from '@clementina/core';
+import {probeTool, type ToolProbe} from './doctor.js';
 
 export interface RunSession {emulator: EmulatorProcess; initialState: ExecutionState}
 export interface CommandResult {ok: boolean; diagnostics: ClementinaDiagnostic[]; exitCode: number; message?: string; data?: unknown; session?: RunSession}
 export interface CommandDependencies {
   buildProject: typeof buildProject;
   startEmulatorProcess: (options: EmulatorProcessOptions) => Promise<EmulatorProcess>;
+  probeTool?: typeof probeTool;
 }
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess};
 const failure = (code: string, message: string, exitCode = 1, source?: string): CommandResult => ({ok: false, diagnostics: [{severity: 'error', code, message, ...(source ? {source} : {})}], exitCode});
@@ -24,7 +26,8 @@ export const help = `Usage: clementina <command> [--json]
   basic compile <source> <file>  Compile numbered source to a LOAD-ready BASIC file
   build [directory]              Compile and emit project load artifacts
   run [directory] [options]      Build and run with an owned headless emulator
-  doctor                        Check the SDK runtime
+  doctor [--strict] [--emulator <path>]
+                                Check Node, assembler tools, and emulator
 
 Run options:
   --emulator <path>              Automation executable (default: clementina-automation)
@@ -33,6 +36,16 @@ Run options:
 Exit codes: 0 success, 1 validation/I/O failure, 2 invalid command.
 Standalone assets are checked structurally; use project validate for references.
 `;
+interface DoctorArguments {strict: boolean; emulator: string}
+function parseDoctorArguments(args: string[]): DoctorArguments | undefined {
+  let strict = false, emulator = process.env.CLEMENTINA_EMULATOR ?? 'clementina-automation';
+  for (let index = 1; index < args.length; index++) {
+    if (args[index] === '--strict' && !strict) strict = true;
+    else if (args[index] === '--emulator' && index + 1 < args.length && !args[index + 1].startsWith('-')) emulator = args[++index];
+    else return undefined;
+  }
+  return {strict, emulator};
+}
 interface RunArguments {directory: string; executable: string; port: number}
 function parseRunArguments(args: string[]): RunArguments | undefined {
   let directory = '.', executable = process.env.CLEMENTINA_EMULATOR ?? 'clementina-automation', port = 0, positional = false;
@@ -54,9 +67,29 @@ function parseRunArguments(args: string[]): RunArguments | undefined {
 /** CLI operations are reusable and do not write terminal output or terminate the process. */
 export async function executeCommand(args: string[], cwd = process.cwd(), dependencies: CommandDependencies = defaultDependencies): Promise<CommandResult> {
   if (args.length === 0 || args.length === 1 && ['--help', '-h', 'help'].includes(args[0])) return {ok: true, diagnostics: [], exitCode: 0, message: help};
-  if (args[0] === 'doctor' && args.length === 1) {
+  if (args[0] === 'doctor') {
+    const options = parseDoctorArguments(args);
+    if (!options) return failure('cli.usage', 'Invalid doctor arguments. Run clementina --help.', 2);
     if (Number(process.versions.node.split('.')[0]) < 20) return failure('doctor.node', 'Node.js 20 or newer is required');
-    return {ok: true, diagnostics: [], exitCode: 0, message: `SDK runtime OK (Node.js ${process.versions.node}). Emulator and compiler adapters are not checked.`};
+    const probe = dependencies.probeTool ?? probeTool;
+    const names = ['ca65', 'ld65', 'ar65', 'emulator'] as const;
+    const commands = ['ca65', 'ld65', 'ar65', options.emulator] as const;
+    const checked = await Promise.all(names.map((name, index) => probe(name, commands[index], cwd)));
+    const tools = Object.fromEntries(names.map((name, index) => [name, checked[index]])) as Record<typeof names[number], ToolProbe>;
+    const missing = names.filter(name => !tools[name].found);
+    const diagnostics: ClementinaDiagnostic[] = missing.map(name => ({
+      severity: options.strict ? 'error' : 'warning',
+      code: `doctor.${name}`,
+      message: name === 'emulator'
+        ? `Emulator automation executable unavailable: ${tools[name].detail}. Set CLEMENTINA_EMULATOR or use --emulator.`
+        : `${name} unavailable: ${tools[name].detail}. Install cc65 to build assembly projects.`,
+    }));
+    return {
+      ok: !options.strict || missing.length === 0, diagnostics,
+      exitCode: options.strict && missing.length ? 1 : 0,
+      message: `Node.js ${process.versions.node}; ${names.map(name => `${name}: ${tools[name].found ? 'ready' : 'missing'}`).join(', ')}.`,
+      data: {node: process.versions.node, tools},
+    };
   }
   if (args[0] === 'project' && args[1] === 'validate' && args.length <= 3 && !args[2]?.startsWith('-')) {
     const r = await loadProject(resolve(cwd, args[2] ?? '.'));

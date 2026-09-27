@@ -1,6 +1,6 @@
 # Game asset model
 
-Phase 2 promotes the existing Clementina Studio model into portable SDK assets.
+The portable SDK assets carry the reusable part of Clementina Studio's model.
 
 ## Palette
 

@@ -1,7 +1,7 @@
 # VS Code extension
 
 The `clementina` extension (`packages/vscode-extension`) is a thin protocol/UI
-client over two already-existing, editor-neutral SDK layers — it implements no
+client over two editor-neutral SDK layers — it implements no
 debugging or language logic of its own:
 
 - **Debugging**: `@clementina/debug-adapter` (`packages/debug-adapter`) is a
@@ -26,7 +26,7 @@ registers a `DebugAdapterDescriptorFactory` that spawns
 global install step) and both spawned through `process.execPath` for
 cross-platform reliability.
 
-## What's implemented
+## Capabilities
 
 Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
 
@@ -64,8 +64,8 @@ Assembly debugging also provides physical bank-selective source breakpoints,
 bounded disassembly, and verified JSR/interrupt stack frames. An explicit
 “Unknown caller” frame marks the limit of observed execution. Reverse
 disassembly is unavailable because instruction boundaries before a given PC
-cannot always be established. Arbitrary BASIC expression evaluation remains
-outside this phase; see [editor debugger integration](debugger.md).
+cannot always be established. Arbitrary BASIC expression evaluation is not
+supported; see [editor debugger integration](debugger.md).
 
 ## Trying it
 

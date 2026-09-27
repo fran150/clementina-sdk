@@ -1,6 +1,6 @@
 # Portable Clementina project format
 
-Phase 2 separates **portable project data** from Studio session state.
+Portable project data is separate from Studio session state.
 
 A `.cstudio` file remains Studio's editor/session container. The SDK formats below
 are the shared contract that Studio, CLI tools, ChatGPT/Claude agents, CI, and future
@@ -193,9 +193,9 @@ They intentionally omit Studio session-only state:
 
 `@clementina/project` provides conversion helpers for Studio project version 2.
 
-## Deferred format work
+## Format boundary
 
 Scene files (which combine backgrounds, shapes, and a bank config, and decide
 sprite-versus-background priority) are not defined in portable format version 1.
-BASIC-project build composition is implemented; see
-[BASIC tooling](basic-tooling.md) and [program loading](program-loading.md).
+See [BASIC tooling](basic-tooling.md) and [program loading](program-loading.md)
+for BASIC-project builds.

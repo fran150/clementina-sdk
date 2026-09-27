@@ -1,0 +1,20 @@
+format: clementina-project
+version: 1
+name: Hardware audio check
+target:
+  machine: clementina-6502
+program:
+  kind: basic
+  entry: src/main.bas
+assets:
+  palettes: []
+  paletteConfigs: []
+  tilesets: []
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  basic:
+    outputName: audio
