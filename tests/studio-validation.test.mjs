@@ -50,6 +50,13 @@ test('legacy identities and optional bindings remain valid in Studio sessions', 
   // there is exactly one tileset, while Studio validation keeps the session.
   assert.throws(() => fromStudioProjectV2(legacy));
 });
+test('Studio export reports oversized legacy shape canvases instead of clipping them', async () => {
+  const studio = await fixture();
+  studio.shapes[0].canvasWidth = 41;
+  delete studio.shapes[0].canvasPixelWidth;
+  validateStudioProject(studio);
+  assert.throws(() => fromStudioProjectV2(studio), /canvas exceeds the portable 320 x 200 pixel limit/);
+});
 
 test('Studio v2 rejects broken references, ranges and duplicate identities', async () => {
   const source = await fixture();

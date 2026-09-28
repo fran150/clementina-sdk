@@ -599,7 +599,16 @@ export function signatureHelpAt(text: string, line: number, character: number): 
 /** Canonical ROM LIST-style formatting: effective lines sorted, keywords uppercased, lexical literals preserved. */
 export function formatBasicSource(text: string): string {
   if (typeof text !== 'string') throw new TypeError('text must be a string');
-  return detokenizeBasicProgram(compileBasicProgram(text));
+  const canonical = detokenizeBasicProgram(compileBasicProgram(text));
+  if (!canonical) return canonical;
+  const original = parseBasicSource(text);
+  const listed = canonical.slice(0, -1).split('\n');
+  return listed.map((line, index) => {
+    if (line.length <= basicSourceLimits.maxInputCharacters) return line;
+    const source = original[index]!;
+    const readable = `${source.number} ${source.text}`;
+    return readable.length <= basicSourceLimits.maxInputCharacters ? readable : `${source.number}${source.text}`;
+  }).join('\n') + '\n';
 }
 
 /** Renumber effective program lines and every static GOTO/GOSUB/THEN/RUN target that names one of them. */

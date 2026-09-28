@@ -118,6 +118,15 @@ test('variable references follow BASIC two-character name significance', () => {
 test('formatBasicSource uses the ROM tokenizer and canonical LIST representation', () => {
   assert.equal(formatBasicSource('20 ? "Keep Case"\n10 x=cue(0)\n'), '10 X=CUE(0)\n20 PRINT "Keep Case"\n');
 });
+test('formatBasicSource keeps valid shorthand when LIST expansion exceeds the input limit', () => {
+  const input = `10 ${'?:'.repeat(14)}?\n`;
+  const output = formatBasicSource(input);
+  assert.equal(output, input);
+  assert.deepEqual(analyzeDiagnostics(output), []);
+  const atLimit = `10${'?:'.repeat(34)}?\n`;
+  assert.equal(formatBasicSource(atLimit), atLimit);
+  assert.deepEqual(analyzeDiagnostics(formatBasicSource(atLimit)), []);
+});
 
 test('renumberBasicSource updates static targets while preserving literals, DATA, REM, and undefined targets', () => {
   const source = [

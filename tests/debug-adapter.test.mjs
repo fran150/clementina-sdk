@@ -90,3 +90,46 @@ test('DAP translates verified callers and banked disassembly from the shared ses
   assert.equal(disassemblyResponse.body.instructions[0].location.path,'bank2.s');
   assert.equal(responses.length,3);
 });
+test('DAP resolves absolute assembly breakpoint paths against the project root', async () => {
+  const root='/tmp/clementina-adapter-project', observed=[];
+  const adapter=new ClementinaDebugAdapter();
+  adapter.sendResponse=()=>{};
+  adapter.createSession=async()=>({ok:true,value:{session:{setSourceBreakpoints:async(path,lines)=>{
+    observed.push([path,lines]);
+    return [{path,requestedLine:7,verified:true,line:7,addresses:[0x6000]}];
+  }}}});
+  await adapter.launchRequest({command:'launch',request_seq:1,success:true},{program:root});
+  const source=join(root,'src/main.s');
+  const response={command:'setBreakpoints',request_seq:2,success:true};
+  await adapter.setBreakPointsRequest(response,{source:{path:source},breakpoints:[{line:7}]});
+  assert.deepEqual(observed,[['src/main.s',[7]]]);
+  assert.equal(response.body.breakpoints[0].source.path,source);
+});
+test('DAP closes a session prepared after disconnect', async () => {
+  let finish,closeCalls=0;
+  const pending=new Promise(resolve=>{finish=resolve});
+  const adapter=new ClementinaDebugAdapter();
+  adapter.sendResponse=()=>{};
+  adapter.sendErrorResponse=()=>{};
+  adapter.createSession=()=>pending;
+  const launching=adapter.launchRequest({command:'launch',request_seq:1,success:true},{program:'/tmp/project'});
+  await adapter.disconnectRequest({command:'disconnect',request_seq:2,success:true});
+  finish({ok:true,value:{close:async()=>{closeCalls++}}});
+  await launching;
+  assert.equal(closeCalls,1);
+});
+test('DAP reports launch failures and closes the owned session', async () => {
+  let finishClose,closeCalls=0;
+  const closed=new Promise(resolve=>{finishClose=resolve});
+  const events=[];
+  const adapter=new ClementinaDebugAdapter();
+  adapter.sendResponse=()=>{};
+  adapter.sendEvent=event=>events.push(event);
+  adapter.createSession=async()=>({ok:true,value:{launch:async()=>{throw new Error('emulator launch failed')},close:async()=>{closeCalls++;finishClose()}}});
+  await adapter.launchRequest({command:'launch',request_seq:1,success:true},{program:'/tmp/project'});
+  adapter.configurationDoneRequest({command:'configurationDone',request_seq:2,success:true});
+  await closed;
+  assert.equal(closeCalls,1);
+  assert.ok(events.some(event=>event.event==='output'&&/emulator launch failed/.test(event.body.output)));
+  assert.ok(events.some(event=>event.event==='terminated'));
+});

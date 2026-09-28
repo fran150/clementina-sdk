@@ -10,6 +10,8 @@ import {
 import type {DebugBreakpoint, DebugSnapshot, WaitForStopOptions} from './index.js';
 
 interface BasicLineLocation {number: number; physicalLine: number}
+/** Host-side safety limits for waiting on a BASIC statement boundary. */
+export interface BasicSourceStepOptions extends SourceStepOptions {timeoutMs?: number; pollIntervalMs?: number}
 export interface BasicRuntimeVariable {name: string; value: string; type: 'number' | 'integer' | 'string' | 'array'}
 
 function effectiveLines(source: string): BasicLineLocation[] {
@@ -35,6 +37,9 @@ export class ClementinaBasicDebugSession {
   private hookOwned = false;
   private disposed = false;
   private commandTail: Promise<void> = Promise.resolve();
+  private pauseSequence = 0;
+  private lastPause?: Promise<DebugSnapshot>;
+  private disposing?: Promise<void>;
 
   constructor(
     private readonly client: EmulatorClient,
@@ -60,7 +65,13 @@ export class ClementinaBasicDebugSession {
       return this.client.resume();
     });
   }
-  pause(): Promise<DebugSnapshot> { return this.command(async () => this.snapshotFromState(await this.client.pause())); }
+  pause(): Promise<DebugSnapshot> {
+    if (this.disposed) return Promise.reject(new Error('Debug session is disposed'));
+    // A source step may be waiting for a ROM statement hook inside commandTail.
+    // Pause must reach the emulator without waiting for that command to finish.
+    this.pauseSequence++;
+    return this.lastPause = this.client.pause().then(state => this.snapshotFromState(state));
+  }
   reset(): Promise<DebugSnapshot> {
     return this.command(async () => { await this.client.reset(); return this.snapshotFromState(await this.client.executionState()); });
   }
@@ -68,8 +79,8 @@ export class ClementinaBasicDebugSession {
     return this.command(() => this.client.launchLoadPlan(plan, options));
   }
 
-  stepIn(options: SourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
-  next(options: SourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
+  stepIn(options: BasicSourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
+  next(options: BasicSourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
 
   stepInstruction(maxCycles = 10000): Promise<DebugSnapshot> {
     return this.command(async () => this.snapshotFromState(await this.client.stepInstruction(maxCycles)));
@@ -157,25 +168,50 @@ export class ClementinaBasicDebugSession {
   }
 
   dispose(): Promise<void> {
+    if (this.disposing) return this.disposing;
     if (this.disposed) return this.commandTail;
-    return this.command(async () => {
-      this.requestedLines.clear();
-      await this.releaseHook();
-      this.disposed = true;
-    }, true);
+    this.disposing = (async () => {
+      // Stop an in-flight source step before queuing hook cleanup.
+      await this.pause().catch(() => undefined);
+      await this.command(async () => {
+        this.requestedLines.clear();
+        await this.releaseHook();
+        this.disposed = true;
+      }, true);
+    })();
+    return this.disposing;
   }
 
-  private stepLine(options: SourceStepOptions): Promise<SourceStepResult> {
+  private stepLine(options: BasicSourceStepOptions): Promise<SourceStepResult> {
+    const sequence = this.pauseSequence;
     return this.command(async () => {
+      const limit = options.maxInstructions ?? 10000;
+      const timeoutMs = options.timeoutMs ?? 30000;
+      const pollIntervalMs = options.pollIntervalMs ?? 10;
+      if (!Number.isInteger(limit) || limit < 1 || !Number.isInteger(timeoutMs) || timeoutMs < 1
+        || !Number.isInteger(pollIntervalMs) || pollIntervalMs < 1) throw new RangeError('Invalid BASIC source-step limits');
+      const deadline = Date.now() + timeoutMs;
       await this.ensureHook();
       const startState = await this.client.executionState();
       const startLine = await this.currentLine();
       const startLocation = this.location(startLine);
-      const limit = options.maxInstructions ?? 10000;
       let state = startState;
       for (let statements = 1; statements <= limit; statements++) {
-        state = await this.client.resume();
-        while (state.running) state = await this.client.executionState();
+        if (sequence !== this.pauseSequence) state = (await this.lastPause!).state;
+        else state = await this.client.resume();
+        while (state.running) {
+          if (sequence !== this.pauseSequence) { state = (await this.lastPause!).state; break; }
+          if (Date.now() >= deadline) {
+            await this.pause();
+            throw new Error('Timed out waiting for a BASIC statement boundary');
+          }
+          await new Promise<void>(resolve => setTimeout(resolve, Math.min(pollIntervalMs, deadline - Date.now())));
+          state = await this.client.executionState();
+        }
+        if (sequence !== this.pauseSequence) {
+          state = (await this.lastPause!).state;
+          return {state, reason: 'stopped', instructions: statements, startLocations: startLocation ? [startLocation] : [], locations: [], steppedOverCall: false};
+        }
         if (state.stopReason !== 'breakpoint' || state.pc !== basicRuntimeDebug.statementBoundaryAddress) {
           return {state, reason: state.stopReason === 'cpu-stopped' ? 'cpu-stopped' : state.stopReason === 'mia-paused' ? 'mia-paused' : 'stopped', instructions: statements, startLocations: startLocation ? [startLocation] : [], locations: [], steppedOverCall: false};
         }

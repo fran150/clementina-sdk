@@ -75,6 +75,8 @@ export function encodeSongFile(song: SongData, instruments: readonly InstrumentD
   const voiceOffsets = compiled.voices.map(voice => {
     if (!voice) return null;
     const offset = out.length;
+    // Runtime descriptors use a 16-bit offset; $FFFF means no voice.
+    if (offset >= 0xffff) throw new RangeError(`Song voice offset ${offset} exceeds the runtime descriptor limit of 65534 bytes`);
     out.push(...voice.bytes);
     return offset;
   });

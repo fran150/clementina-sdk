@@ -54,9 +54,8 @@ Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
   bytes are ordinary ca65 segments. The game's linker configuration places them;
   the Builder doesn't.
 - **Banks as storage.** Banks 1–31 (the `$8000–$BFFF` window, selected by VIA
-  port A bits 0–4) can hold slots. Each bank is 16 KiB, so a slot never crosses
-  a bank. An asset larger than 16 KiB can span consecutive whole banks, and the
-  routines switch banks as they read.
+  port A bits 0–4) can hold slots. Each bank is 16 KiB. A slot may span
+  consecutive banks through bank 31; the routines switch banks as they read.
 - **Bank 0.** It holds BASIC's heap while BASIC runs. After a game takes over,
   the game's linker configuration decides what goes there.
 
@@ -74,10 +73,11 @@ A slot is a named range, either in MIA RAM or in CPU banks.
 
 Build checks:
 - **Errors:** a slot overlapping a reserved range or another slot; an asset
-  larger than its slot.
+  larger than its slot, except a background that can use partial loads.
 - **Warnings:** an asset whose default slot can't be used directly, such as a
   song in a CPU bank. The sequencer only reads MIA RAM, so that song must be
-  copied into MIA before `PlaySong`.
+  copied into MIA before `PlaySong`. An oversized background also warns because
+  typed partial loads can use the slot.
 
 ### Moving data
 
@@ -290,6 +290,8 @@ Details:
 - Slot alternatives use the largest asset size in the report, not their sum.
   Oversized backgrounds warn because typed partial loads can use a smaller
   window slot; other oversized assets are errors.
+- A song whose later voice begins at offset `$FFFF` or beyond cannot fit the
+  runtime's 16-bit voice descriptor and fails the build with a diagnostic.
 - Runtime bank loads are synchronous; pipelining is not implemented. Runtime
   checks catch supported location/item/range errors; the game owns allocation,
   non-overlapping copy destinations and the lifetime of slots and instances.

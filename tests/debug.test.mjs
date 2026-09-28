@@ -205,6 +205,47 @@ test('BASIC debug session filters the shared ROM statement hook by CURLIN and ma
  await session.dispose();
  assert.deepEqual(active,[]);
 });
+test('BASIC source stepping allows pause while waiting for the statement hook',async()=>{
+ let current=machineState({stopReason:'reset'}), resumeStarted;
+ const resumed=new Promise(resolve=>{resumeStarted=resolve});
+ const client=new EmulatorClient(async request=>{
+  if(request.method==='breakpoints'||request.method==='addBreakpoint'||request.method==='removeBreakpoint')return {version:1,ok:true,result:[]};
+  if(request.method==='readMemory')return {version:1,ok:true,result:[10,0]};
+  if(request.method==='state')return {version:1,ok:true,result:current};
+  if(request.method==='resume'){
+   current=machineState({running:true,stopReason:'running'});
+   resumeStarted();
+   return {version:1,ok:true,result:current};
+  }
+  if(request.method==='pause'){
+   current=machineState({stopReason:'pause'});
+   return {version:1,ok:true,result:current};
+  }
+  throw new Error(request.method);
+ });
+ const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n');
+ const stepping=session.stepIn({timeoutMs:200,pollIntervalMs:1});
+ await resumed;
+ assert.equal((await session.pause()).state.stopReason,'pause');
+ assert.equal((await stepping).state.stopReason,'pause');
+ await session.dispose();
+});
+test('BASIC source stepping stops the emulator when its host wait expires',async()=>{
+ let current=machineState({stopReason:'reset'}), pauses=0;
+ const client=new EmulatorClient(async request=>{
+  if(request.method==='breakpoints'||request.method==='addBreakpoint'||request.method==='removeBreakpoint')return {version:1,ok:true,result:[]};
+  if(request.method==='readMemory')return {version:1,ok:true,result:[10,0]};
+  if(request.method==='state')return {version:1,ok:true,result:current};
+  if(request.method==='resume'){current=machineState({running:true,stopReason:'running'});return {version:1,ok:true,result:current};}
+  if(request.method==='pause'){pauses++;current=machineState({stopReason:'pause'});return {version:1,ok:true,result:current};}
+  throw new Error(request.method);
+ });
+ const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n');
+ await assert.rejects(session.stepIn({timeoutMs:20,pollIntervalMs:1}),/Timed out waiting for a BASIC statement boundary/);
+ assert.equal(pauses,1);
+ assert.equal((await session.snapshot()).state.stopReason,'pause');
+ await session.dispose();
+});
 
 test('Node debug composition builds and prepares breakpoints before launching the BASIC plan',async()=>{
  const requests=[];

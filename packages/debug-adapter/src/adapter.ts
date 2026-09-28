@@ -1,9 +1,10 @@
-import {basename} from 'node:path';
+import {basename, isAbsolute, relative, resolve} from 'node:path';
 import {
   DebugSession,
   InitializedEvent,
   StoppedEvent,
   TerminatedEvent,
+  OutputEvent,
   Thread,
   StackFrame,
   Scope,
@@ -48,6 +49,10 @@ export class ClementinaDebugAdapter extends DebugSession {
   private launched?: Promise<ProjectDebugRuntime>;
   private lastSnapshot?: DebugSnapshot;
   private polling = false;
+  private projectRoot?: string;
+  private stopping = false;
+  private closing?: Promise<void>;
+  private launchGeneration = 0;
 
   constructor() {
     super();
@@ -65,9 +70,20 @@ export class ClementinaDebugAdapter extends DebugSession {
   }
 
   protected override async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): Promise<void> {
+    const generation = ++this.launchGeneration;
+    this.projectRoot = resolve(args.program);
+    this.stopping = false;
+    this.runtime = undefined;
+    this.closing = undefined;
     this.launched = this.prepareSession(args);
     try {
-      this.runtime = await this.launched;
+      const runtime = await this.launched;
+      if (this.stopping || generation !== this.launchGeneration) {
+        await runtime.close().catch(() => undefined);
+        this.sendErrorResponse(response, 1, 'Debug session was stopped during preparation');
+        return;
+      }
+      this.runtime = runtime;
       this.sendResponse(response);
     } catch (error) {
       this.sendErrorResponse(response, 1, errorMessage(error));
@@ -85,9 +101,17 @@ export class ClementinaDebugAdapter extends DebugSession {
 
   /** Resolves once launch preparation has settled, `undefined` if never launched or launch failed. Never rejects. */
   private async ready(): Promise<ProjectDebugRuntime | undefined> {
+    if (this.stopping) return undefined;
     if (this.runtime) return this.runtime;
     if (!this.launched) return undefined;
-    try { return await this.launched; } catch { return undefined; }
+    const generation = this.launchGeneration;
+    const launched = this.launched;
+    try { const runtime = await launched; return this.stopping || generation !== this.launchGeneration ? undefined : runtime; } catch { return undefined; }
+  }
+
+  private closeRuntime(): Promise<void> {
+    if (!this.runtime) return Promise.resolve();
+    return this.closing ??= this.runtime.close().then(() => undefined, () => undefined);
   }
 
   private async guard(response: DebugProtocol.Response, action: () => Promise<void>): Promise<void> {
@@ -108,7 +132,8 @@ export class ClementinaDebugAdapter extends DebugSession {
         return;
       }
       const lines = args.breakpoints?.map(b => b.line) ?? args.lines ?? [];
-      const resolved = await runtime.session.setSourceBreakpoints(path, lines);
+      const mappedPath = this.projectRoot && isAbsolute(path) ? relative(this.projectRoot, path) : path;
+      const resolved = await runtime.session.setSourceBreakpoints(mappedPath, lines);
       response.body = {
         breakpoints: resolved.map(item => {
           const breakpoint = new Breakpoint(item.verified, item.line, undefined, new Source(basename(path), path));
@@ -124,8 +149,17 @@ export class ClementinaDebugAdapter extends DebugSession {
     this.sendResponse(response);
     void this.ready().then(async runtime => {
       if (!runtime) return;
-      await runtime.launch();
-      this.pollForStop();
+      try {
+        await runtime.launch();
+        if (!this.stopping) this.pollForStop();
+      } catch (error) {
+        if (!this.stopping) {
+          this.stopping = true;
+          this.sendEvent(new OutputEvent(`Launch failed: ${errorMessage(error)}\n`, 'stderr'));
+          this.sendEvent(new TerminatedEvent());
+        }
+        await this.closeRuntime();
+      }
     });
   }
 
@@ -252,10 +286,10 @@ export class ClementinaDebugAdapter extends DebugSession {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
       this.lastSnapshot = undefined;
-      await runtime.session.next();
+      const stepped = await runtime.session.next();
       this.lastSnapshot = await runtime.session.snapshot();
       this.sendResponse(response);
-      this.sendEvent(new StoppedEvent('step', THREAD_ID));
+      if (stepped.state.stopReason !== 'pause') this.sendEvent(new StoppedEvent('step', THREAD_ID));
     });
   }
 
@@ -264,23 +298,27 @@ export class ClementinaDebugAdapter extends DebugSession {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
       this.lastSnapshot = undefined;
-      await runtime.session.stepIn();
+      const stepped = await runtime.session.stepIn();
       this.lastSnapshot = await runtime.session.snapshot();
       this.sendResponse(response);
-      this.sendEvent(new StoppedEvent('step', THREAD_ID));
+      if (stepped.state.stopReason !== 'pause') this.sendEvent(new StoppedEvent('step', THREAD_ID));
     });
   }
 
   protected override disconnectRequest(response: DebugProtocol.DisconnectResponse): Promise<void> {
+    this.stopping = true;
+    this.launchGeneration++;
     return this.guard(response, async () => {
-      if (this.runtime) await this.runtime.close().catch(() => undefined);
+      await this.closeRuntime();
       this.sendResponse(response);
     });
   }
 
   protected override terminateRequest(response: DebugProtocol.TerminateResponse): Promise<void> {
+    this.stopping = true;
+    this.launchGeneration++;
     return this.guard(response, async () => {
-      if (this.runtime) await this.runtime.close().catch(() => undefined);
+      await this.closeRuntime();
       this.sendResponse(response);
       this.sendEvent(new TerminatedEvent());
     });

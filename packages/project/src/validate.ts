@@ -7,12 +7,13 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
   if (diagnostics.length) return result(value, diagnostics);
   const m = value as ClementinaProjectManifest;
   if (!m.name.trim()) diagnostics.push(diagnostic('project.name', '/name', 'Name must not be blank'));
+  if (m.program.kind === 'mixed') diagnostics.push(diagnostic('project.build.kind', '/program/kind', 'Mixed-project composition is not defined yet'));
+  if (m.target.phi2Hz !== undefined && m.target.phi2Hz !== 1200000) diagnostics.push(diagnostic('project.target.phi2Hz', '/target/phi2Hz', 'Project builds and launches cannot apply a non-default PHI2 speed yet'));
   const paths: [string, string][] = [['/program/entry', m.program.entry], ...(m.program.sources ?? []).map((p, i): [string, string] => [`/program/sources/${i}`, p])];
   if (m.program.sources?.includes(m.program.entry)) diagnostics.push(diagnostic('project.source.duplicate', '/program/sources', 'The entry source must not also appear in program.sources'));
   if (m.build) {
     paths.push(['/build/outputDirectory', m.build.outputDirectory]);
     if (m.build.assembly && m.build.basic) diagnostics.push(diagnostic('project.build.configuration', '/build', 'Choose either assembly or BASIC build settings'));
-    if (m.program.kind === 'mixed') diagnostics.push(diagnostic('project.build.kind', '/program/kind', 'Mixed-project composition is not defined yet'));
     if ('assembly' in m.build && m.build.assembly) {
       paths.push(['/build/assembly/linkerConfig', m.build.assembly.linkerConfig]);
       paths.push(...(m.build.assembly.includeDirectories ?? []).map((p, i): [string, string] => [`/build/assembly/includeDirectories/${i}`, p]));

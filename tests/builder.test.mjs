@@ -48,6 +48,19 @@ test('Builder reports size errors, partial-background and song-bank warnings',()
  p=project();p.manifest.build.assets.include.find(a=>a.kind==='song').slot='bank';r=planAssetBuild(p);assert.equal(r.ok,true);assert.ok(codes(r).includes('build.assets.song.bank'));
  p=project();p.assets.songs[0].voices.forEach(v=>v.notes=[]);assert.ok(codes(planAssetBuild(p)).includes('build.assets.song.empty'));
 });
+test('Builder rejects song offsets that collide with the missing-voice sentinel',()=>{
+ const p=project(), song=p.assets.songs[0], instruments=p.assets.instruments;
+ song.length=4096;
+ delete song.loopStart;
+ song.voices[0].notes=Array.from({length:4096},(_,step)=>({step,length:1,pitch:48,instrumentId:instruments[step%2].id}));
+ song.voices[1].notes=[{step:0,length:1,pitch:24,instrumentId:instruments[0].id}];
+ p.manifest.build.assets.slots[0].size=0x20000;
+ const checked=checkProject(p);
+ assert.equal(checked.ok,true,JSON.stringify(checked.diagnostics));
+ const result=planAssetBuild(p);
+ assert.equal(result.ok,false);
+ assert.ok(result.diagnostics.some(item=>item.code==='build.assets.encode'&&/voice offset/.test(item.message)));
+});
 test('Builder resolves normalized label and filename collisions deterministically',()=>{
  const p=project(),a=structuredClone(p.assets.tilesets[0]);a.id='tileset:other';p.assets.tilesets.push(a);p.manifest.build.assets.include.push({kind:'tileset',id:a.id,slot:'work'});
  const r=planAssetBuild(p);assert.equal(r.ok,true);assert.equal(r.value.assets.at(-1).label,'CHR_PLAYER_2');assert.equal(r.value.assets.at(-1).file,'PLAYER01.CHR');

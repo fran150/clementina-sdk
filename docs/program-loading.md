@@ -71,8 +71,9 @@ const file = encodePrg(linkedBytes, 0x6000);
 const info = inspectPrg(file);
 ```
 
-Steps execute in array order. A plan must end with exactly one PRG step containing
-`runAddress`; no later step could execute because the kernel jumps away permanently.
+Steps execute in array order. An assembly plan ends with exactly one PRG step
+containing `runAddress`; no later step could execute because the kernel jumps away
+permanently. A BASIC plan ends with the `basic` step described below.
 Returning PRG steps use `$8000-$BFFF` with an explicit bank 1-31. Although the ROM
 loader can return from some lower unbanked addresses, the space below `$04B7` is
 system zero page, stack, input, and kernel working RAM rather than portable program

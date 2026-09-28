@@ -78,6 +78,9 @@ breakpoints and line stepping without pretending that BASIC has one machine-code
 address per source line. It also decodes live simple numeric, integer, and string
 variables from the ROM variable table and supports variable lookup for DAP hover
 and watch evaluation.
+While a BASIC source step waits for the next statement boundary, `pause()` can
+interrupt it. The wait uses a host-side 30-second default timeout and 10 ms poll
+interval; direct SDK callers may set `timeoutMs` and `pollIntervalMs` for a step.
 
 This package is not a Debug Adapter Protocol server and does not import VS Code.
 `@clementina/debug-adapter` is that translation (see

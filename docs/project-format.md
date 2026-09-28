@@ -64,7 +64,9 @@ assets:
     - assets/songs/theme.song.json
 ```
 
-`target.phi2Hz` is optional; the machine default is 1.2 MHz. The three audio
+`target.phi2Hz` is optional; the machine default is 1.2 MHz. The hardware can
+request other speeds, but SDK project builds and launches do not apply this
+setting yet, so project validation rejects non-default values. The three audio
 lists are optional, and a missing list means no assets of that kind; every other
 list is required, even when it is empty.
 
