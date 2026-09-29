@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {checkProject, checkProjectManifest} from '../packages/project/dist/index.js';
 import {saveProject} from '../packages/project/dist/node.js';
-import {planAssetBuild, buildProject} from '../packages/build/dist/index.js';
+import {planAssetBuild, buildProject, runtimeCodeSize} from '../packages/build/dist/index.js';
 import {runtimeDirectory, RUNTIME_DESCRIPTOR, RUNTIME_STATE_SIZE, RUNTIME_ANIM_SIZE} from '../packages/runtime/dist/index.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/portable-v1.json', import.meta.url)));
@@ -64,6 +64,28 @@ test('Builder rejects song offsets that collide with the missing-voice sentinel'
 test('Builder resolves normalized label and filename collisions deterministically',()=>{
  const p=project(),a=structuredClone(p.assets.tilesets[0]);a.id='tileset:other';p.assets.tilesets.push(a);p.manifest.build.assets.include.push({kind:'tileset',id:a.id,slot:'work'});
  const r=planAssetBuild(p);assert.equal(r.ok,true);assert.equal(r.value.assets.at(-1).label,'CHR_PLAYER_2');assert.equal(r.value.assets.at(-1).file,'PLAYER01.CHR');
+});
+test('Builder reserves explicit filenames before allocating generated names',()=>{
+ const p=project();
+ p.manifest.build.assets.folder='GAME/ASSETS';
+ p.manifest.build.assets.include[1].file='MAIN.PAL';
+ const planned=planAssetBuild(p);
+ assert.equal(planned.ok,true,JSON.stringify(planned.diagnostics));
+ assert.equal(planned.value.assets[0].file,'MAIN01.PAL');
+ assert.equal(planned.value.assets[0].path,'GAME/ASSETS/MAIN01.PAL');
+ assert.equal(planned.value.assets[1].file,'MAIN.PAL');
+ assert.match(planned.value.assetsS,/GAME\/ASSETS\/MAIN01\.PAL/);
+});
+test('runtime CODE size ignores other segments and includes the last listing row',()=>{
+ const listing=[
+  '000000r 1               .segment "CODE"',
+  '000000r 1  48                   pha',
+  '000001r 1  AD EA FF             lda STATUS_L',
+  '000004r 1  29 0C                and #$0C',
+  '000006r 1               .segment "RODATA"',
+  '000020r 1  AA                   .byte $AA',
+ ].join('\n');
+ assert.equal(runtimeCodeSize(listing),6);
 });
 test('runtime public constants match the assembly descriptor and state ABI',async()=>{
  const inc=await readFile(join(runtimeDirectory,'runtime.inc'),'utf8');
