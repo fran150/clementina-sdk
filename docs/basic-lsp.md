@@ -47,10 +47,11 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
 
 ## Architecture
 
-`src/index.ts` is protocol-agnostic and has no LSP-library or Node dependency
-(browser-compatible, like `@clementina/debug`'s session core): diagnostics,
-hover, completion, definition, signature, formatting, and renumbering are plain
-functions over document text and positions. `src/server.ts` is the Node-only stdio wiring, built on
+`src/index.ts` exports the protocol-agnostic modules for source analysis,
+diagnostics, keyword lookup, navigation, editor features, and transforms. They
+have no LSP-library or Node dependency (browser-compatible, like
+`@clementina/debug`'s session core): their public functions accept document
+text and positions. `src/server.ts` is the Node-only stdio wiring, built on
 `vscode-languageserver`/`vscode-languageserver-textdocument` — the generic
 Language Server Protocol library (editor-agnostic despite the package name; it
 is not a VS Code dependency, the same way `@clementina/debug` avoids one).

@@ -33,6 +33,15 @@ test('analyzeDiagnostics returns nothing for a valid program', () => {
   assert.deepEqual(analyzeDiagnostics('10 PRINT "HI"\n20 END\n'), []);
 });
 
+test('source analysis uses physical CRLF positions and effective line deletion', () => {
+  const source = '10 GOTO 30\r\n30 END\r\n30 PRINT 1\r\n30\r\n40 END\r\n';
+  assert.deepEqual(analyzeDiagnostics(source).filter(item => item.code === 'basic.target').map(item => item.line), [1]);
+  assert.equal(definitionAt(source, 1, 9), undefined);
+  assert.deepEqual(documentSymbols(source).filter(symbol => symbol.kind === 'line').map(symbol => [symbol.name, symbol.line]),
+    [['10', 1], ['40', 5]]);
+  assert.equal(semanticSpans(source).some(span => span.line === 2 || span.line === 3 || span.line === 4), false);
+});
+
 test('target diagnostics follow ROM lexical modes and cover direct, implicit, and ON branch targets', () => {
   const source = [
     '10 GOTO 100',
@@ -92,6 +101,16 @@ test('syntax diagnostics validate parenthesis structure and known function arity
     'Unmatched closing parenthesis',
   ]);
   assert.equal(analyzeDiagnostics('10 PRINT "PADBTN(0) ("\n').filter(item => item.code === 'basic.syntax').length, 0);
+});
+
+test('function signatures and arity share opening-parenthesis handling for FN and suffixed tokens', () => {
+  const source = '10 X=FNA(1,2):Y=TAB(4,5)';
+  assert.deepEqual(analyzeDiagnostics(source).filter(item => item.code === 'basic.syntax').map(item => item.message), [
+    'FN expects 1 argument(s), found 2',
+    'TAB expects 1 argument(s), found 2',
+  ]);
+  assert.equal(signatureHelpAt(source, 1, source.indexOf('1,2') + 2)?.label, 'FNname(argument)');
+  assert.equal(signatureHelpAt(source, 1, source.indexOf('4,5') + 2)?.label, 'TAB(column)');
 });
 
 test('references, rename, symbols, contextual completion, and semantic spans share tokenizer locations', () => {

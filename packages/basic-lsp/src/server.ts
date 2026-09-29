@@ -19,6 +19,7 @@ import {
   type Hover,
   type InitializeResult,
   type SignatureHelp,
+  type Range,
 } from 'vscode-languageserver/node.js';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {
@@ -33,7 +34,9 @@ import {
   renumberBasicSource,
   semanticSpans,
   signatureHelpAt,
+  type BasicSourceLocation,
 } from './index.js';
+import {splitPhysicalLines} from './source.js';
 
 const connection = createConnection(ProposedFeatures.all, process.stdin, process.stdout);
 const documents = new TextDocuments(TextDocument);
@@ -58,19 +61,21 @@ connection.onInitialize((): InitializeResult => ({
   },
 }));
 
-function splitLines(text: string): string[] {
-  return text.replace(/\r\n?/gu, '\n').split('\n');
+/** Convert a one-based BASIC source span to a zero-based LSP range. */
+function toRange(location: BasicSourceLocation): Range {
+  return {
+    start: {line: location.line - 1, character: location.startCharacter},
+    end: {line: location.line - 1, character: location.endCharacter},
+  };
 }
 
+/** Publish all current diagnostics for an open document. */
 function validate(document: TextDocument): void {
   const text = document.getText();
-  const lines = splitLines(text);
+  const lines = splitPhysicalLines(text);
   const diagnostics: Diagnostic[] = analyzeDiagnostics(text).map(item => ({
     severity: DiagnosticSeverity.Error,
-    range: {
-      start: {line: item.line - 1, character: item.startCharacter ?? 0},
-      end: {line: item.line - 1, character: item.endCharacter ?? lines[item.line - 1]?.length ?? 0},
-    },
+    range: toRange({line: item.line, startCharacter: item.startCharacter ?? 0, endCharacter: item.endCharacter ?? lines[item.line - 1]?.length ?? 0}),
     message: item.message,
     source: 'clementina-basic',
     code: item.code,
@@ -102,20 +107,14 @@ connection.onDefinition(params => {
   if (!document) return undefined;
   const definition = definitionAt(document.getText(), params.position.line + 1, params.position.character);
   if (!definition) return undefined;
-  return Location.create(document.uri, {
-    start: {line: definition.line - 1, character: definition.startCharacter},
-    end: {line: definition.line - 1, character: definition.endCharacter},
-  });
+  return Location.create(document.uri, toRange(definition));
 });
 
 connection.onReferences(params => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
   return referencesAt(document.getText(), params.position.line + 1, params.position.character, params.context.includeDeclaration)
-    .map(location => Location.create(document.uri, {
-      start: {line: location.line - 1, character: location.startCharacter},
-      end: {line: location.line - 1, character: location.endCharacter},
-    }));
+    .map(location => Location.create(document.uri, toRange(location)));
 });
 
 connection.onPrepareRename(params => {
@@ -125,7 +124,7 @@ connection.onPrepareRename(params => {
   const location = locations.find(item => item.line === params.position.line + 1
     && params.position.character >= item.startCharacter && params.position.character < item.endCharacter);
   if (!location) return null;
-  const range = {start: {line: location.line - 1, character: location.startCharacter}, end: {line: location.line - 1, character: location.endCharacter}};
+  const range = toRange(location);
   return {range, placeholder: document.getText(range)};
 });
 
@@ -134,10 +133,7 @@ connection.onRenameRequest(params => {
   if (!document) return null;
   try {
     const edits = renameAt(document.getText(), params.position.line + 1, params.position.character, params.newName)
-      .map(edit => TextEdit.replace({
-        start: {line: edit.line - 1, character: edit.startCharacter},
-        end: {line: edit.line - 1, character: edit.endCharacter},
-      }, edit.newText));
+      .map(edit => TextEdit.replace(toRange(edit), edit.newText));
     return {changes: {[document.uri]: edits}};
   } catch (error) {
     throw new ResponseError(ErrorCodes.InvalidParams, error instanceof Error ? error.message : String(error));
@@ -148,10 +144,7 @@ connection.onDocumentSymbol(params => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
   return documentSymbols(document.getText()).map(symbol => {
-    const range = {
-      start: {line: symbol.line - 1, character: symbol.startCharacter},
-      end: {line: symbol.line - 1, character: symbol.endCharacter},
-    };
+    const range = toRange(symbol);
     return {name: symbol.name, kind: symbol.kind === 'line' ? SymbolKind.Event : SymbolKind.Variable, range, selectionRange: range};
   });
 });
@@ -179,7 +172,8 @@ connection.onSignatureHelp((params): SignatureHelp | undefined => {
   };
 });
 
-function wholeDocumentRange(document: TextDocument) {
+/** Cover the entire current text, including its final line ending. */
+function wholeDocumentRange(document: TextDocument): Range {
   return {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};
 }
 

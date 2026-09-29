@@ -15,7 +15,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test ../../tests/basic-lsp.test.mjs"
   },
   "bin": {
     "clementina-basic-lsp": "./bin/clementina-basic-lsp.mjs"
