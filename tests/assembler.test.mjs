@@ -53,6 +53,32 @@ test('source maps resolve exact lines and containing addresses without inventing
   assert.equal(sourceMap.locationsForAddress(0x8003).length, 0);
 });
 
+test('source maps deduplicate repeated spans and ignore invalid ranges', () => {
+  const debug = parseCa65Debug([
+    'version\tmajor=2,minor=0',
+    'file\tid=0,name="src/first.s"',
+    'file\tid=1,name="src/second.s"',
+    'line\tid=0,file=0,line=10,span=0+1+2',
+    'line\tid=1,file=0,line=10,span=0',
+    'line\tid=2,file=1,line=3,span=0',
+    'seg\tid=0,name="CODE",start=0x008000,size=4',
+    'span\tid=0,seg=0,start=0,size=2',
+    'span\tid=1,seg=0,start=2,size=0',
+    'span\tid=2,seg=0,start=0x8000,size=1',
+  ].join('\n'));
+  const sourceMap = createAssemblySourceMap(debug, {bank: 7});
+
+  assert.deepEqual(sourceMap.executableLines('src/first.s'), [10]);
+  assert.deepEqual(sourceMap.locationsForSource('src/first.s', 10).map(({address, spanId}) => ({address, spanId})), [
+    {address: 0x8000, spanId: 0},
+  ]);
+  assert.deepEqual(sourceMap.locationsForAddress(0x8001, 7).map(location => location.path), [
+    'src/first.s', 'src/second.s',
+  ]);
+  assert.equal(sourceMap.locationsForAddress(0x8001, 8).length, 0);
+  assert.throws(() => createAssemblySourceMap(debug, {bank: 32}), RangeError);
+});
+
 const hasCc65 = spawnSync('ca65', ['--version'], {stdio: 'ignore'}).status === 0
   && spawnSync('ld65', ['--version'], {stdio: 'ignore'}).status === 0;
 
@@ -110,4 +136,35 @@ test('assembler rejects implicit placement and unsafe build inputs before invoki
   assert.ok(built.diagnostics.some(item => item.code === 'assembler.path'));
   assert.ok(built.diagnostics.some(item => item.code === 'assembler.bank'));
   assert.ok(built.diagnostics.some(item => item.code === 'assembler.output-name'));
+});
+
+test('assembler stops at the failing tool and reports its source', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'clementina-assembler-tools-'));
+  const request = {
+    sources: ['main.s'], linkerConfig: 'link.cfg',
+    outputDirectory: 'build', outputName: 'game',
+    loadAddress: 0x6000, entrySymbol: 'start',
+  };
+
+  const assembleFailure = await buildAssembly(root, request, async ({command}) => {
+    assert.equal(command, 'ca65');
+    return {exitCode: 1, stdout: '', stderr: 'assembly failed'};
+  });
+  assert.equal(assembleFailure.ok, false);
+  assert.deepEqual(assembleFailure.diagnostics.map(({code, source, message}) => ({code, source, message})), [
+    {code: 'assembler.tool', source: 'main.s', message: 'assembly failed'},
+  ]);
+
+  const commands = [];
+  const linkFailure = await buildAssembly(root, request, async ({command}) => {
+    commands.push(command);
+    return command === 'ca65'
+      ? {exitCode: 0, stdout: '', stderr: ''}
+      : {exitCode: 1, stdout: '', stderr: 'link failed'};
+  });
+  assert.equal(linkFailure.ok, false);
+  assert.deepEqual(commands, ['ca65', 'ld65']);
+  assert.deepEqual(linkFailure.diagnostics.map(({code, source, message}) => ({code, source, message})), [
+    {code: 'assembler.tool', source: 'link.cfg', message: 'link failed'},
+  ]);
 });
