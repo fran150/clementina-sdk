@@ -39,7 +39,7 @@ jobs:
           - {os: ubuntu-latest, binary: clementina-linux-x64}
           - {os: ubuntu-24.04-arm, binary: clementina-linux-arm64}
           - {os: macos-latest, binary: clementina-darwin-arm64}
-          - {os: macos-13, binary: clementina-darwin-x64}
+          - {os: macos-15-intel, binary: clementina-darwin-x64}
           - {os: windows-latest, binary: clementina-windows-x64.exe}
     runs-on: ${{ matrix.os }}
     defaults:
