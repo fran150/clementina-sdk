@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
 import {mkdir, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {McpServer} from '@modelcontextprotocol/server';
@@ -6,8 +7,10 @@ import * as z from 'zod/v4';
 import {assetKinds, checkAsset} from '@clementina/assets';
 import {errorMessage, SerialQueue} from '@clementina/core';
 import {buildProject} from '@clementina/build';
-import {startEmulatorProcess, type EmulatorProcess} from '@clementina/emulator-client/node';
+import {resolveEmulatorExecutable, startEmulatorProcess, type EmulatorProcess} from '@clementina/emulator-client/node';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
+
+const {version} = createRequire(import.meta.url)('../package.json') as {version: string};
 
 type Active = {root: string; process: EmulatorProcess; output: string};
 type Data = Record<string, unknown>;
@@ -19,7 +22,7 @@ const failure = (error: unknown) => reply({ok: false, error: errorMessage(error)
 
 /** One connection owns one emulator process; all mutating and machine calls are ordered. */
 export function createClementinaMcpServer(): McpServer {
-  const server = new McpServer({name: 'clementina-sdk', version: '0.2.0'});
+  const server = new McpServer({name: 'clementina-sdk', version});
   let active: Active | undefined;
   const queue = new SerialQueue();
   const serial = <T>(op: () => Promise<T>): Promise<T> => queue.run(op);
@@ -74,7 +77,7 @@ export function createClementinaMcpServer(): McpServer {
       const built = await buildProject(root);
       if (!built.ok) return reply({ok: false, diagnostics: built.diagnostics}, true);
       const emulator = await startEmulatorProcess({
-        executable: executable ?? process.env.CLEMENTINA_EMULATOR ?? 'clementina-automation',
+        executable: resolveEmulatorExecutable(executable),
         sdRoot: resolve(root, built.value.sdRoot),
       });
       try {
