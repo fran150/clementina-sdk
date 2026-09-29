@@ -10,5 +10,7 @@
 - Share `errorMessage`, `formatHex`, `isIntegerInRange`, and `SerialQueue` from `@clementina/core` instead of per-package copies.
 - Export the default emulator executable and `CLEMENTINA_EMULATOR` lookup from `@clementina/emulator-client/node`.
 - Raise `DebugSessionError` from BASIC debug sessions, matching assembly sessions.
+- Ship the CLI as standalone executables for Linux, macOS, and Windows that need no Node.js install (`npm run build:binaries`; attached to tagged GitHub releases).
+- Embed the ca65 runtime sources as `runtimeFiles` in `@clementina/runtime`; builds write them instead of copying from the package directory.
 
 The first distributed release will establish the package release history.

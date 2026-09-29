@@ -3,6 +3,26 @@
 Build the SDK with `npm ci && npm run build`, then run `npx clementina --help`
 from this workspace (or `node packages/cli/bin/clementina.mjs --help`).
 
+## Standalone executable
+
+The CLI also ships as a single-file executable that needs no Node.js install.
+Tagged releases attach `clementina-linux-x64`, `clementina-linux-arm64`,
+`clementina-darwin-x64`, `clementina-darwin-arm64`, and
+`clementina-windows-x64.exe` with a `SHA256SUMS` file. Download the one for your
+platform, rename it to `clementina` (or `clementina.exe`), make it executable,
+and put it on `PATH`. It runs every command below; `build` and `run` still need
+cc65 and the emulator automation executable, exactly as with the npm package.
+macOS may quarantine a downloaded file; clear that with
+`xattr -d com.apple.quarantine clementina`.
+
+To build the executables locally, install [Bun](https://bun.sh) and run
+`npm run build:binaries`. Bun compiles the built CLI together with its own
+runtime for every target from one machine; outputs go to `dist/bin/`. Pass
+target names to `node scripts/build-binaries.mjs` (for example `linux-x64`)
+after `npm run build` to build a subset. Node.js remains the development and
+library runtime: Studio, the MCP server, and the VS Code extension consume the
+npm packages unchanged.
+
 ```sh
 npx clementina project validate examples/minimal-game
 npx clementina asset validate examples/minimal-game/assets/palettes/main.palette.json
@@ -49,7 +69,7 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
-`doctor` checks Node.js and probes `ca65`, `ld65`, and `ar65` by running their
+`doctor` checks Node.js (or reports the standalone executable) and probes `ca65`, `ld65`, and `ar65` by running their
 version commands. It checks whether the emulator automation executable is
 available without starting it. Missing optional tools produce warnings; use
 `doctor --strict` to require all four tools and return a nonzero exit code.

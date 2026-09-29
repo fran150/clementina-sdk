@@ -40,4 +40,5 @@ npm test
 project references (`tsc -b`) and skips packages that are already up to date.
 `npm run clean` removes the build output.
 
-CLI: `npx clementina --help` after building. See [CLI usage](docs/cli.md).
+CLI: `npx clementina --help` after building, or download a standalone executable
+that needs no Node.js. See [CLI usage](docs/cli.md).
