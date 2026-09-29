@@ -4,7 +4,7 @@
 // descriptor instead.
 import {cellAttr, spriteAttr} from './attributes.js';
 import {compileSong, soundWrites, type InstrumentData, type SongData, type SoundData} from './audio.js';
-import type {AnimationAsset, BackgroundAsset, OverlayAsset, ShapeAsset} from './types.js';
+import type {AnimationAsset, BackgroundAsset, BackgroundCell, OverlayAsset, ShapeAsset} from './types.js';
 
 export const OVERLAY_FILE_BYTES = 2000;
 export const SHAPE_SPRITE_RECORD_BYTES = 6;
@@ -12,22 +12,31 @@ export const ANIMATION_FRAME_RECORD_BYTES = 7;
 
 /** 1,000 tile bytes then 1,000 attribute bytes: the overlay table's own layout. */
 export function encodeOverlayFile(overlay: Pick<OverlayAsset, 'cells'>): Uint8Array {
-  const out = new Uint8Array(OVERLAY_FILE_BYTES);
-  overlay.cells.forEach((cell, i) => { out[i] = cell.tile; out[1000 + i] = cellAttr(cell); });
-  return out;
+  return encodeCellPlanes(overlay.cells, OVERLAY_FILE_BYTES / 2);
 }
 
 /** width x height tile bytes row by row, then the same number of attribute bytes. */
 export function encodeBackgroundFile(background: Pick<BackgroundAsset, 'width' | 'height' | 'cells'>): Uint8Array {
-  const cells = background.width * background.height, out = new Uint8Array(cells * 2);
-  background.cells.forEach((cell, i) => { out[i] = cell.tile; out[cells + i] = cellAttr(cell); });
-  return out;
+  return encodeCellPlanes(background.cells, background.width * background.height);
+}
+
+/** Put tile indexes and their attributes into separate consecutive planes. */
+function encodeCellPlanes(cells: readonly BackgroundCell[], cellCount: number): Uint8Array {
+  const output = new Uint8Array(cellCount * 2);
+  cells.forEach((cell, index) => {
+    output[index] = cell.tile;
+    output[cellCount + index] = cellAttr(cell);
+  });
+  return output;
 }
 
 export interface SpriteFileItem {id: string; name: string; offset: number; size: number}
 export interface SpriteFile {bytes: Uint8Array; shapes: SpriteFileItem[]; animations: SpriteFileItem[]}
 
-const push16 = (out: number[], n: number) => out.push(n & 255, (n >> 8) & 255);
+/** Append a signed or unsigned 16-bit field in little-endian order. */
+function append16(output: number[], value: number): void {
+  output.push(value & 255, (value >> 8) & 255);
+}
 
 /**
  * One tileset's shapes, then its animations. A shape is a sprite count and six
@@ -45,8 +54,8 @@ export function encodeSpriteFile(shapes: readonly ShapeAsset[], animations: read
     out.push(shape.sprites.length);
     for (const sprite of shape.sprites) {
       out.push(sprite.tile);
-      push16(out, sprite.x);
-      push16(out, sprite.y);
+      append16(out, sprite.x);
+      append16(out, sprite.y);
       out.push(spriteAttr(sprite));
     }
     shapeItems.push({id: shape.id, name: shape.name, offset, size: out.length - offset});
@@ -58,8 +67,8 @@ export function encodeSpriteFile(shapes: readonly ShapeAsset[], animations: read
       const shape = number.get(frame.shapeId);
       if (shape === undefined) throw new Error(`Animation ${animation.name} uses a shape that is not in this sprite file: ${frame.shapeId}`);
       out.push(shape, frame.ticks);
-      push16(out, frame.dx ?? 0);
-      push16(out, frame.dy ?? 0);
+      append16(out, frame.dx ?? 0);
+      append16(out, frame.dy ?? 0);
       out.push((frame.flipX ? 1 : 0) | (frame.flipY ? 2 : 0));
     }
     animationItems.push({id: animation.id, name: animation.name, offset, size: out.length - offset});

@@ -9,32 +9,40 @@ export const PALETTE_MEMORY_BYTES = 256;
 export const CHR_BANK_BYTES = 6144;
 export const CHR_BANKS = 8;
 
-/** Encode one eight-color palette as the MIA RGB565 little-endian bank format. */
-export function encodePalette(asset: PaletteAsset): Uint8Array {
-  const palette = assertValid(checkAsset(asset, 'palettes')) as PaletteAsset;
+/** Write validated RGB565 colors in the MIA's little-endian bank order. */
+function paletteBytes(colors: readonly number[]): Uint8Array {
   const output = new Uint8Array(PALETTE_BANK_BYTES);
-  palette.colors.forEach((color, index) => {
+  colors.forEach((color, index) => {
     output[index * 2] = color & 0xff;
     output[index * 2 + 1] = color >>> 8;
   });
   return output;
 }
 
+/** Encode one eight-color palette as the MIA RGB565 little-endian bank format. */
+export function encodePalette(asset: PaletteAsset): Uint8Array {
+  const palette = assertValid(checkAsset(asset, 'palettes')) as PaletteAsset;
+  return paletteBytes(palette.colors);
+}
+
 /** Resolve a portable palette configuration into the complete 256-byte MIA palette region. */
 export function encodePaletteConfig(configValue: PaletteConfigAsset, paletteValues: readonly PaletteAsset[]): Uint8Array {
   const config = assertValid(checkAsset(configValue, 'paletteConfigs')) as PaletteConfigAsset;
-  const palettes = new Map<string, PaletteAsset>();
+  const palettes = new Map<string, Uint8Array>();
   for (const value of paletteValues) {
     const palette = assertValid(checkAsset(value, 'palettes')) as PaletteAsset;
     if (palettes.has(palette.id)) assertValid(result(undefined, [diagnostic('asset.duplicate.id', '', `Duplicate palette ${palette.id}`)]));
-    palettes.set(palette.id, palette);
+    palettes.set(palette.id, paletteBytes(palette.colors));
   }
   const output = new Uint8Array(PALETTE_MEMORY_BYTES);
   config.banks.forEach((id, bank) => {
     if (id === null) return;
     const palette = palettes.get(id);
-    if (!palette) assertValid(result(undefined, [diagnostic('asset.reference', `/banks/${bank}`, `Unknown palette ${id}`)]));
-    output.set(encodePalette(palette!), bank * PALETTE_BANK_BYTES);
+    if (!palette) {
+      assertValid(result(undefined, [diagnostic('asset.reference', `/banks/${bank}`, `Unknown palette ${id}`)]));
+      return;
+    }
+    output.set(palette, bank * PALETTE_BANK_BYTES);
   });
   return output;
 }
