@@ -6,5 +6,9 @@
 - Make the SDK npm packages publishable under GPL-3.0-only.
 - Check assembler and emulator availability through `clementina doctor`.
 - Add a physical hardware audio fixture and capture analysis workflow.
+- Build packages through TypeScript project references (`npm run build` runs `tsc -b`; `npm run clean` removes output).
+- Share `errorMessage`, `formatHex`, `isIntegerInRange`, and `SerialQueue` from `@clementina/core` instead of per-package copies.
+- Export the default emulator executable and `CLEMENTINA_EMULATOR` lookup from `@clementina/emulator-client/node`.
+- Raise `DebugSessionError` from BASIC debug sessions, matching assembly sessions.
 
 The first distributed release will establish the package release history.

@@ -1,3 +1,4 @@
+import {formatHex} from '@clementina/core';
 import {opcodes, type AddressMode} from './opcodes.js';
 
 export interface DecodedInstruction {
@@ -6,8 +7,6 @@ export interface DecodedInstruction {
   text: string;
 }
 
-/** Format an unsigned operand as uppercase hexadecimal. */
-const hex = (value: number, width: number): string => `$${value.toString(16).toUpperCase().padStart(width, '0')}`;
 const sizes: Record<AddressMode, number> = {
   imp: 1, acc: 1, imm: 2, zp: 2, zpx: 2, zpy: 2, abs: 3, absx: 3, absy: 3,
   rel: 2, ind: 3, zpi: 2, zpxi: 2, zpiy: 2, absxi: 3, brk: 2, zprel: 3,
@@ -20,22 +19,22 @@ function formatOperand(mode: AddressMode, address: number, data: readonly number
   switch (mode) {
     case 'imp': case 'brk': return '';
     case 'acc': return ' A';
-    case 'imm': return ` #${hex(byte, 2)}`;
-    case 'zp': return ` ${hex(byte, 2)}`;
-    case 'zpx': return ` ${hex(byte, 2)},X`;
-    case 'zpy': return ` ${hex(byte, 2)},Y`;
-    case 'abs': return ` ${hex(word, 4)}`;
-    case 'absx': return ` ${hex(word, 4)},X`;
-    case 'absy': return ` ${hex(word, 4)},Y`;
-    case 'rel': return ` ${hex((address + 2 + (byte < 128 ? byte : byte - 256)) & 0xffff, 4)}`;
-    case 'ind': return ` (${hex(word, 4)})`;
-    case 'zpi': return ` (${hex(byte, 2)})`;
-    case 'zpxi': return ` (${hex(byte, 2)},X)`;
-    case 'zpiy': return ` (${hex(byte, 2)}),Y`;
-    case 'absxi': return ` (${hex(word, 4)},X)`;
+    case 'imm': return ` #${formatHex(byte, 2)}`;
+    case 'zp': return ` ${formatHex(byte, 2)}`;
+    case 'zpx': return ` ${formatHex(byte, 2)},X`;
+    case 'zpy': return ` ${formatHex(byte, 2)},Y`;
+    case 'abs': return ` ${formatHex(word, 4)}`;
+    case 'absx': return ` ${formatHex(word, 4)},X`;
+    case 'absy': return ` ${formatHex(word, 4)},Y`;
+    case 'rel': return ` ${formatHex((address + 2 + (byte < 128 ? byte : byte - 256)) & 0xffff, 4)}`;
+    case 'ind': return ` (${formatHex(word, 4)})`;
+    case 'zpi': return ` (${formatHex(byte, 2)})`;
+    case 'zpxi': return ` (${formatHex(byte, 2)},X)`;
+    case 'zpiy': return ` (${formatHex(byte, 2)}),Y`;
+    case 'absxi': return ` (${formatHex(word, 4)},X)`;
     case 'zprel': {
       const displacement = data[2]!;
-      return ` ${hex(byte, 2)},${hex((address + 3 + (displacement < 128 ? displacement : displacement - 256)) & 0xffff, 4)}`;
+      return ` ${formatHex(byte, 2)},${formatHex((address + 3 + (displacement < 128 ? displacement : displacement - 256)) & 0xffff, 4)}`;
     }
   }
 }
@@ -57,7 +56,7 @@ export function decodeInstructions(address: number, bytes: readonly (number | nu
     const data = instructionBytes as number[];
     const text = definition
       ? definition[0] + formatOperand(definition[1], start, data)
-      : `.byte ${hex(opcode, 2)}`;
+      : `.byte ${formatHex(opcode, 2)}`;
     result.push({address: start, bytes: data, text});
     offset += size;
   }

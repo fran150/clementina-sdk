@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
 import {isAbsolute, resolve} from 'node:path';
-import {diagnostic, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
+import {diagnostic, formatHex, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {projectRelativePath, type BuildPaths} from './build-paths.js';
 import {parseCa65Debug} from './debug.js';
 import type {AssemblyBuildRequest, Ca65DebugInfo, DebugSegment} from './types.js';
@@ -20,16 +20,6 @@ type EmittedSegment = DebugSegment & {outputName: string; outputOffset: number};
  */
 function isEmittedSegment(segment: DebugSegment): segment is EmittedSegment {
   return segment.size > 0 && segment.outputName !== undefined && segment.outputOffset !== undefined;
-}
-
-/**
- * Format an address for placement diagnostics.
- *
- * @param address - Address or binary offset.
- * @returns Uppercase hexadecimal with a dollar-sign prefix.
- */
-function hex(address: number): string {
-  return `$${address.toString(16).toUpperCase()}`;
 }
 
 /**
@@ -78,7 +68,7 @@ function segmentDiagnostics(
   const expected = loadAddress + segment.outputOffset;
   if (segment.start !== expected) {
     diagnostics.push(diagnostic('assembler.image.placement', '',
-      `Segment ${segment.name} starts at ${hex(segment.start)}, but binary offset ${hex(segment.outputOffset)} requires ${hex(expected)}`));
+      `Segment ${segment.name} starts at ${formatHex(segment.start)}, but binary offset ${formatHex(segment.outputOffset)} requires ${formatHex(expected)}`));
   }
   if (segment.outputOffset + segment.size > binaryLength) {
     diagnostics.push(diagnostic('assembler.image.bounds', '',

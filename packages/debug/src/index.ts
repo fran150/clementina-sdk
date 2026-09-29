@@ -9,9 +9,11 @@ import {
   type SourceBreakpointLocation,
 } from '@clementina/emulator-client';
 import type {LoadPlan} from '@clementina/basic';
+import {SerialQueue} from '@clementina/core';
 import {decodeInstructions} from './disassembly.js';
 import {isCpuAddress, isSourceBank, SourceBreakpointManager} from './breakpoints.js';
-import {waitForPoll} from './polling.js';
+import {stopWaitInterval, waitForPoll} from './polling.js';
+import {DebugSessionError} from './errors.js';
 import {cpuAddressLabel, sourceName} from './format.js';
 export * from './basic.js';
 export * from './disassembly.js';
@@ -81,8 +83,7 @@ export interface WaitForStopOptions {
   signal?: AbortSignal;
 }
 
-/** Error raised for invalid or unavailable debug-session operations. */
-export class DebugSessionError extends Error {}
+export {DebugSessionError} from './errors.js';
 
 /**
  * Editor-neutral debugger orchestration. Protocol/UI adapters should remain thin
@@ -92,7 +93,7 @@ export class ClementinaDebugSession {
   private readonly bank?: number;
   private readonly threadName: string;
   private readonly breakpoints: SourceBreakpointManager;
-  private commandTail: Promise<void> = Promise.resolve();
+  private readonly commands = new SerialQueue();
   private disposed = false;
 
   /** Create an assembly session over an emulator client and source resolver. */
@@ -209,7 +210,7 @@ export class ClementinaDebugSession {
 
   /** Remove only breakpoints installed by this session. */
   dispose(): Promise<void> {
-    if (this.disposed) return this.commandTail;
+    if (this.disposed) return this.commands.idle;
     return this.command(async () => {
       await this.breakpoints.clear();
       this.disposed = true;
@@ -219,9 +220,7 @@ export class ClementinaDebugSession {
   /** Poll a running emulator without blocking pause or other queued editor commands. */
   async waitForStop(options: WaitForStopOptions): Promise<DebugSnapshot> {
     if (this.disposed) throw new DebugSessionError('Debug session is disposed');
-    if (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1) throw new RangeError('timeoutMs must be a positive integer');
-    const interval = options.pollIntervalMs ?? 10;
-    if (!Number.isInteger(interval) || interval < 1 || interval > options.timeoutMs) throw new RangeError('pollIntervalMs must be 1..timeoutMs');
+    const interval = stopWaitInterval(options);
     const deadline = Date.now() + options.timeoutMs;
     while (true) {
       if (options.signal?.aborted) throw new DebugSessionError('Stop wait aborted');
@@ -235,12 +234,10 @@ export class ClementinaDebugSession {
 
   /** Serialize editor commands and keep the queue usable after a failure. */
   private command<T>(operation: () => Promise<T>, allowDisposed = false): Promise<T> {
-    const result = this.commandTail.then(async () => {
+    return this.commands.run(() => {
       if (this.disposed && !allowDisposed) throw new DebugSessionError('Debug session is disposed');
       return operation();
     });
-    this.commandTail = result.then(() => undefined, () => undefined);
-    return result;
   }
 
   /** Apply the session bank unless a step explicitly selects another bank. */

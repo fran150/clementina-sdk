@@ -1,4 +1,5 @@
 // Studio v2 session validation is browser-safe and shares the portable audio contract.
+import {isIntegerInRange} from '@clementina/core';
 import type {InstrumentAsset, SongAsset, SoundAsset} from './types.js';
 
 export type StudioInstrumentRecord = Omit<InstrumentAsset, 'format' | 'version'>;
@@ -18,7 +19,7 @@ const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
 
 /** Test an integer field against its inclusive bounds. */
 function audioRange(value: unknown, min: number, max: number): boolean {
-  return Number.isInteger(value) && Number(value) >= min && Number(value) <= max;
+  return isIntegerInRange(value, min, max);
 }
 
 /** Reject missing or duplicate Studio identities and assembly names. */

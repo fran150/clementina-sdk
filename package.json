@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "validate:specs": "node scripts/validate-specs.mjs",
-    "build": "npm run build -w @clementina/core && npm run build -w @clementina/assets && npm run build -w @clementina/project && npm run build -w @clementina/basic && npm run build -w @clementina/assembler && npm run build -w @clementina/runtime && npm run build -w @clementina/build && npm run build -w @clementina/emulator-client && npm run build -w @clementina/debug && npm run build -w @clementina/basic-lsp && npm run build -w @clementina/debug-adapter && npm run build -w clementina && npm run build -w @clementina/cli && npm run build -w @clementina/mcp",
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:packages": "node scripts/check-packages.mjs",
     "release:check": "npm test && npm run typecheck && npm run check:packages",
@@ -21,6 +22,7 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "json-schema-to-ts": "^3.1.1"
+    "json-schema-to-ts": "^3.1.1",
+    "typescript": "^5.8.0"
   }
 }

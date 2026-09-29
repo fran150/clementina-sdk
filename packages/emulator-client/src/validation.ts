@@ -1,3 +1,4 @@
+import {isIntegerInRange} from '@clementina/core';
 import type {BankBreakpoint, EmulatorCapabilities, EmulatorStack, EmulatorState, ExecutionState, StopReason} from './index.js';
 
 const stopReasons: readonly StopReason[] = ['initial', 'running', 'pause', 'reset', 'breakpoint', 'instruction', 'cycle-limit', 'mia-paused', 'cpu-stopped'];
@@ -9,7 +10,7 @@ export function isObject(value: unknown): value is Record<string, unknown> {
 
 /** Test an inclusive unsigned integer range. */
 export function isInteger(value: unknown, max: number): value is number {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= max;
+  return isIntegerInRange(value, 0, max);
 }
 
 /** Validate the capabilities advertised by a version 1 server. */

@@ -1,12 +1,8 @@
 import {basename, isAbsolute, relative} from 'node:path';
 import {Breakpoint, Source, StackFrame, Variable} from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
+import {formatHex} from '@clementina/core';
 import type {DebugBreakpoint, DebugInstruction, DebugRegisters, DebugStack} from '@clementina/debug';
-
-/** Format a CPU value as an uppercase, dollar-prefixed hexadecimal number. */
-function hex(value: number, width = 2): string {
-  return `$${value.toString(16).toUpperCase().padStart(width, '0')}`;
-}
 
 /** Create a DAP source from a path reported by the debugger. */
 function source(path: string): Source {
@@ -79,13 +75,13 @@ export function dapInstructions(decoded: readonly DebugInstruction[], range: Dis
 /** Present a stopped CPU's registers in the existing DAP scope order. */
 export function registerVariables(registers: DebugRegisters): Variable[] {
   return [
-    new Variable('PC', hex(registers.pc, 4)),
+    new Variable('PC', formatHex(registers.pc, 4)),
     ...(registers.bank === undefined ? [] : [new Variable('Bank', String(registers.bank))]),
-    new Variable('A', hex(registers.a)),
-    new Variable('X', hex(registers.x)),
-    new Variable('Y', hex(registers.y)),
-    new Variable('SP', hex(registers.sp)),
-    new Variable('P', hex(registers.p)),
+    new Variable('A', formatHex(registers.a, 2)),
+    new Variable('X', formatHex(registers.x, 2)),
+    new Variable('Y', formatHex(registers.y, 2)),
+    new Variable('SP', formatHex(registers.sp, 2)),
+    new Variable('P', formatHex(registers.p, 2)),
     new Variable('cycles', registers.cycles),
     new Variable('MIA paused', String(registers.miaPaused)),
   ];

@@ -1,4 +1,5 @@
 import {basicTokenTables} from '@clementina/basic';
+import {formatHex} from '@clementina/core';
 import {assertSourcePosition, splitPhysicalLines} from './source.js';
 import type {BasicCompletionItem, BasicHoverInfo, BasicKeywordCategory} from './types.js';
 
@@ -14,11 +15,6 @@ function wordAt(lineText: string, character: number): {word: string; end: number
   return {word: lineText.slice(start, end).toUpperCase(), end};
 }
 
-/** Format a token byte as two-digit uppercase hexadecimal. */
-function hex(value: number): string {
-  return `$${value.toString(16).toUpperCase().padStart(2, '0')}`;
-}
-
 const PREFIXED_TABLES: ReadonlyArray<{category: 'extensionFunction' | 'extension' | 'extension2'; list: readonly string[]; prefix: number}> = [
   {category: 'extensionFunction', list: basicTokenTables.extensionFunction, prefix: basicTokenTables.extensionFunctionPrefix},
   {category: 'extension', list: basicTokenTables.extension, prefix: basicTokenTables.extensionPrefix},
@@ -27,15 +23,15 @@ const PREFIXED_TABLES: ReadonlyArray<{category: 'extensionFunction' | 'extension
 
 /** Look up an exact keyword using the ROM tokenizer's table search order. */
 function findKeyword(word: string): BasicHoverInfo | undefined {
-  if (word === 'MON') return {keyword: 'MON', category: 'special', token: hex(basicTokenTables.mon)};
+  if (word === 'MON') return {keyword: 'MON', category: 'special', token: formatHex(basicTokenTables.mon, 2)};
   for (const table of PREFIXED_TABLES) {
     const index = table.list.indexOf(word);
     if (index !== -1) {
-      return {keyword: word, category: table.category, token: `${hex(table.prefix)},${hex(basicTokenTables.extensionSubtokenStart + index)}`};
+      return {keyword: word, category: table.category, token: `${formatHex(table.prefix, 2)},${formatHex(basicTokenTables.extensionSubtokenStart + index, 2)}`};
     }
   }
   const primaryIndex = (basicTokenTables.primary as readonly string[]).indexOf(word);
-  if (primaryIndex !== -1) return {keyword: word, category: 'primary', token: hex(basicTokenTables.primaryStart + primaryIndex)};
+  if (primaryIndex !== -1) return {keyword: word, category: 'primary', token: formatHex(basicTokenTables.primaryStart + primaryIndex, 2)};
   return undefined;
 }
 

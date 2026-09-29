@@ -1,0 +1,19 @@
+{
+  "files": [],
+  "references": [
+    {"path": "packages/assembler"},
+    {"path": "packages/assets"},
+    {"path": "packages/basic"},
+    {"path": "packages/basic-lsp"},
+    {"path": "packages/build"},
+    {"path": "packages/cli"},
+    {"path": "packages/core"},
+    {"path": "packages/debug"},
+    {"path": "packages/debug-adapter"},
+    {"path": "packages/emulator-client"},
+    {"path": "packages/mcp"},
+    {"path": "packages/project"},
+    {"path": "packages/runtime"},
+    {"path": "packages/vscode-extension"}
+  ]
+}

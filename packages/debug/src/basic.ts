@@ -1,4 +1,5 @@
 import {basicRuntimeDebug, parseBasicSource, type LoadPlan} from '@clementina/basic';
+import {SerialQueue} from '@clementina/core';
 import {
   type EmulatorClient,
   type ExecutionState,
@@ -9,7 +10,8 @@ import {
 } from '@clementina/emulator-client';
 import type {DebugBreakpoint, DebugSnapshot, WaitForStopOptions} from './index.js';
 import {readBasicVariables, type BasicRuntimeVariable} from './basic-variables.js';
-import {waitForPoll} from './polling.js';
+import {stopWaitInterval, waitForPoll} from './polling.js';
+import {DebugSessionError} from './errors.js';
 import {cpuAddressLabel, sourceName} from './format.js';
 export type {BasicRuntimeVariable} from './basic-variables.js';
 
@@ -37,7 +39,7 @@ export class ClementinaBasicDebugSession {
   private readonly requestedLines = new Set<number>();
   private hookOwned = false;
   private disposed = false;
-  private commandTail: Promise<void> = Promise.resolve();
+  private readonly commands = new SerialQueue();
   private pauseSequence = 0;
   private lastPause?: Promise<DebugSnapshot>;
   private disposing?: Promise<void>;
@@ -72,8 +74,8 @@ export class ClementinaBasicDebugSession {
   }
   /** Interrupt a running source step and return the paused snapshot. */
   pause(): Promise<DebugSnapshot> {
-    if (this.disposed) return Promise.reject(new Error('Debug session is disposed'));
-    // A source step may be waiting for a ROM statement hook inside commandTail.
+    if (this.disposed) return Promise.reject(new DebugSessionError('Debug session is disposed'));
+    // A source step may be waiting for a ROM statement hook inside the command queue.
     // Pause must reach the emulator without waiting for that command to finish.
     this.pauseSequence++;
     return this.lastPause = this.client.pause().then(state => this.snapshotFromState(state));
@@ -141,18 +143,16 @@ export class ClementinaBasicDebugSession {
 
   /** Poll for a stop, skipping statement hooks for unrequested BASIC lines. */
   async waitForStop(options: WaitForStopOptions): Promise<DebugSnapshot> {
-    if (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1) throw new RangeError('timeoutMs must be a positive integer');
-    const interval = options.pollIntervalMs ?? 10;
-    if (!Number.isInteger(interval) || interval < 1 || interval > options.timeoutMs) throw new RangeError('pollIntervalMs must be 1..timeoutMs');
+    const interval = stopWaitInterval(options);
     const deadline = Date.now() + options.timeoutMs;
     for (;;) {
-      if (options.signal?.aborted) throw new Error('Stop wait aborted');
+      if (options.signal?.aborted) throw new DebugSessionError('Stop wait aborted');
       const state = await this.client.executionState();
       if (!state.running) {
         if (state.stopReason === 'breakpoint' && state.pc === basicRuntimeDebug.statementBoundaryAddress && this.requestedLines.size) {
           const number = await this.currentLine();
           if (!this.requestedLines.has(number)) {
-            if (Date.now() >= deadline) throw new Error('Timed out waiting for emulator to stop');
+            if (Date.now() >= deadline) throw new DebugSessionError('Timed out waiting for emulator to stop');
             await this.client.resume();
             continue;
           }
@@ -160,15 +160,15 @@ export class ClementinaBasicDebugSession {
         return this.snapshotFromState(state);
       }
       const remaining = deadline - Date.now();
-      if (remaining <= 0) throw new Error('Timed out waiting for emulator to stop');
-      await waitForPoll(Math.min(interval, remaining), options.signal, () => new Error('Stop wait aborted'));
+      if (remaining <= 0) throw new DebugSessionError('Timed out waiting for emulator to stop');
+      await waitForPoll(Math.min(interval, remaining), options.signal, () => new DebugSessionError('Stop wait aborted'));
     }
   }
 
   /** Stop a pending step and release the statement hook owned by this session. */
   dispose(): Promise<void> {
     if (this.disposing) return this.disposing;
-    if (this.disposed) return this.commandTail;
+    if (this.disposed) return this.commands.idle;
     this.disposing = (async () => {
       // Stop an in-flight source step before queuing hook cleanup.
       await this.pause().catch(() => undefined);
@@ -241,7 +241,7 @@ export class ClementinaBasicDebugSession {
       if (sequence !== this.pauseSequence) return (await this.lastPause!).state;
       if (Date.now() >= deadline) {
         await this.pause();
-        throw new Error('Timed out waiting for a BASIC statement boundary');
+        throw new DebugSessionError('Timed out waiting for a BASIC statement boundary');
       }
       await new Promise<void>(resolve => setTimeout(resolve, Math.min(pollIntervalMs, deadline - Date.now())));
       state = await this.client.executionState();
@@ -269,7 +269,7 @@ export class ClementinaBasicDebugSession {
   /** Read CURLIN as a little-endian BASIC line number. */
   private async currentLine(): Promise<number> {
     const bytes = await this.client.readMemory(basicRuntimeDebug.currentLineAddress, 2);
-    if (bytes[0] === null || bytes[1] === null) throw new Error('CURLIN is not readable');
+    if (bytes[0] === null || bytes[1] === null) throw new DebugSessionError('CURLIN is not readable');
     return bytes[0]! | (bytes[1]! << 8);
   }
 
@@ -298,11 +298,9 @@ export class ClementinaBasicDebugSession {
 
   /** Serialize editor commands while allowing pause to bypass the queue. */
   private command<T>(operation: () => Promise<T>, allowDisposed = false): Promise<T> {
-    const result = this.commandTail.then(async () => {
-      if (this.disposed && !allowDisposed) throw new Error('Debug session is disposed');
+    return this.commands.run(() => {
+      if (this.disposed && !allowDisposed) throw new DebugSessionError('Debug session is disposed');
       return operation();
     });
-    this.commandTail = result.then(() => undefined, () => undefined);
-    return result;
   }
 }

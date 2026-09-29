@@ -22,6 +22,7 @@ import {
   type Range,
 } from 'vscode-languageserver/node.js';
 import {TextDocument} from 'vscode-languageserver-textdocument';
+import {errorMessage} from '@clementina/core';
 import {
   analyzeDiagnostics,
   completionsAt,
@@ -136,7 +137,7 @@ connection.onRenameRequest(params => {
       .map(edit => TextEdit.replace(toRange(edit), edit.newText));
     return {changes: {[document.uri]: edits}};
   } catch (error) {
-    throw new ResponseError(ErrorCodes.InvalidParams, error instanceof Error ? error.message : String(error));
+    throw new ResponseError(ErrorCodes.InvalidParams, errorMessage(error));
   }
 });
 

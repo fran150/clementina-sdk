@@ -13,7 +13,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "bin": {
@@ -21,6 +21,7 @@
   },
   "files": [
     "dist",
+    "!dist/.tsbuildinfo",
     "bin"
   ],
   "devDependencies": {
@@ -29,6 +30,7 @@
     "typescript": "^5.8.0"
   },
   "dependencies": {
+    "@clementina/core": "0.2.0",
     "@clementina/debug": "0.2.0",
     "@vscode/debugadapter": "^1.65.0",
     "@vscode/debugprotocol": "^1.65.0"

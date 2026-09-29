@@ -2,7 +2,24 @@ import {spawn, type ChildProcess} from 'node:child_process';
 import {realpath, stat} from 'node:fs/promises';
 import {createInterface} from 'node:readline';
 import {clearTimeout as clearNodeTimeout, setTimeout as setNodeTimeout} from 'node:timers';
+import {errorMessage} from '@clementina/core';
 import {createHttpEmulatorClient, type EmulatorClient} from './index.js';
+
+/** Automation executable started when no path is configured. */
+export const DEFAULT_EMULATOR_EXECUTABLE = 'clementina-automation';
+
+/** Environment variable that tools read to locate the automation executable. */
+export const EMULATOR_EXECUTABLE_ENV = 'CLEMENTINA_EMULATOR';
+
+/**
+ * Choose the automation executable for a command-line or MCP host.
+ * @param explicit - Path supplied by the caller, which takes precedence.
+ * @param env - Environment to read `CLEMENTINA_EMULATOR` from.
+ * @returns The explicit path, the environment override, or the default executable name.
+ */
+export function resolveEmulatorExecutable(explicit?: string, env: NodeJS.ProcessEnv = process.env): string {
+  return explicit ?? env[EMULATOR_EXECUTABLE_ENV] ?? DEFAULT_EMULATOR_EXECUTABLE;
+}
 
 export class EmulatorProcessError extends Error {
   /** Create an error for process startup or readiness failures. */
@@ -86,7 +103,7 @@ async function terminate(child: ChildProcess, exited: Promise<EmulatorProcessExi
 
 /** Start one owned Go automation process and verify its advertised HTTP protocol. */
 export async function startEmulatorProcess(options: EmulatorProcessOptions): Promise<EmulatorProcess> {
-  const executable = options.executable ?? 'clementina-automation';
+  const executable = options.executable ?? DEFAULT_EMULATOR_EXECUTABLE;
   if (!executable || /[\u0000\r\n]/u.test(executable)) throw new TypeError('Invalid emulator executable');
   const info = await stat(options.sdRoot);
   if (!info.isDirectory()) throw new TypeError('sdRoot must be an existing directory');
@@ -128,7 +145,7 @@ export async function startEmulatorProcess(options: EmulatorProcessOptions): Pro
     if (timer) clearNodeTimeout(timer);
     lines.close();
     await terminate(child, exited).catch(() => undefined);
-    const detail = spawnError?.message ?? (error instanceof Error ? error.message : String(error));
+    const detail = spawnError?.message ?? errorMessage(error);
     throw error instanceof EmulatorProcessError ? error : new EmulatorProcessError(detail);
   }
 }

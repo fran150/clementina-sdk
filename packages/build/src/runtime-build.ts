@@ -1,7 +1,7 @@
 import {copyFile, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {runProcess, type ProcessRunner} from '@clementina/assembler';
-import {diagnostic, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {resolveProjectPath} from '@clementina/project/node';
 import {runtimeDirectory, runtimeIncludes, runtimeSources} from '@clementina/runtime';
 import {joinPortable} from './build-paths.js';
@@ -52,6 +52,6 @@ export async function buildRuntime(projectRoot: string, folder: string, checks: 
     await writeFile(join(target, 'code-sizes.json'), JSON.stringify(codeSizes, null, 2) + '\n');
     return result(joinPortable(folder, 'runtime.lib'), []);
   } catch (error) {
-    return result(undefined, [diagnostic('build.runtime', '', error instanceof Error ? error.message : String(error))]);
+    return result(undefined, [diagnostic('build.runtime', '', errorMessage(error))]);
   }
 }

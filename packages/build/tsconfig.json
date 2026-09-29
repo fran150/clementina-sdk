@@ -1,5 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": {"rootDir": "src", "outDir": "dist"},
-  "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {"path": "../assembler"},
+    {"path": "../assets"},
+    {"path": "../basic"},
+    {"path": "../core"},
+    {"path": "../project"},
+    {"path": "../runtime"}
+  ]
 }

@@ -1,4 +1,4 @@
-import {diagnostic, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {validateStudioInstruments, validateStudioSounds, validateStudioSongs} from '@clementina/assets/audio';
 import type {StudioProjectV2, StudioTileset, StudioShape, StudioBackground, StudioOverlay} from './studio-v2.js';
 
@@ -200,6 +200,6 @@ export function checkStudioProjectV2(value: unknown): ValidationResult<StudioPro
   validateStudioProject(p);
   return result(normalizeStudioProjectV2(p), []);
  } catch (error) {
-  return result(undefined, [diagnostic('studio.v2', '', error instanceof Error ? error.message : String(error))]);
+  return result(undefined, [diagnostic('studio.v2', '', errorMessage(error))]);
  }
 }

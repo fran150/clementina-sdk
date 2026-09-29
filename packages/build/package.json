@@ -12,7 +12,7 @@
     ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"}
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -27,5 +27,5 @@
     "@clementina/project": "0.2.0",
     "@clementina/runtime": "0.2.0"
   },
-  "files": ["dist"]
+  "files": ["dist", "!dist/.tsbuildinfo"]
 }
