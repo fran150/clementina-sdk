@@ -1,8 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    {"path": "../assembler"},
+    {"path": "../basic"},
+    {"path": "../build"},
+    {"path": "../core"},
+    {"path": "../emulator-client"}
+  ]
 }

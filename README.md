@@ -36,4 +36,8 @@ npm ci
 npm test
 ```
 
+`npm run build` compiles every package in dependency order through TypeScript
+project references (`tsc -b`) and skips packages that are already up to date.
+`npm run clean` removes the build output.
+
 CLI: `npx clementina --help` after building. See [CLI usage](docs/cli.md).

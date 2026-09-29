@@ -9,12 +9,12 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
-    "typescript": "^5.6.0"
+    "typescript": "^5.8.0"
   },
   "dependencies": {
     "@clementina/basic": "0.2.0",
@@ -24,5 +24,5 @@
     ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},
     "./node": {"types": "./dist/node.d.ts", "import": "./dist/node.js"}
   },
-  "files": ["dist"]
+  "files": ["dist", "!dist/.tsbuildinfo"]
 }

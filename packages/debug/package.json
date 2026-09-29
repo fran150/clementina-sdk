@@ -13,7 +13,7 @@
     "./node": {"types": "./dist/node.d.ts", "import": "./dist/node.js"}
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
@@ -27,5 +27,5 @@
     "@clementina/core": "0.2.0",
     "@clementina/emulator-client": "0.2.0"
   },
-  "files": ["dist"]
+  "files": ["dist", "!dist/.tsbuildinfo"]
 }

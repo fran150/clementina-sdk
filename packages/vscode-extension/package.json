@@ -19,7 +19,7 @@
   ],
   "main": "./dist/extension.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "vscode:prepublish": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -85,5 +85,5 @@
     "@clementina/debug-adapter": "0.2.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist", "language-configuration.json", "syntaxes"]
+  "files": ["dist", "!dist/.tsbuildinfo", "language-configuration.json", "syntaxes"]
 }
