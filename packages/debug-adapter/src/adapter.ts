@@ -1,4 +1,4 @@
-import {basename, isAbsolute, relative, resolve} from 'node:path';
+import {resolve} from 'node:path';
 import {
   DebugSession,
   InitializedEvent,
@@ -6,29 +6,31 @@ import {
   TerminatedEvent,
   OutputEvent,
   Thread,
-  StackFrame,
   Scope,
-  Variable,
-  Breakpoint,
-  Source,
 } from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
 import {createProjectDebugSession, type ProjectDebugRuntime} from '@clementina/debug/node';
 import type {DebugSnapshot} from '@clementina/debug';
+import {breakpointPath, dapBreakpoints, dapInstructions, dapStackFrames, disassemblyRange, registerVariables} from './protocol.js';
 
 const THREAD_ID = 1;
 const REGISTERS_SCOPE_REF = 1;
 const BASIC_VARIABLES_SCOPE_REF = 2;
 
+/** Launch settings accepted from a DAP client. */
 interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   /** Portable project root. */
   program: string;
+  /** Optional emulator automation executable. */
   emulator?: string;
+  /** Optional loopback automation port. */
   port?: number;
 }
 
-const hex = (value: number, width = 2): string => `$${value.toString(16).toUpperCase().padStart(width, '0')}`;
-const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error);
+/** Extract a readable message from an unknown thrown value. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /**
  * Thin DAP translation over `ClementinaDebugSession`/`createProjectDebugSession`.
@@ -45,21 +47,23 @@ export class ClementinaDebugAdapter extends DebugSession {
    */
   createSession: typeof createProjectDebugSession = createProjectDebugSession;
   private runtime?: ProjectDebugRuntime;
-  /** Set synchronously when `launchRequest` starts, so a concurrent `setBreakpoints` (real DAP clients, including VS Code, pipeline it alongside `launch` rather than waiting) can await the same in-flight preparation instead of seeing no session yet. */
+  /** Let breakpoint requests share in-flight launch preparation. */
   private launched?: Promise<ProjectDebugRuntime>;
   private lastSnapshot?: DebugSnapshot;
-  private polling = false;
+  private stopWait?: AbortController;
   private projectRoot?: string;
   private stopping = false;
   private closing?: Promise<void>;
   private launchGeneration = 0;
 
+  /** Configure the DAP session to use one-based source coordinates. */
   constructor() {
     super();
     this.setDebuggerLinesStartAt1(true);
     this.setDebuggerColumnsStartAt1(true);
   }
 
+  /** Advertise the DAP requests implemented by this adapter. */
   protected override initializeRequest(response: DebugProtocol.InitializeResponse): void {
     response.body = response.body ?? {};
     response.body.supportsConfigurationDoneRequest = true;
@@ -69,11 +73,14 @@ export class ClementinaDebugAdapter extends DebugSession {
     this.sendEvent(new InitializedEvent());
   }
 
+  /** Prepare a project runtime while allowing pipelined breakpoint requests to wait for it. */
   protected override async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): Promise<void> {
     const generation = ++this.launchGeneration;
+    this.cancelStopWait();
     this.projectRoot = resolve(args.program);
     this.stopping = false;
     this.runtime = undefined;
+    this.lastSnapshot = undefined;
     this.closing = undefined;
     this.launched = this.prepareSession(args);
     try {
@@ -90,6 +97,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     }
   }
 
+  /** Build the project and return its owned, stopped emulator runtime. */
   private async prepareSession(args: LaunchRequestArguments): Promise<ProjectDebugRuntime> {
     const built = await this.createSession(args.program, {
       ...(args.emulator === undefined ? {} : {executable: args.emulator}),
@@ -99,21 +107,28 @@ export class ClementinaDebugAdapter extends DebugSession {
     return built.value;
   }
 
-  /** Resolves once launch preparation has settled, `undefined` if never launched or launch failed. Never rejects. */
+  /** Return the current runtime after preparation, or undefined if launch did not succeed. Never reject. */
   private async ready(): Promise<ProjectDebugRuntime | undefined> {
     if (this.stopping) return undefined;
     if (this.runtime) return this.runtime;
     if (!this.launched) return undefined;
     const generation = this.launchGeneration;
     const launched = this.launched;
-    try { const runtime = await launched; return this.stopping || generation !== this.launchGeneration ? undefined : runtime; } catch { return undefined; }
+    try {
+      const runtime = await launched;
+      return this.stopping || generation !== this.launchGeneration ? undefined : runtime;
+    } catch {
+      return undefined;
+    }
   }
 
+  /** Close the active runtime at most once, ignoring cleanup failures. */
   private closeRuntime(): Promise<void> {
     if (!this.runtime) return Promise.resolve();
     return this.closing ??= this.runtime.close().then(() => undefined, () => undefined);
   }
 
+  /** Report a rejected request action as a DAP error response. */
   private async guard(response: DebugProtocol.Response, action: () => Promise<void>): Promise<void> {
     try {
       await action();
@@ -122,6 +137,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     }
   }
 
+  /** Replace breakpoints for one source file after launch preparation. */
   protected override setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): Promise<void> {
     return this.guard(response, async () => {
       const path = args.source.path;
@@ -132,84 +148,66 @@ export class ClementinaDebugAdapter extends DebugSession {
         return;
       }
       const lines = args.breakpoints?.map(b => b.line) ?? args.lines ?? [];
-      const mappedPath = this.projectRoot && isAbsolute(path) ? relative(this.projectRoot, path) : path;
-      const resolved = await runtime.session.setSourceBreakpoints(mappedPath, lines);
-      response.body = {
-        breakpoints: resolved.map(item => {
-          const breakpoint = new Breakpoint(item.verified, item.line, undefined, new Source(basename(path), path));
-          if (item.message) (breakpoint as DebugProtocol.Breakpoint).message = item.message;
-          return breakpoint;
-        }),
-      };
+      const resolved = await runtime.session.setSourceBreakpoints(breakpointPath(this.projectRoot, path), lines);
+      response.body = {breakpoints: dapBreakpoints(path, resolved)};
       this.sendResponse(response);
     });
   }
 
+  /** Acknowledge configuration and begin execution in the prepared runtime. */
   protected override configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse): void {
     this.sendResponse(response);
-    void this.ready().then(async runtime => {
-      if (!runtime) return;
-      try {
-        await runtime.launch();
-        if (!this.stopping) this.pollForStop();
-      } catch (error) {
-        if (!this.stopping) {
-          this.stopping = true;
-          this.sendEvent(new OutputEvent(`Launch failed: ${errorMessage(error)}\n`, 'stderr'));
-          this.sendEvent(new TerminatedEvent());
-        }
-        await this.closeRuntime();
-      }
-    });
+    void this.startPreparedRuntime();
   }
 
+  /** Start execution and surface startup errors as output plus termination events. */
+  private async startPreparedRuntime(): Promise<void> {
+    const runtime = await this.ready();
+    if (!runtime) return;
+    try {
+      await runtime.launch();
+      if (!this.stopping) this.pollForStop();
+    } catch (error) {
+      if (!this.stopping) {
+        this.stopping = true;
+        this.sendEvent(new OutputEvent(`Launch failed: ${errorMessage(error)}\n`, 'stderr'));
+        this.sendEvent(new TerminatedEvent());
+      }
+      await this.closeRuntime();
+    }
+  }
+
+  /** Return the single CPU thread exposed to DAP clients. */
   protected override threadsRequest(response: DebugProtocol.ThreadsResponse): void {
     response.body = {threads: [new Thread(THREAD_ID, 'Clementina 65C02')]};
     this.sendResponse(response);
   }
 
+  /** Return source-aware frames and any unknown-caller boundary. */
   protected override stackTraceRequest(response: DebugProtocol.StackTraceResponse): Promise<void> {
     return this.guard(response, async () => {
       const snapshot = await this.currentSnapshot();
       const runtime = await this.ready();
       const stack = runtime && 'stackTrace' in runtime.session ? await runtime.session.stackTrace() : {frames: [snapshot.frame], unknownCaller: false};
-      const frames = stack.frames.map(frame => {
-        const source = frame.source ? new Source(basename(frame.source.path), frame.source.path) : undefined;
-        const item = new StackFrame(frame.id, frame.name, source, frame.source?.line ?? 0);
-        item.instructionPointerReference = `0x${frame.instructionPointer.toString(16).toUpperCase()}${frame.bank !== undefined && frame.instructionPointer >= 0x8000 && frame.instructionPointer < 0xc000 ? `@${frame.bank}` : ''}`;
-        return item;
-      });
-      if (stack.unknownCaller) frames.push(new StackFrame(frames.length + 1, 'Unknown caller (unverified stack)', undefined, 0));
+      const frames = dapStackFrames(stack);
       response.body = {stackFrames: frames, totalFrames: frames.length};
       this.sendResponse(response);
     });
   }
 
+  /** Validate and translate a forward disassembly request. */
   protected override disassembleRequest(response: DebugProtocol.DisassembleResponse, args: DebugProtocol.DisassembleArguments): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime || !('disassemble' in runtime.session)) throw new Error('Assembly debug session required for disassembly');
-      const match = /^(?:0x)?([0-9a-fA-F]{1,4})(?:@([0-9]|[12][0-9]|3[01]))?$/.exec(args.memoryReference);
-      if (!match) throw new Error('Expected a hexadecimal CPU memory reference');
-      const address = Number.parseInt(match[1], 16) + (args.offset ?? 0);
-      const skip = args.instructionOffset ?? 0;
-      if (!Number.isInteger(address) || address < 0 || address > 0xffff || !Number.isInteger(skip) || skip < 0
-        || !Number.isInteger(args.instructionCount) || args.instructionCount < 1 || args.instructionCount + skip > 64) {
-        throw new RangeError('Disassembly supports 1..64 forward instructions within CPU memory');
-      }
-      const decoded = (await runtime.session.disassemble(address, args.instructionCount + skip, match[2] === undefined ? undefined : Number(match[2]))).slice(skip);
-      const instructions: DebugProtocol.DisassembledInstruction[] = decoded.map(item => ({
-        address: `0x${item.address.toString(16).toUpperCase().padStart(4, '0')}`,
-        instructionBytes: item.bytes.map(byte => byte.toString(16).toUpperCase().padStart(2, '0')).join(' '),
-        instruction: item.text,
-        ...(item.source ? {location: new Source(basename(item.source.path), item.source.path), line: item.source.line} : {}),
-      }));
-      while (instructions.length < args.instructionCount) instructions.push({address: `0x${Math.min(0xffff, address + instructions.length).toString(16).toUpperCase().padStart(4, '0')}`, instruction: 'Unavailable', presentationHint: 'invalid'});
-      response.body = {instructions};
+      const range = disassemblyRange(args);
+      const decoded = await runtime.session.disassemble(range.address, range.count + range.skip, range.bank);
+      response.body = {instructions: dapInstructions(decoded, range)};
       this.sendResponse(response);
     });
   }
 
+  /** Expose registers and, for BASIC sessions, decoded simple variables. */
   protected override scopesRequest(response: DebugProtocol.ScopesResponse): void {
     const scopes = [new Scope('Registers', REGISTERS_SCOPE_REF, false)];
     if (this.runtime && 'variables' in this.runtime.session) scopes.push(new Scope('BASIC Variables', BASIC_VARIABLES_SCOPE_REF, false));
@@ -217,6 +215,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     this.sendResponse(response);
   }
 
+  /** Read the selected variable scope from the shared debug session. */
   protected override variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): Promise<void> {
     return this.guard(response, async () => {
       if (args.variablesReference === BASIC_VARIABLES_SCOPE_REF) {
@@ -231,24 +230,13 @@ export class ClementinaDebugAdapter extends DebugSession {
         this.sendResponse(response);
         return;
       }
-      const {registers: r} = await this.currentSnapshot();
-      response.body = {
-        variables: [
-          new Variable('PC', hex(r.pc, 4)),
-          ...(r.bank === undefined ? [] : [new Variable('Bank', String(r.bank))]),
-          new Variable('A', hex(r.a)),
-          new Variable('X', hex(r.x)),
-          new Variable('Y', hex(r.y)),
-          new Variable('SP', hex(r.sp)),
-          new Variable('P', hex(r.p)),
-          new Variable('cycles', r.cycles),
-          new Variable('MIA paused', String(r.miaPaused)),
-        ],
-      };
+      const {registers} = await this.currentSnapshot();
+      response.body = {variables: registerVariables(registers)};
       this.sendResponse(response);
     });
   }
 
+  /** Evaluate a BASIC variable name when the session supports it. */
   protected override evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
@@ -260,10 +248,12 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
+  /** Resume execution and wait asynchronously for its next stop. */
   protected override continueRequest(response: DebugProtocol.ContinueResponse): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.cancelStopWait();
       this.lastSnapshot = undefined;
       await runtime.session.continue();
       this.sendResponse(response);
@@ -271,52 +261,58 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
+  /** Pause execution and report the stopped snapshot. */
   protected override pauseRequest(response: DebugProtocol.PauseResponse): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.cancelStopWait();
       this.lastSnapshot = await runtime.session.pause();
       this.sendResponse(response);
       this.sendEvent(new StoppedEvent('pause', THREAD_ID));
     });
   }
 
+  /** Step over the next source location. */
   protected override nextRequest(response: DebugProtocol.NextResponse): Promise<void> {
-    return this.guard(response, async () => {
-      const runtime = await this.ready();
-      if (!runtime) { this.sendResponse(response); return; }
-      this.lastSnapshot = undefined;
-      const stepped = await runtime.session.next();
-      this.lastSnapshot = await runtime.session.snapshot();
-      this.sendResponse(response);
-      if (stepped.state.stopReason !== 'pause') this.sendEvent(new StoppedEvent('step', THREAD_ID));
-    });
+    return this.step(response, 'next');
   }
 
+  /** Step into the next source location. */
   protected override stepInRequest(response: DebugProtocol.StepInResponse): Promise<void> {
+    return this.step(response, 'stepIn');
+  }
+
+  /** Run either source-step command and report its stopped state. */
+  private step(response: DebugProtocol.Response, command: 'next' | 'stepIn'): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
       if (!runtime) { this.sendResponse(response); return; }
+      this.cancelStopWait();
       this.lastSnapshot = undefined;
-      const stepped = await runtime.session.stepIn();
+      const stepped = await runtime.session[command]();
       this.lastSnapshot = await runtime.session.snapshot();
       this.sendResponse(response);
       if (stepped.state.stopReason !== 'pause') this.sendEvent(new StoppedEvent('step', THREAD_ID));
     });
   }
 
+  /** Stop accepting launch work and close the current runtime. */
   protected override disconnectRequest(response: DebugProtocol.DisconnectResponse): Promise<void> {
     this.stopping = true;
     this.launchGeneration++;
+    this.cancelStopWait();
     return this.guard(response, async () => {
       await this.closeRuntime();
       this.sendResponse(response);
     });
   }
 
+  /** Close the runtime and notify the client that debugging ended. */
   protected override terminateRequest(response: DebugProtocol.TerminateResponse): Promise<void> {
     this.stopping = true;
     this.launchGeneration++;
+    this.cancelStopWait();
     return this.guard(response, async () => {
       await this.closeRuntime();
       this.sendResponse(response);
@@ -324,6 +320,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
+  /** Reuse the most recent stopped snapshot or fetch one from the session. */
   private async currentSnapshot(): Promise<DebugSnapshot> {
     if (this.lastSnapshot) return this.lastSnapshot;
     const runtime = await this.ready();
@@ -331,22 +328,25 @@ export class ClementinaDebugAdapter extends DebugSession {
     return this.lastSnapshot = await runtime.session.snapshot();
   }
 
-  /**
-   * Poll for the next stop after an open-ended `continue`/`launch`, without
-   * blocking other queued session commands (`waitForStop` is designed for
-   * exactly this). A `pause` request already sends its own `StoppedEvent`
-   * directly; this poll may then resolve redundantly once it observes the
-   * same stop — harmless, VS Code treats a repeat `StoppedEvent` as a no-op.
-   */
+  /** Abort an old wait so it cannot report a stale stop after another command. */
+  private cancelStopWait(): void {
+    this.stopWait?.abort();
+    this.stopWait = undefined;
+  }
+
+  /** Poll after launch or continue without blocking other session commands. */
   private pollForStop(): void {
-    if (this.polling || !this.runtime) return;
-    this.polling = true;
-    this.runtime.session.waitForStop({timeoutMs: 24 * 60 * 60 * 1000, pollIntervalMs: 25})
+    if (!this.runtime || this.stopping) return;
+    this.cancelStopWait();
+    const wait = new AbortController();
+    this.stopWait = wait;
+    this.runtime.session.waitForStop({timeoutMs: 24 * 60 * 60 * 1000, pollIntervalMs: 25, signal: wait.signal})
       .then(snapshot => {
+        if (this.stopWait !== wait || this.stopping) return;
         this.lastSnapshot = snapshot;
         this.sendEvent(new StoppedEvent(snapshot.state.stopReason === 'breakpoint' ? 'breakpoint' : 'step', THREAD_ID));
       })
       .catch(() => undefined)
-      .finally(() => { this.polling = false; });
+      .finally(() => { if (this.stopWait === wait) this.stopWait = undefined; });
   }
 }

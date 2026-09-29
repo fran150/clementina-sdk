@@ -133,3 +133,114 @@ test('DAP reports launch failures and closes the owned session', async () => {
   assert.ok(events.some(event=>event.event==='output'&&/emulator launch failed/.test(event.body.output)));
   assert.ok(events.some(event=>event.event==='terminated'));
 });
+
+test('breakpoints pipelined with launch wait for preparation and preserve unverified messages', async () => {
+  let finishPreparation;
+  const prepared = new Promise(resolve => { finishPreparation = resolve; });
+  const calls = [];
+  const responses = [];
+  const adapter = new ClementinaDebugAdapter();
+  adapter.sendResponse = response => responses.push(response);
+  adapter.createSession = () => prepared;
+
+  const launch = adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project'});
+  const breakpointResponse = {command: 'setBreakpoints', request_seq: 2, success: true};
+  const breakpointRequest = adapter.setBreakPointsRequest(breakpointResponse, {
+    source: {path: '/tmp/project/main.bas'},
+    breakpoints: [{line: 3}],
+  });
+  finishPreparation({ok: true, value: {session: {
+    setSourceBreakpoints: async (path, lines) => {
+      calls.push([path, lines]);
+      return [{path, requestedLine: 3, verified: false, addresses: [], message: 'No effective BASIC statement at this line'}];
+    },
+  }}});
+
+  await Promise.all([launch, breakpointRequest]);
+  assert.deepEqual(calls, [['main.bas', [3]]]);
+  assert.equal(breakpointResponse.body.breakpoints[0].verified, false);
+  assert.equal(breakpointResponse.body.breakpoints[0].message, 'No effective BASIC statement at this line');
+  assert.equal(responses.length, 2);
+});
+
+test('disassembly validates references and forwards bank and instruction offset', async () => {
+  const calls = [];
+  const errors = [];
+  const adapter = new ClementinaDebugAdapter();
+  adapter.sendResponse = () => {};
+  adapter.sendErrorResponse = (_response, _id, message) => errors.push(message);
+  adapter.createSession = async () => ({ok: true, value: {session: {
+    disassemble: async (address, count, bank) => {
+      calls.push([address, count, bank]);
+      return [
+        {address: 0x8000, bytes: [0xea], text: 'NOP'},
+        {address: 0x8001, bytes: [0x60], text: 'RTS'},
+      ];
+    },
+  }}});
+  await adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project'});
+
+  const response = {command: 'disassemble', request_seq: 2, success: true};
+  await adapter.disassembleRequest(response, {memoryReference: '0x8000@2', instructionOffset: 1, instructionCount: 2});
+  assert.deepEqual(calls, [[0x8000, 3, 2]]);
+  assert.equal(response.body.instructions[0].instruction, 'RTS');
+  assert.equal(response.body.instructions[1].presentationHint, 'invalid');
+
+  await adapter.disassembleRequest({command: 'disassemble', request_seq: 3, success: true},
+    {memoryReference: '0x8000@32', instructionCount: 1});
+  await adapter.disassembleRequest({command: 'disassemble', request_seq: 4, success: true},
+    {memoryReference: '0x8000@2', instructionOffset: 64, instructionCount: 1});
+  assert.match(errors[0], /hexadecimal CPU memory reference/u);
+  assert.match(errors[1], /1\.\.64 forward instructions/u);
+  assert.equal(calls.length, 1);
+});
+
+test('source steps share snapshot and stop-event behavior', async () => {
+  const calls = [];
+  const events = [];
+  const adapter = new ClementinaDebugAdapter();
+  adapter.sendResponse = () => {};
+  adapter.sendEvent = event => events.push(event);
+  adapter.createSession = async () => ({ok: true, value: {session: {
+    next: async () => { calls.push('next'); return {state: {stopReason: 'instruction'}}; },
+    stepIn: async () => { calls.push('stepIn'); return {state: {stopReason: 'pause'}}; },
+    snapshot: async () => { calls.push('snapshot'); return {frame: {id: 1}}; },
+  }}});
+  await adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project'});
+  await adapter.nextRequest({command: 'next', request_seq: 2, success: true});
+  await adapter.stepInRequest({command: 'stepIn', request_seq: 3, success: true});
+  assert.deepEqual(calls, ['next', 'snapshot', 'stepIn', 'snapshot']);
+  assert.deepEqual(events.filter(event => event.event === 'stopped').map(event => event.body.reason), ['step']);
+});
+
+test('pause and terminate cancel pending stop polls without emitting stale stops', async () => {
+  const waits = [];
+  const events = [];
+  const adapter = new ClementinaDebugAdapter();
+  adapter.sendResponse = () => {};
+  adapter.sendEvent = event => events.push(event);
+  adapter.createSession = async () => ({ok: true, value: {
+    session: {
+      continue: async () => {},
+      pause: async () => ({state: {stopReason: 'pause'}}),
+      waitForStop: ({signal}) => new Promise(resolve => { waits.push({signal, resolve}); }),
+    },
+    close: async () => {},
+  }});
+  await adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project'});
+
+  await adapter.continueRequest({command: 'continue', request_seq: 2, success: true});
+  await adapter.pauseRequest({command: 'pause', request_seq: 3, success: true});
+  assert.equal(waits[0].signal.aborted, true);
+  waits[0].resolve({state: {stopReason: 'breakpoint'}});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events.filter(event => event.event === 'stopped').map(event => event.body.reason), ['pause']);
+
+  await adapter.continueRequest({command: 'continue', request_seq: 4, success: true});
+  await adapter.terminateRequest({command: 'terminate', request_seq: 5, success: true});
+  assert.equal(waits[1].signal.aborted, true);
+  waits[1].resolve({state: {stopReason: 'breakpoint'}});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events.filter(event => event.event === 'stopped').map(event => event.body.reason), ['pause']);
+  assert.ok(events.some(event => event.event === 'terminated'));
+});
