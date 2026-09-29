@@ -3,7 +3,8 @@ import {mkdir, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {McpServer} from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
-import {checkAsset, type AssetKind} from '@clementina/assets';
+import {assetKinds, checkAsset} from '@clementina/assets';
+import {errorMessage, SerialQueue} from '@clementina/core';
 import {buildProject} from '@clementina/build';
 import {startEmulatorProcess, type EmulatorProcess} from '@clementina/emulator-client/node';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
@@ -14,18 +15,14 @@ const reply = (data: Data, isError = false) => ({
   content: [{type: 'text' as const, text: JSON.stringify(data)}],
   structuredContent: data, ...(isError ? {isError: true} : {}),
 });
-const failure = (error: unknown) => reply({ok: false, error: error instanceof Error ? error.message : String(error)}, true);
+const failure = (error: unknown) => reply({ok: false, error: errorMessage(error)}, true);
 
 /** One connection owns one emulator process; all mutating and machine calls are ordered. */
 export function createClementinaMcpServer(): McpServer {
   const server = new McpServer({name: 'clementina-sdk', version: '0.2.0'});
   let active: Active | undefined;
-  let tail: Promise<void> = Promise.resolve();
-  const serial = <T>(op: () => Promise<T>): Promise<T> => {
-    const result = tail.then(op);
-    tail = result.then(() => undefined, () => undefined);
-    return result;
-  };
+  const queue = new SerialQueue();
+  const serial = <T>(op: () => Promise<T>): Promise<T> => queue.run(op);
   const machine = <T>(op: (session: Active) => Promise<T>) => serial(async () => {
     if (!active) throw Error('No emulator session. Call emulator_launch first.');
     return op(active);
@@ -48,11 +45,10 @@ export function createClementinaMcpServer(): McpServer {
   });
   server.registerTool('asset_validate', {
     description: 'Validate an asset object; use project_validate for cross-asset references.',
-    inputSchema: z.object({asset: z.unknown(), kind: z.enum(['palettes', 'paletteConfigs', 'tilesets',
-      'backgrounds', 'overlays', 'shapes', 'animations', 'instruments', 'sounds', 'songs']).optional()}),
+    inputSchema: z.object({asset: z.unknown(), kind: z.enum(assetKinds).optional()}),
   }, async ({asset, kind}) => {
     try {
-      const checked = checkAsset(asset, kind as AssetKind | undefined);
+      const checked = checkAsset(asset, kind);
       return reply({ok: checked.ok, diagnostics: checked.diagnostics}, !checked.ok);
     } catch (error) { return failure(error); }
   });

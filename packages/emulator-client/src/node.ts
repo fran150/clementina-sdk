@@ -2,6 +2,7 @@ import {spawn, type ChildProcess} from 'node:child_process';
 import {realpath, stat} from 'node:fs/promises';
 import {createInterface} from 'node:readline';
 import {clearTimeout as clearNodeTimeout, setTimeout as setNodeTimeout} from 'node:timers';
+import {errorMessage} from '@clementina/core';
 import {createHttpEmulatorClient, type EmulatorClient} from './index.js';
 
 export class EmulatorProcessError extends Error {
@@ -128,7 +129,7 @@ export async function startEmulatorProcess(options: EmulatorProcessOptions): Pro
     if (timer) clearNodeTimeout(timer);
     lines.close();
     await terminate(child, exited).catch(() => undefined);
-    const detail = spawnError?.message ?? (error instanceof Error ? error.message : String(error));
+    const detail = spawnError?.message ?? errorMessage(error);
     throw error instanceof EmulatorProcessError ? error : new EmulatorProcessError(detail);
   }
 }

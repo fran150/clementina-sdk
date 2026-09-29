@@ -6,7 +6,7 @@ import {buildProject} from '@clementina/build';
 import {startEmulatorProcess, type EmulatorProcess, type EmulatorProcessOptions} from '@clementina/emulator-client/node';
 import type {ExecutionState} from '@clementina/emulator-client';
 import {loadProject} from '@clementina/project/node';
-import type {ClementinaDiagnostic} from '@clementina/core';
+import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import {probeTool, type ToolProbe} from './doctor.js';
 
 export interface RunSession {emulator: EmulatorProcess; initialState: ExecutionState}
@@ -108,7 +108,7 @@ export async function executeCommand(args: string[], cwd = process.cwd(), depend
         data: {source: args[2], output: args[3], bytes: bytes.length, lines: inspectBasicProgram(bytes).lines.length},
       };
     } catch (error) {
-      return failure('basic.compile', error instanceof Error ? error.message : String(error), 1, args[2]);
+      return failure('basic.compile', errorMessage(error), 1, args[2]);
     }
   }
   if (args[0] === 'build' && args.length <= 2 && !args[1]?.startsWith('-')) {
@@ -149,7 +149,7 @@ export async function executeCommand(args: string[], cwd = process.cwd(), depend
       };
     } catch (error) {
       if (emulator) await emulator.close().catch(() => undefined);
-      return failure('run.emulator', error instanceof Error ? error.message : String(error));
+      return failure('run.emulator', errorMessage(error));
     }
   }
   if (['asset', 'sprite', 'animation'].includes(args[0]) && args[1] === 'validate' && args.length === 3 && !args[2].startsWith('-')) {
@@ -158,8 +158,8 @@ export async function executeCommand(args: string[], cwd = process.cwd(), depend
     try {
       const text = await readFile(resolve(cwd, source), 'utf8');
       try { value = JSON.parse(text); }
-      catch (e) { return failure('asset.json', e instanceof Error ? e.message : String(e), 1, source); }
-    } catch (e) { return failure('asset.io', e instanceof Error ? e.message : String(e), 1, source); }
+      catch (e) { return failure('asset.json', errorMessage(e), 1, source); }
+    } catch (e) { return failure('asset.io', errorMessage(e), 1, source); }
     const kind: AssetKind | undefined = args[0] === 'sprite' ? 'shapes' : args[0] === 'animation' ? 'animations' : undefined;
     const r = checkAsset(value, kind);
     return {ok: r.ok, diagnostics: r.diagnostics.map(d => ({...d, source})), exitCode: r.ok ? 0 : 1};

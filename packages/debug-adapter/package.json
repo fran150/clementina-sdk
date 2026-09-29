@@ -29,6 +29,7 @@
     "typescript": "^5.8.0"
   },
   "dependencies": {
+    "@clementina/core": "0.2.0",
     "@clementina/debug": "0.2.0",
     "@vscode/debugadapter": "^1.65.0",
     "@vscode/debugprotocol": "^1.65.0"

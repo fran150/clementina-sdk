@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createAssemblySourceMap} from '@clementina/assembler';
 import {buildProject, type ProjectBuildResult} from '@clementina/build';
-import {diagnostic, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {type ExecutionState, type LaunchLoadPlanOptions} from '@clementina/emulator-client';
 import {
   startEmulatorProcess,
@@ -62,7 +62,7 @@ export async function createProjectDebugSession(
       sdRoot: resolve(projectRoot, build.value.sdRoot),
     });
   } catch (error) {
-    return result(undefined, [diagnostic('debug.emulator-startup', '', error instanceof Error ? error.message : String(error))]);
+    return result(undefined, [diagnostic('debug.emulator-startup', '', errorMessage(error))]);
   }
   try {
     let session: ClementinaDebugSession | ClementinaBasicDebugSession;
@@ -93,6 +93,6 @@ export async function createProjectDebugSession(
     }, []);
   } catch (error) {
     await process.close().catch(() => undefined);
-    return result(undefined, [diagnostic('debug.session', '', error instanceof Error ? error.message : String(error))]);
+    return result(undefined, [diagnostic('debug.session', '', errorMessage(error))]);
   }
 }

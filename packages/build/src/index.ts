@@ -6,7 +6,7 @@ import {
   checkBootstrapSource, checkLoadPlan, checkLoadPlanLaunch, compileBasicProgram, inspectBasicProgram,
   type BasicLoadStep, type LoadPlan, type MiaLoadStep,
 } from '@clementina/basic';
-import {diagnostic, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import type {PortableProject, ProjectAssemblyBuild} from '@clementina/project';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 import {planAssetBuild, type AssetBuildPlan} from './assets.js';
@@ -123,7 +123,7 @@ async function buildAssemblyProject(state: BuildState, config: ProjectAssemblyBu
     try {
       for (const item of state.pending.filter(item => item.file.kind === 'asset-source')) await writeStagedFile(projectRoot, item);
     } catch (error) {
-      return result(undefined, [diagnostic('build.io', '', error instanceof Error ? error.message : String(error))]);
+      return result(undefined, [diagnostic('build.io', '', errorMessage(error))]);
     }
     const runtime = await buildRuntime(projectRoot, joinPortable(paths.outputDirectory, 'runtime'), plan.checks, runner);
     if (!runtime.ok) return runtime as ValidationResult<AssemblyProjectBuildResult>;
@@ -171,7 +171,7 @@ async function buildBasicProject(state: BuildState, outputName: string): Promise
     const source = await readFile(await resolveProjectPath(state.projectRoot, sourcePath), 'utf8');
     bytes = compileBasicProgram(source);
   } catch (error) {
-    return result(undefined, [{...diagnostic('basic.compile', '', error instanceof Error ? error.message : String(error)), source: sourcePath}]);
+    return result(undefined, [{...diagnostic('basic.compile', '', errorMessage(error)), source: sourcePath}]);
   }
   const artifact = joinPortable(state.paths.outputDirectory, `${outputName}.bas`);
   const basicStep: BasicLoadStep = {kind: 'basic', path: artifact, length: bytes.length};
@@ -216,7 +216,7 @@ export async function buildProject(projectRoot: string, runner: ProcessRunner = 
   try {
     for (const item of state.pending) await writeStagedFile(projectRoot, item);
   } catch (error) {
-    return result(undefined, [diagnostic('build.io', '', error instanceof Error ? error.message : String(error))]);
+    return result(undefined, [diagnostic('build.io', '', errorMessage(error))]);
   }
   built.value.files = state.pending.map(item => item.file);
   return result(built.value, state.warnings);

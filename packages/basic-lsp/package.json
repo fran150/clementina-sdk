@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@clementina/basic": "0.2.0",
+    "@clementina/core": "0.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
   }

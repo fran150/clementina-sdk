@@ -3,7 +3,7 @@
 import {
   encodeBackgroundFile, encodeOverlayFile, encodePaletteConfig, encodeSongFile, encodeSoundFile, encodeSpriteFile, encodeTileset,
 } from '@clementina/assets';
-import {diagnostic, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import type {PortableProject, ProjectAssetInclude} from '@clementina/project';
 import type {PlannedAsset} from './assets.js';
 import {identifier} from './asset-names.js';
@@ -68,6 +68,6 @@ export function encodeIncludedAsset(project: PortableProject, entry: ProjectAsse
       }
     }
   } catch (error) {
-    return result(undefined, [diagnostic('build.assets.encode', path, error instanceof Error ? error.message : String(error))]);
+    return result(undefined, [diagnostic('build.assets.encode', path, errorMessage(error))]);
   }
 }

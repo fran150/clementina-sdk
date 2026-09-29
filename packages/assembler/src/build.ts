@@ -1,6 +1,6 @@
 import {writeFile} from 'node:fs/promises';
 import {encodePrg, type PrgLoadStep} from '@clementina/basic';
-import {diagnostic, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {prepareBuildPaths, projectRelativePath, type BuildPaths} from './build-paths.js';
 import {readLinkedImage, verifyLinkedImage, type LinkedImage} from './linked-image.js';
 import {runProcess} from './process.js';
@@ -30,7 +30,7 @@ async function writeBuildResult(
     prg = encodePrg(image.binary, request.loadAddress, request.bank);
   } catch (error) {
     return result<AssemblyBuildResult>(undefined, [
-      diagnostic('assembler.prg', '', error instanceof Error ? error.message : String(error)),
+      diagnostic('assembler.prg', '', errorMessage(error)),
     ]);
   }
   await writeFile(paths.output.prg, prg);
@@ -99,7 +99,7 @@ export async function buildAssembly(
     return await writeBuildResult(paths, request, image, entry.value, assembled.value);
   } catch (error) {
     return result(undefined, [
-      diagnostic('assembler.io', '', error instanceof Error ? error.message : String(error)),
+      diagnostic('assembler.io', '', errorMessage(error)),
     ]);
   }
 }

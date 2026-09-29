@@ -17,7 +17,8 @@
     "typescript": "^5.6.0"
   },
   "dependencies": {
-    "@clementina/basic": "0.2.0"
+    "@clementina/basic": "0.2.0",
+    "@clementina/core": "0.2.0"
   },
   "exports": {
     ".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"},

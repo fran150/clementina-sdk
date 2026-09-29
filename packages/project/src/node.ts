@@ -3,7 +3,7 @@ import {resolve, relative, dirname, isAbsolute, sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {parseDocument, stringify} from 'yaml';
 import {assetKinds, checkAsset, type PortableAssetSet} from '@clementina/assets';
-import {assertValid, diagnostic, result, ValidationError, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
+import {assertValid, diagnostic, errorMessage, result, ValidationError, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {checkProjectManifest, isProjectPath} from './validate.js';
 import {checkProject, type PortableProject} from './project.js';
 import {assetPaths} from './types.js';
@@ -26,7 +26,7 @@ export async function resolveProjectPath(root: string, path: string): Promise<st
   return target;
 }
 function ioDiagnostics(error: unknown, source: string): ClementinaDiagnostic[] {
-  return error instanceof ValidationError ? error.diagnostics.map(d => ({...d, source})) : [{...diagnostic('project.io', '', error instanceof Error ? error.message : String(error)), source}];
+  return error instanceof ValidationError ? error.diagnostics.map(d => ({...d, source})) : [{...diagnostic('project.io', '', errorMessage(error)), source}];
 }
 export async function loadProject(root: string): Promise<ValidationResult<PortableProject>> {
   const diagnostics: ClementinaDiagnostic[] = [];

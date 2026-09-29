@@ -1,14 +1,15 @@
+import {isIntegerInRange} from '@clementina/core';
 import type {EmulatorClient, SourceBreakpointLocation, SourceMapResolver} from '@clementina/emulator-client';
 import type {DebugBreakpoint} from './index.js';
 
 /** Return whether a value is a CPU address. */
 export function isCpuAddress(value: unknown): value is number {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 0xffff;
+  return isIntegerInRange(value, 0, 0xffff);
 }
 
 /** Return whether a value is an accepted source-map bank (1 through 31). */
 export function isSourceBank(value: unknown): value is number {
-  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 31;
+  return isIntegerInRange(value, 1, 31);
 }
 
 /** Track source requests and only remove breakpoints installed by this session. */

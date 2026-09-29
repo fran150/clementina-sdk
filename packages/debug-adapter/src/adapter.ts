@@ -9,6 +9,7 @@ import {
   Scope,
 } from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
+import {errorMessage} from '@clementina/core';
 import {createProjectDebugSession, type ProjectDebugRuntime} from '@clementina/debug/node';
 import type {DebugSnapshot} from '@clementina/debug';
 import {breakpointPath, dapBreakpoints, dapInstructions, dapStackFrames, disassemblyRange, registerVariables} from './protocol.js';
@@ -25,11 +26,6 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   emulator?: string;
   /** Optional loopback automation port. */
   port?: number;
-}
-
-/** Extract a readable message from an unknown thrown value. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**
