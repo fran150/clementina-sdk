@@ -42,5 +42,12 @@ Code extension's version must stay aligned. Package the extension only after
 its npm dependencies are available; its Marketplace publisher must be verified
 before publication.
 
+## CLI executables
+
+The [CLI binaries workflow](../.github/workflows/binaries.yml) compiles the
+standalone executables with Bun on every push and pull request, then runs each
+one on its own operating system with Node.js removed from `PATH`. Pushing a
+`v*` tag also attaches the executables and `SHA256SUMS` to that GitHub release.
+
 Publishing and Marketplace upload are external release actions and are not
 performed by the repository checks.

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import {readdir} from 'node:fs/promises';
+import {readFile, readdir} from 'node:fs/promises';
+import {join} from 'node:path';
 import test from 'node:test';
-import {bankLocation, runtimeDirectory, runtimeIncludes, runtimeSources} from '../dist/index.js';
+import {bankLocation, runtimeDirectory, runtimeFiles, runtimeIncludes, runtimeSources} from '../dist/index.js';
 
 test('bank locations encode the bank and the CPU window address', () => {
   assert.equal(bankLocation(0, 0x8000), 0x808000);
@@ -22,4 +23,9 @@ test('the module manifest includes every packaged ca65 source and include', asyn
   const files = await readdir(runtimeDirectory);
   assert.deepEqual([...runtimeSources].sort(), files.filter(file => file.endsWith('.s')).sort());
   assert.deepEqual([...runtimeIncludes].sort(), files.filter(file => file.endsWith('.inc')).sort());
+});
+
+test('embedded runtime files match the packaged ca65 sources', async () => {
+  assert.deepEqual(Object.keys(runtimeFiles).sort(), [...runtimeIncludes, ...runtimeSources].sort());
+  for (const [name, text] of Object.entries(runtimeFiles)) assert.equal(text, await readFile(join(runtimeDirectory, name), 'utf8'), name);
 });

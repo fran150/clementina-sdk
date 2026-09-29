@@ -1,12 +1,14 @@
 /**
- * Paths and descriptor constants for the ca65 asset runtime.
- * The build package copies these sources into a game and archives them as
+ * Paths, embedded sources, and descriptor constants for the ca65 asset runtime.
+ * The build package writes these sources into a game and archives them as
  * runtime.lib. The constants mirror the ABI in asm/runtime.inc.
  */
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-/** Absolute path to the ca65 sources shipped with this package. */
+export {runtimeFiles} from './sources.js';
+
+/** Absolute path to the ca65 sources shipped with this package; `runtimeFiles` embeds the same text. */
 export const runtimeDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', 'asm');
 /** Ordered ca65 source names; each becomes one object in runtime.lib. */
 export const runtimeSources = [

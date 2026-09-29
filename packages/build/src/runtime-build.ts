@@ -1,9 +1,9 @@
-import {copyFile, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {runProcess, type ProcessRunner} from '@clementina/assembler';
 import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {resolveProjectPath} from '@clementina/project/node';
-import {runtimeDirectory, runtimeIncludes, runtimeSources} from '@clementina/runtime';
+import {runtimeFiles, runtimeIncludes, runtimeSources} from '@clementina/runtime';
 import {joinPortable} from './build-paths.js';
 
 /** Return the highest CODE offset plus emitted bytes in a ca65 listing, including continuation rows. */
@@ -20,7 +20,7 @@ export function runtimeCodeSize(listing: string): number {
 }
 
 /**
- * Copies the runtime's sources into the project-relative folder, assembles
+ * Writes the runtime's embedded sources into the project-relative folder, assembles
  * each with RT_CHECKS set from the build's `checks`, and archives them into
  * runtime.lib there. A failed tool or I/O operation returns diagnostics.
  *
@@ -34,7 +34,7 @@ export async function buildRuntime(projectRoot: string, folder: string, checks: 
   try {
     const target = await resolveProjectPath(projectRoot, folder);
     await mkdir(target, {recursive: true});
-    for (const name of [...runtimeIncludes, ...runtimeSources]) await copyFile(join(runtimeDirectory, name), join(target, name));
+    for (const name of [...runtimeIncludes, ...runtimeSources]) await writeFile(join(target, name), runtimeFiles[name]);
     const objects: string[] = [];
     const codeSizes: Record<string, number> = {};
     for (const name of runtimeSources) {

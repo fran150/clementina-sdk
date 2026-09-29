@@ -18,13 +18,16 @@ function validationResult(ok: boolean, diagnostics: ClementinaDiagnostic[]): Com
   return {ok, diagnostics, exitCode: ok ? EXIT_OK : EXIT_FAILURE};
 }
 
-/** `doctor`: report Node.js, cc65 tools, and the emulator automation executable. */
+/** True in the single-file executable, which bundles its own JavaScript runtime. */
+const standalone = Boolean(process.versions.bun);
+
+/** `doctor`: report the JavaScript runtime, cc65 tools, and the emulator automation executable. */
 const doctor: Command = {
   matches: args => args[0] === 'doctor',
   async run(args, {cwd, dependencies}) {
     const options = parseDoctorArguments(args);
     if (!options) return usageFailure('doctor');
-    if (Number(process.versions.node.split('.')[0]) < MINIMUM_NODE_MAJOR) {
+    if (!standalone && Number(process.versions.node.split('.')[0]) < MINIMUM_NODE_MAJOR) {
       return failure('doctor.node', `Node.js ${MINIMUM_NODE_MAJOR} or newer is required`);
     }
     const probe = dependencies.probeTool ?? probeTool;
@@ -43,8 +46,8 @@ const doctor: Command = {
     return {
       ok: !failed, diagnostics,
       exitCode: failed ? EXIT_FAILURE : EXIT_OK,
-      message: `Node.js ${process.versions.node}; ${DOCTOR_TOOLS.map(name => `${name}: ${tools[name].found ? 'ready' : 'missing'}`).join(', ')}.`,
-      data: {node: process.versions.node, tools},
+      message: `${standalone ? 'Standalone executable' : `Node.js ${process.versions.node}`}; ${DOCTOR_TOOLS.map(name => `${name}: ${tools[name].found ? 'ready' : 'missing'}`).join(', ')}.`,
+      data: {...(standalone ? {standalone: true} : {node: process.versions.node}), tools},
     };
   },
 };

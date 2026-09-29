@@ -45,7 +45,7 @@ console.log(RUNTIME_DESCRIPTOR.LOC);       // 1, the current-location offset
 console.log(runtimeDirectory, runtimeSources);
 ```
 
-`bankLocation` accepts banks 0–31 and addresses in the CPU `$8000–$BFFF` window, throwing `RangeError` for invalid arguments. `runtimeSources` lists the ca65 objects included in the archive; `runtimeIncludes` lists the public and internal include files. The other `RUNTIME_*` exports mirror constants in `asm/runtime.inc`. Use `runtime.inc` (normally through generated `assets.inc`) for ca65 programs.
+`bankLocation` accepts banks 0–31 and addresses in the CPU `$8000–$BFFF` window, throwing `RangeError` for invalid arguments. `runtimeSources` lists the ca65 objects included in the archive; `runtimeIncludes` lists the public and internal include files. `runtimeFiles` holds the text of every source and include, generated from `asm/` by `npm run generate:runtime`, so the builder works without the package on disk (for example, inside the standalone CLI). The other `RUNTIME_*` exports mirror constants in `asm/runtime.inc`. Use `runtime.inc` (normally through generated `assets.inc`) for ca65 programs.
 
 ## Development
 

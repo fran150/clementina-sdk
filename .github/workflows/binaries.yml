@@ -1,0 +1,86 @@
+name: CLI binaries
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: npm ci
+      - run: npm run build:binaries
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clementina-binaries
+          path: dist/bin/
+          if-no-files-found: error
+
+  # Each binary runs on its own OS with Node.js removed from PATH.
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, binary: clementina-linux-x64}
+          - {os: ubuntu-24.04-arm, binary: clementina-linux-arm64}
+          - {os: macos-latest, binary: clementina-darwin-arm64}
+          - {os: macos-13, binary: clementina-darwin-x64}
+          - {os: windows-latest, binary: clementina-windows-x64.exe}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: clementina-binaries
+          path: bin
+      - name: Run CLI commands without Node.js
+        run: |
+          chmod +x "bin/${{ matrix.binary }}"
+          cli="$PWD/bin/${{ matrix.binary }}"
+          for _ in 1 2 3 4 5; do
+            node_path="$(command -v node)" || break
+            export PATH="$(echo "$PATH" | tr ':' '\n' | grep -vxF "$(dirname "$node_path")" | paste -sd: -)"
+          done
+          if command -v node; then echo "Node.js is still on PATH"; exit 1; fi
+          "$cli" --help
+          "$cli" doctor --json
+          "$cli" project validate examples/minimal-game
+          "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json
+          cd examples/hardware-audio && "$cli" build
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: clementina-binaries
+          path: bin
+      - name: Attach binaries to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" bin/* --repo "$GITHUB_REPOSITORY" --clobber
