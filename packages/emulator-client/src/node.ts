@@ -5,6 +5,7 @@ import {clearTimeout as clearNodeTimeout, setTimeout as setNodeTimeout} from 'no
 import {createHttpEmulatorClient, type EmulatorClient} from './index.js';
 
 export class EmulatorProcessError extends Error {
+  /** Create an error for process startup or readiness failures. */
   constructor(message: string) { super(message); this.name = 'EmulatorProcessError'; }
 }
 
@@ -28,11 +29,13 @@ export interface EmulatorProcess {
   client: EmulatorClient;
   pid: number;
   exited: Promise<EmulatorProcessExit>;
+  /** Terminate the owned process once and return its exit status. */
   close(): Promise<EmulatorProcessExit>;
 }
 
 const STDERR_LIMIT = 16 * 1024;
 
+/** Require the loopback endpoint printed by the headless automation command. */
 function endpointFromLine(line: string): string {
   let url: URL;
   try { url = new URL(line.trim()); }
@@ -43,6 +46,32 @@ function endpointFromLine(line: string): string {
   return url.href;
 }
 
+/** Read the first stdout line, stopping if the child fails or exits first. */
+function firstEndpointLine(child: ChildProcess, lines: ReturnType<typeof createInterface>, stderr: () => string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    /** Detach listeners after the first startup outcome. */
+    function cleanup(): void {
+      lines.off('line', onLine);
+      child.off('error', onError);
+      child.off('exit', onExit);
+    }
+    /** Accept the first printed endpoint candidate. */
+    function onLine(line: string): void { cleanup(); resolve(line); }
+    /** Report a process spawn error before readiness. */
+    function onError(error: Error): void { cleanup(); reject(error); }
+    /** Report a process exit before an endpoint is printed. */
+    function onExit(code: number | null, signal: NodeJS.Signals | null): void {
+      cleanup();
+      const detail = stderr().trim();
+      reject(new EmulatorProcessError(`Emulator exited before readiness (${code ?? signal ?? 'unknown'})${detail ? `: ${detail}` : ''}`));
+    }
+    lines.once('line', onLine);
+    child.once('error', onError);
+    child.once('exit', onExit);
+  });
+}
+
+/** Ask the child to stop, then force termination after the grace period. */
 async function terminate(child: ChildProcess, exited: Promise<EmulatorProcessExit>): Promise<EmulatorProcessExit> {
   if (child.exitCode !== null || child.signalCode !== null) return exited;
   child.kill('SIGTERM');
@@ -81,11 +110,7 @@ export async function startEmulatorProcess(options: EmulatorProcessOptions): Pro
 
   let timer: NodeJS.Timeout | undefined;
   try {
-    const firstLine = new Promise<string>((resolveLine, reject) => {
-      lines.once('line', resolveLine);
-      child.once('error', reject);
-      child.once('exit', (code, signal) => reject(new EmulatorProcessError(`Emulator exited before readiness (${code ?? signal ?? 'unknown'})${stderr.trim() ? `: ${stderr.trim()}` : ''}`)));
-    });
+    const firstLine = firstEndpointLine(child, lines, () => stderr);
     const timeout = new Promise<never>((_, reject) => {
       timer = setNodeTimeout(() => reject(new EmulatorProcessError(`Emulator readiness timed out after ${startupTimeoutMs} ms`)), startupTimeoutMs);
     });

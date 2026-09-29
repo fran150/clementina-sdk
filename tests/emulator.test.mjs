@@ -106,6 +106,29 @@ test('source breakpoints resolve exact emitted spans through the address API',as
  await assert.rejects(client.addSourceBreakpoint({locationsForSource:()=>[{address:65536}]},'src/main.s',8),/Invalid source map/);
 });
 
+test('source breakpoints preserve mixed logical and physical locations and validate every span before mutation', async () => {
+ const requests=[];
+ const client=new EmulatorClient(async request=>{
+  requests.push(request);
+  const result=request.method==='addBreakpoint'?[0x8000]:[{address:0x8000,bank:2},{address:0x8000,bank:3}];
+  return {version:1,ok:true,result};
+ });
+ const sourceMap={locationsForSource:()=>[
+  {address:0x8000},{address:0x8000,bank:2},{address:0x8000,bank:3},{address:0x8000,bank:2},
+ ]};
+ const result=await client.addSourceBreakpoint(sourceMap,'src/main.s',4);
+ assert.deepEqual(result.addresses,[0x8000]);
+ assert.deepEqual(result.locations,sourceMap.locationsForSource().slice(0,3));
+ assert.equal(result.banked,true);
+ assert.deepEqual(result.breakpoints,[0x8000]);
+ assert.deepEqual(result.bankBreakpoints,[{address:0x8000,bank:2},{address:0x8000,bank:3}]);
+ assert.deepEqual(requests.map(request=>request.method),['addBreakpoint','addBankBreakpoint','addBankBreakpoint']);
+ for(const location of [{address:0x8000,bank:0},{address:0x8000,bank:32},{address:65536}]){
+  await assert.rejects(client.addSourceBreakpoint({locationsForSource:()=>[{address:0x8000},location]},'src/main.s',4),/Invalid source map location/);
+ }
+ assert.equal(requests.length,3);
+});
+
 const execution=(pc,sp=0xff,extra={})=>({...state,pc,sp,running:false,stopReason:'instruction',instructionBoundary:true,...extra});
 const sourceMapFor=(entries)=>({
  locationsForSource:()=>[],
@@ -153,6 +176,24 @@ test('source step-over recognizes the emulator JSR and waits for its matching re
  assert.equal(stepped.steppedOverCall,true);
  assert.equal(stepped.state.pc,0x6003);
  assert.deepEqual(requests.map(request=>request.method),['state','readMemory','stepInstruction','stepInstruction','stepInstruction']);
+});
+
+test('source step-over reports a bounded call that has not returned to its original stack and bank',async()=>{
+ const requests=[];
+ const client=new EmulatorClient(async request=>{
+  requests.push(request);
+  const result=request.method==='state'?execution(0x8000,0xff,{bank:2})
+   :request.method==='readMemory'?[0x20]
+   :execution(0x8003,0xff,{bank:3});
+  return {version:1,ok:true,result};
+ });
+ const map={locationsForSource:()=>[],locationsForAddress:(address,bank)=>[{path:'src/main.s',line:7,address,bank}]};
+ const result=await client.stepOverSource(map,{maxInstructions:2,maxCyclesPerInstruction:8});
+ assert.equal(result.reason,'instruction-limit');
+ assert.equal(result.instructions,2);
+ assert.equal(result.steppedOverCall,true);
+ assert.deepEqual(requests.map(request=>request.method),['state','readMemory','stepInstruction','stepInstruction']);
+ assert.deepEqual(requests.slice(2).map(request=>request.count),[8,8]);
 });
 
 test('source stepping reports unmapped code, machine stops, and instruction limits',async()=>{

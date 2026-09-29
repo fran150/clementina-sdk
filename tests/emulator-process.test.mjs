@@ -35,6 +35,10 @@ setInterval(()=>{},1000);
 test('Node emulator lifecycle reports spawn and endpoint failures', async () => {
   const root = await mkdtemp(join(tmpdir(), 'clementina-emulator-failure-'));
   await assert.rejects(startEmulatorProcess({executable: join(root, 'missing'), sdRoot: root, startupTimeoutMs: 100}), EmulatorProcessError);
+  const exited = join(root, 'early-exit.mjs');
+  await writeFile(exited, '#!/usr/bin/env node\nconsole.error("boot failed")\nprocess.exit(7)\n');
+  await chmod(exited, 0o755);
+  await assert.rejects(startEmulatorProcess({executable: exited, sdRoot: root, startupTimeoutMs: 1000}), /exited before readiness \(7\): boot failed/);
   const executable = join(root, 'bad-emulator.mjs');
   await writeFile(executable, '#!/usr/bin/env node\nconsole.log("https://example.com/v1")\nsetInterval(()=>{},1000)\n');
   await chmod(executable, 0o755);

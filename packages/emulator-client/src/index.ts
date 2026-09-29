@@ -1,4 +1,12 @@
 import {renderLoadPlanLaunch, type LoadPlan} from '@clementina/basic';
+import {EmulatorError, SourceBreakpointError, SourceStepError} from './errors.js';
+import {stepSource, updateSourceBreakpoint} from './source.js';
+import {
+  isAddresses, isBankBreakpoints, isByteArray, isCapabilities, isEmulatorStack, isExecutionState,
+  isInteger, isMemoryBytes, isObject, isState, requireByteArray, requireCycleBudget, requireHidPage,
+} from './validation.js';
+
+export {EmulatorError, SourceBreakpointError, SourceStepError};
 
 /** Version 1 headless emulator automation. No Studio or Node runtime dependency. */
 export interface EmulatorState {
@@ -13,7 +21,6 @@ export type StopReason = 'initial' | 'running' | 'pause' | 'reset' | 'breakpoint
 export interface ExecutionState extends EmulatorState {
   running: boolean; stopReason: StopReason; instructionBoundary: boolean;
 }
-const stopReasons: readonly string[] = ['initial','running','pause','reset','breakpoint','instruction','cycle-limit','mia-paused','cpu-stopped'];
 export interface EmulatorCapabilities {
   version: 1; methods: string[]; maxCycles: number; maxRead: number;
 }
@@ -22,10 +29,12 @@ export interface BankBreakpoint {address: number; bank: number}
 export interface EmulatorCaller {pc: number; bank: number; kind: 'call' | 'interrupt'}
 export interface EmulatorStack {callers: EmulatorCaller[]; unknownCaller: boolean}
 export interface SourceBreakpointResolver {
+  /** Return every emitted span start at the exact source line. */
   locationsForSource(path: string, line: number): readonly SourceBreakpointLocation[];
 }
 export interface SourceStepLocation extends SourceBreakpointLocation {path: string; line: number}
 export interface SourceMapResolver extends SourceBreakpointResolver {
+  /** Return every source location containing the CPU address and selected bank. */
   locationsForAddress(address: number, bank?: number): readonly SourceStepLocation[];
 }
 export interface SourceBreakpointResult {
@@ -59,9 +68,7 @@ export interface SourceStepResult {
   /** True only when step-over recognized and returned from the emulator's JSR opcode. */
   steppedOverCall: boolean;
 }
-export class EmulatorError extends Error {}
-export class SourceBreakpointError extends EmulatorError {}
-export class SourceStepError extends EmulatorError {}
+/** Send one version 1 request and return its untrusted response envelope. */
 export type EmulatorTransport = (request: Record<string, unknown>) => Promise<unknown>;
 export interface LaunchLoadPlanOptions {
   /** Existing ROM test budget for reaching the BASIC editor, not a readiness guarantee. */
@@ -71,34 +78,14 @@ export interface LaunchLoadPlanOptions {
   /** Raw input chunk size; must fit the MIA's 64-byte text FIFO. */
   inputChunkBytes?: number;
 }
-const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-const integer = (v: unknown, max: number): v is number => Number.isInteger(v) && Number(v) >= 0 && Number(v) <= max;
-const bankBreakpoints = (v: unknown): v is BankBreakpoint[] => Array.isArray(v) && v.every(item => object(item)
-  && integer(item.address, 0xbfff) && Number(item.address) >= 0x8000 && integer(item.bank, 31))
-  && new Set(v.map(item => `${item.address}:${item.bank}`)).size === v.length;
-const emulatorStack = (v: unknown): v is EmulatorStack => object(v) && Array.isArray(v.callers)
-  && v.callers.every(item => object(item) && integer(item.pc, 65535) && integer(item.bank, 31)
-    && (item.kind === 'call' || item.kind === 'interrupt')) && typeof v.unknownCaller === 'boolean';
-function state(v: unknown): v is EmulatorState {
-  return object(v) && typeof v.cycles === 'string' && /^(0|[1-9][0-9]*)$/.test(v.cycles)
-    && integer(v.pc, 65535) && ['a','x','y','sp','p'].every(k => integer(v[k],255)) && typeof v.paused === 'boolean'
-    && (v.running === undefined || typeof v.running === 'boolean')
-    && (v.instructionBoundary === undefined || typeof v.instructionBoundary === 'boolean')
-    && (v.stopReason === undefined || (typeof v.stopReason === 'string' && stopReasons.includes(v.stopReason)))
-    && (v.bank === undefined || integer(v.bank, 31));
-}
-function executionState(v: unknown): v is ExecutionState {
-  return state(v) && typeof v.running === 'boolean' && typeof v.instructionBoundary === 'boolean' && v.stopReason !== undefined;
-}
-function addresses(v: unknown): v is number[] {
-  return Array.isArray(v) && v.every(n => integer(n,65535)) && new Set(v).size === v.length;
-}
 /** Requests are never retried: a lost response may follow a completed mutation. */
 export class EmulatorClient {
+  /** Create a client over a caller-supplied version 1 transport. */
   constructor(private readonly transport: EmulatorTransport) {}
+  /** Send one request and validate its protocol envelope and method result. */
   private async call<T>(method: string, params: Record<string, unknown>, check: (v: unknown) => v is T): Promise<T> {
     const response = await this.transport({version: 1, method, ...params});
-    if (!object(response) || response.version !== 1 || typeof response.ok !== 'boolean') throw new EmulatorError('Invalid protocol response');
+    if (!isObject(response) || response.version !== 1 || typeof response.ok !== 'boolean') throw new EmulatorError('Invalid protocol response');
     if (!response.ok) {
       if (typeof response.error !== 'string') throw new EmulatorError('Invalid protocol error');
       throw new EmulatorError(response.error);
@@ -106,110 +93,122 @@ export class EmulatorClient {
     if (!check(response.result)) throw new EmulatorError(`Invalid ${method} result`);
     return response.result;
   }
+  /** Query supported methods and server limits. */
   capabilities(): Promise<EmulatorCapabilities> {
-    return this.call('capabilities', {}, (v): v is EmulatorCapabilities => object(v) && v.version === 1
-      && Array.isArray(v.methods) && v.methods.every(m => typeof m === 'string')
-      && integer(v.maxCycles, Number.MAX_SAFE_INTEGER) && Number(v.maxCycles)>0
-      && integer(v.maxRead,65536) && Number(v.maxRead)>0);
+    return this.call('capabilities', {}, isCapabilities);
   }
-  state() { return this.call('state', {}, state); }
+  /** Read CPU, MIA pause, and optional execution state. */
+  state() { return this.call('state', {}, isState); }
   /** Strict state query for debugger consumers that require execution metadata. */
-  executionState() { return this.call('state', {}, executionState); }
-  reset() { return this.call('reset', {}, state); }
+  executionState() { return this.call('state', {}, isExecutionState); }
+  /** Assert and release reset; preserve breakpoints and the cycle counter. */
+  reset() { return this.call('reset', {}, isState); }
+  /** Advance up to `count` complete cycles while background execution is stopped. */
   step(count: number) {
-    if (!integer(count,10000000) || count === 0) throw new RangeError('count must be 1..10000000');
-    return this.call('step', {count}, state);
+    requireCycleBudget(count, 'count');
+    return this.call('step', {count}, isState);
   }
   /** Starts unthrottled background execution; returns before it stops. */
-  run() { return this.call('run', {}, executionState); }
+  run() { return this.call('run', {}, isExecutionState); }
   /** Waits for ownership of the machine, then stops at a complete cycle boundary. */
-  pause() { return this.call('pause', {}, executionState); }
+  pause() { return this.call('pause', {}, isExecutionState); }
   /** Clears MIA execution pause and skips a just-hit breakpoint once. */
-  resume() { return this.call('resume', {}, executionState); }
+  resume() { return this.call('resume', {}, isExecutionState); }
   /** Advances to the next opcode boundary, or reports why it stopped first. */
   stepInstruction(maxCycles = 10000) {
-    if (!integer(maxCycles,10000000) || maxCycles === 0) throw new RangeError('maxCycles must be 1..10000000');
-    return this.call('stepInstruction', {count:maxCycles}, executionState);
+    requireCycleBudget(maxCycles, 'maxCycles');
+    return this.call('stepInstruction', {count:maxCycles}, isExecutionState);
   }
+  /** Add a logical CPU breakpoint and return all logical breakpoints. */
   addBreakpoint(address: number) {
-    if (!integer(address,65535)) throw new RangeError('Invalid breakpoint address');
-    return this.call('addBreakpoint', {address}, addresses);
+    if (!isInteger(address,65535)) throw new RangeError('Invalid breakpoint address');
+    return this.call('addBreakpoint', {address}, isAddresses);
   }
+  /** Remove a logical CPU breakpoint and return the remaining list. */
   removeBreakpoint(address: number) {
-    if (!integer(address,65535)) throw new RangeError('Invalid breakpoint address');
-    return this.call('removeBreakpoint', {address}, addresses);
+    if (!isInteger(address,65535)) throw new RangeError('Invalid breakpoint address');
+    return this.call('removeBreakpoint', {address}, isAddresses);
   }
-  breakpoints() { return this.call('breakpoints', {}, addresses); }
-  clearBreakpoints() { return this.call('clearBreakpoints', {}, addresses); }
+  /** List logical CPU breakpoints in insertion order. */
+  breakpoints() { return this.call('breakpoints', {}, isAddresses); }
+  /** Remove every logical CPU breakpoint. */
+  clearBreakpoints() { return this.call('clearBreakpoints', {}, isAddresses); }
+  /** Add a breakpoint for a physical ExRAM bank. */
   addBankBreakpoint(address: number, bank: number) {
     this.checkBankAddress(address, bank);
-    return this.call('addBankBreakpoint', {address, bank}, bankBreakpoints);
+    return this.call('addBankBreakpoint', {address, bank}, isBankBreakpoints);
   }
+  /** Remove a breakpoint for a physical ExRAM bank. */
   removeBankBreakpoint(address: number, bank: number) {
     this.checkBankAddress(address, bank);
-    return this.call('removeBankBreakpoint', {address, bank}, bankBreakpoints);
+    return this.call('removeBankBreakpoint', {address, bank}, isBankBreakpoints);
   }
-  bankBreakpoints() { return this.call('bankBreakpoints', {}, bankBreakpoints); }
-  clearBankBreakpoints() { return this.call('clearBankBreakpoints', {}, bankBreakpoints); }
-  stackTrace() { return this.call('stackTrace', {}, emulatorStack); }
+  /** List physical ExRAM bank breakpoints in insertion order. */
+  bankBreakpoints() { return this.call('bankBreakpoints', {}, isBankBreakpoints); }
+  /** Remove every physical ExRAM bank breakpoint. */
+  clearBankBreakpoints() { return this.call('clearBankBreakpoints', {}, isBankBreakpoints); }
+  /** Read observed and validated caller frames from a stopped machine. */
+  stackTrace() { return this.call('stackTrace', {}, isEmulatorStack); }
+  /** Check a physical bank breakpoint address and bank. */
   private checkBankAddress(address: number, bank: number): void {
-    if (!integer(address, 0xbfff) || address < 0x8000 || !integer(bank, 31)) throw new RangeError('Bank breakpoint requires $8000-$BFFF and bank 0..31');
+    if (!isInteger(address, 0xbfff) || address < 0x8000 || !isInteger(bank, 31)) throw new RangeError('Bank breakpoint requires $8000-$BFFF and bank 0..31');
   }
   /** Resolve one exact source line and add a breakpoint at each emitted span start. */
   async addSourceBreakpoint(sourceMap: SourceBreakpointResolver, path: string, line: number): Promise<SourceBreakpointResult> {
-    return this.updateSourceBreakpoint('add', sourceMap, path, line);
+    return updateSourceBreakpoint(this, 'add', sourceMap, path, line);
   }
   /** Resolve one exact source line and remove each corresponding address breakpoint. */
   async removeSourceBreakpoint(sourceMap: SourceBreakpointResolver, path: string, line: number): Promise<SourceBreakpointResult> {
-    return this.updateSourceBreakpoint('remove', sourceMap, path, line);
+    return updateSourceBreakpoint(this, 'remove', sourceMap, path, line);
   }
   /** Advance until the exact mapped source-location set changes. */
   async stepSource(sourceMap: SourceMapResolver, options: SourceStepOptions = {}): Promise<SourceStepResult> {
-    return this.stepSourceInternal('into', sourceMap, options);
+    return stepSource(this, 'into', sourceMap, options);
   }
   /** Step a JSR through its matching return; other opcodes use stepSource semantics. */
   async stepOverSource(sourceMap: SourceMapResolver, options: SourceStepOptions = {}): Promise<SourceStepResult> {
-    return this.stepSourceInternal('over', sourceMap, options);
+    return stepSource(this, 'over', sourceMap, options);
   }
+  /** Read CPU-mapped bytes, optionally selecting a physical ExRAM bank. */
   readMemory(address: number, count: number, bank?: number) {
-    if (!integer(address,65535) || !integer(count,65536-address) || count===0) throw new RangeError('Invalid CPU memory range');
-    if (bank !== undefined && (!integer(bank, 31) || address < 0x8000 || address + count > 0xc000)) throw new RangeError('Bank read must stay within $8000-$BFFF and bank 0..31');
-    return this.call('readMemory', {address,count,...(bank === undefined ? {} : {bank})}, (v): v is (number|null)[] => Array.isArray(v) && v.length===count && v.every(b => b===null || integer(b,255)));
+    if (!isInteger(address,65535) || !isInteger(count,65536-address) || count===0) throw new RangeError('Invalid CPU memory range');
+    if (bank !== undefined && (!isInteger(bank, 31) || address < 0x8000 || address + count > 0xc000)) throw new RangeError('Bank read must stay within $8000-$BFFF and bank 0..31');
+    return this.call('readMemory', {address,count,...(bank === undefined ? {} : {bank})}, (value): value is (number|null)[] => isMemoryBytes(value, count));
   }
+  /** Queue 1 to 64 raw console text bytes without stepping the CPU. */
   input(data: readonly number[]) {
-    if (!Array.isArray(data) || data.length<1 || data.length>64 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('input must contain 1..64 bytes');
-    return this.call('input', {data:Array.from(data)}, state);
+    if (!Array.isArray(data) || data.length<1 || data.length>64 || !isByteArray(data, data.length)) throw new RangeError('input must contain 1..64 bytes');
+    return this.call('input', {data:Array.from(data)}, isState);
   }
   /** Press or release one held Keyboard/Keypad (7) or Consumer (12) HID usage. Does not enqueue text. */
   setHidUsage(usagePage: 7 | 12, usageId: number, down: boolean) {
-    if (usagePage !== 7 && usagePage !== 12) throw new RangeError('usagePage must be 7 or 12');
-    if (!integer(usageId,255)) throw new RangeError('usageId must be 0..255');
+    requireHidPage(usagePage);
+    if (!isInteger(usageId,255)) throw new RangeError('usageId must be 0..255');
     if (typeof down !== 'boolean') throw new TypeError('down must be a boolean');
-    return this.call('setHidUsage', {usagePage,usageId,down}, state);
+    return this.call('setHidUsage', {usagePage,usageId,down}, isState);
   }
   /** Replace one complete 32-byte held HID bitmap; useful for releasing all keys. */
   setHidBitmap(usagePage: 7 | 12, data: readonly number[]) {
-    if (usagePage !== 7 && usagePage !== 12) throw new RangeError('usagePage must be 7 or 12');
-    if (!Array.isArray(data) || data.length !== 32 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('HID bitmap must contain 32 bytes');
-    return this.call('setHidBitmap', {usagePage,data:Array.from(data)}, state);
+    requireHidPage(usagePage);
+    return this.call('setHidBitmap', {usagePage,data:requireByteArray(data, 32, 'HID bitmap must contain 32 bytes')}, isState);
   }
   /** Replace one complete 10-byte MIA gamepad record. The first byte includes the connected bit. */
   setGamepadState(player: number, data: readonly number[]) {
-    if (!integer(player,3)) throw new RangeError('player must be 0..3');
-    if (!Array.isArray(data) || data.length !== 10 || !Array.from(data).every(b=>integer(b,255))) throw new RangeError('gamepad state must contain 10 bytes');
-    return this.call('setGamepadState', {player,data:Array.from(data)}, state);
+    if (!isInteger(player,3)) throw new RangeError('player must be 0..3');
+    return this.call('setGamepadState', {player,data:requireByteArray(data, 10, 'gamepad state must contain 10 bytes')}, isState);
   }
   /** Release and disconnect one gamepad slot. */
   clearGamepad(player: number) {
-    if (!integer(player,3)) throw new RangeError('player must be 0..3');
-    return this.call('clearGamepad', {player}, state);
+    if (!isInteger(player,3)) throw new RangeError('player must be 0..3');
+    return this.call('clearGamepad', {player}, isState);
   }
+  /** Read the complete 68,944-byte MIA video state, not rendered pixels. */
   video() {
-    return this.call('video', {}, (v): v is number[] => Array.isArray(v) && v.length===68944 && v.every(b=>integer(b,255)));
+    return this.call('video', {}, (value): value is number[] => isByteArray(value, 68944));
   }
   /** Audio register block at $12000-$1204F, with live sequencer fields. */
   audio() {
-    return this.call('audio', {}, (v): v is number[] => Array.isArray(v) && v.length===80 && v.every(b=>integer(b,255)));
+    return this.call('audio', {}, (value): value is number[] => isByteArray(value, 80));
   }
   /**
    * Reset, boot the ROM, enter the plan through the real BASIC command path,
@@ -224,9 +223,9 @@ export class EmulatorClient {
     // consumed; leave a bounded processing budget before entering the next line.
     const inputCycles = options.inputCycles ?? 1_000_000;
     const chunkBytes = options.inputChunkBytes ?? 48;
-    if (!integer(bootCycles, 10_000_000) || bootCycles === 0) throw new RangeError('bootCycles must be 1..10000000');
-    if (!integer(inputCycles, 10_000_000) || inputCycles === 0) throw new RangeError('inputCycles must be 1..10000000');
-    if (!integer(chunkBytes, 64) || chunkBytes === 0) throw new RangeError('inputChunkBytes must be 1..64');
+    requireCycleBudget(bootCycles, 'bootCycles');
+    requireCycleBudget(inputCycles, 'inputCycles');
+    if (!isInteger(chunkBytes, 64) || chunkBytes === 0) throw new RangeError('inputChunkBytes must be 1..64');
 
     await this.reset();
     await this.step(bootCycles);
@@ -235,130 +234,18 @@ export class EmulatorClient {
     return this.run();
   }
 
+  /** Send an ASCII BASIC line in FIFO-sized chunks, optionally stepping after each chunk. */
   private async enterBasicLine(line: string, inputCycles: number, chunkBytes: number): Promise<void> {
     const bytes = Array.from(line, character => character.charCodeAt(0));
     if (bytes.some(byte => byte > 0x7f)) throw new TypeError('BASIC bootstrap must contain ASCII only');
     bytes.push(13);
     for (let offset = 0; offset < bytes.length; offset += chunkBytes) {
       await this.input(bytes.slice(offset, offset + chunkBytes));
-      const finalRunChunk = inputCycles === 0;
-      if (!finalRunChunk) await this.step(inputCycles);
+      if (inputCycles !== 0) await this.step(inputCycles);
     }
-  }
-
-  private async updateSourceBreakpoint(operation: 'add' | 'remove', sourceMap: SourceBreakpointResolver, path: string, line: number): Promise<SourceBreakpointResult> {
-    if (typeof path !== 'string' || path.length === 0) throw new TypeError('path must be a non-empty string');
-    if (!Number.isInteger(line) || line < 1) throw new RangeError('line must be a positive integer');
-    const locations = sourceMap.locationsForSource(path, line);
-    if (!Array.isArray(locations)) throw new TypeError('Invalid source map result');
-    let banked = false;
-    const resolved = new Map<string, SourceBreakpointLocation>();
-    for (const location of locations) {
-      if (!object(location) || !integer(location.address, 65535)
-        || (location.bank !== undefined && (!integer(location.bank, 31) || location.bank === 0))) {
-        throw new TypeError('Invalid source map location');
-      }
-      if (location.bank !== undefined) banked = true;
-      const item = {address: location.address, ...(location.bank === undefined ? {} : {bank: location.bank})};
-      resolved.set(`${item.address}:${item.bank ?? ''}`, item);
-    }
-    if (resolved.size === 0) throw new SourceBreakpointError(`No executable code at ${path}:${line}`);
-    let current: number[] = [], currentBank: BankBreakpoint[] = [];
-    for (const item of resolved.values()) {
-      if (item.bank === undefined) current = operation === 'add'
-        ? await this.addBreakpoint(item.address) : await this.removeBreakpoint(item.address);
-      else currentBank = operation === 'add'
-        ? await this.addBankBreakpoint(item.address, item.bank) : await this.removeBankBreakpoint(item.address, item.bank);
-    }
-    return {path, line, addresses: [...new Set([...resolved.values()].map(item => item.address))],
-      locations: [...resolved.values()], banked, breakpoints: current, bankBreakpoints: currentBank};
-  }
-
-  private sourceLocations(sourceMap: SourceMapResolver, address: number, bank: number | undefined): SourceStepLocation[] {
-    const locations = sourceMap.locationsForAddress(address, bank);
-    if (!Array.isArray(locations)) throw new TypeError('Invalid source map result');
-    return locations.map(location => {
-      if (!object(location) || typeof location.path !== 'string' || location.path.length === 0
-        || !integer(location.line, Number.MAX_SAFE_INTEGER) || location.line === 0
-        || !integer(location.address, 65535)
-        || (location.bank !== undefined && (!integer(location.bank, 31) || location.bank === 0))) {
-        throw new TypeError('Invalid source map location');
-      }
-      return {path: location.path, line: location.line, address: location.address, ...(location.bank === undefined ? {} : {bank: location.bank})};
-    }).sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.address - b.address || (a.bank ?? 0) - (b.bank ?? 0));
-  }
-
-  private async sourceExecutionState(): Promise<ExecutionState> {
-    return this.call('state', {}, executionState);
-  }
-
-  private sourceLocationKeys(locations: readonly SourceStepLocation[]): string[] {
-    return [...new Set(locations.map(location => `${location.path}\0${location.line}\0${location.bank ?? ''}`))].sort();
-  }
-
-  private async stepSourceInternal(mode: 'into' | 'over', sourceMap: SourceMapResolver, options: SourceStepOptions): Promise<SourceStepResult> {
-    const maxInstructions = options.maxInstructions ?? 10000;
-    const maxCycles = options.maxCyclesPerInstruction ?? 10000;
-    if (!integer(maxInstructions, 10000000) || maxInstructions === 0) throw new RangeError('maxInstructions must be 1..10000000');
-    if (!integer(maxCycles, 10000000) || maxCycles === 0) throw new RangeError('maxCyclesPerInstruction must be 1..10000000');
-    if (options.bank !== undefined && (!integer(options.bank, 31) || options.bank === 0)) throw new RangeError('bank must be 1..31');
-
-    let current = await this.sourceExecutionState();
-    if (current.running) throw new SourceStepError('Pause before source stepping');
-    if (!current.instructionBoundary) throw new SourceStepError('Source stepping requires an instruction boundary');
-    const startLocations = this.sourceLocations(sourceMap, current.pc, current.bank ?? options.bank);
-    const startKeys = this.sourceLocationKeys(startLocations);
-    const startPC = current.pc, startSP = current.sp, startBank = current.bank;
-    let instructions = 0, steppedOverCall = false;
-
-    if (mode === 'over') {
-      const opcode = await this.readMemory(startPC, 1);
-      if (opcode[0] === null) throw new SourceStepError(`Cannot inspect opcode at $${startPC.toString(16).toUpperCase().padStart(4, '0')}`);
-      if (opcode[0] === 0x20) {
-        steppedOverCall = true;
-        const returnPC = (startPC + 3) & 0xffff;
-        while (instructions < maxInstructions) {
-          current = await this.stepInstruction(maxCycles);
-          instructions++;
-          const terminal = this.sourceStepTerminal(current);
-          if (terminal !== undefined) return this.sourceStepResult(current, terminal, instructions, startLocations, sourceMap, current.bank ?? options.bank, true);
-          if (current.pc === returnPC && current.sp === startSP && current.bank === startBank) break;
-        }
-        if (current.pc !== returnPC || current.sp !== startSP || current.bank !== startBank) {
-          return this.sourceStepResult(current, 'instruction-limit', instructions, startLocations, sourceMap, current.bank ?? options.bank, true);
-        }
-      }
-    }
-
-    while (instructions < maxInstructions) {
-      if (steppedOverCall || instructions > 0) {
-        const locations = this.sourceLocations(sourceMap, current.pc, current.bank ?? options.bank);
-        if (startKeys.length === 0 || locations.length === 0) {
-          return {state: current, reason: 'unmapped', instructions, startLocations, locations, steppedOverCall};
-        }
-        const keys = this.sourceLocationKeys(locations);
-        if (keys.length !== startKeys.length || keys.some((key, index) => key !== startKeys[index])) {
-          return {state: current, reason: 'source-location', instructions, startLocations, locations, steppedOverCall};
-        }
-      }
-      current = await this.stepInstruction(maxCycles);
-      instructions++;
-      const terminal = this.sourceStepTerminal(current);
-      if (terminal !== undefined) return this.sourceStepResult(current, terminal, instructions, startLocations, sourceMap, current.bank ?? options.bank, steppedOverCall);
-    }
-    return this.sourceStepResult(current, 'instruction-limit', instructions, startLocations, sourceMap, current.bank ?? options.bank, steppedOverCall);
-  }
-
-  private sourceStepTerminal(state: ExecutionState): SourceStepReason | undefined {
-    if (state.stopReason === 'instruction' && state.instructionBoundary) return undefined;
-    if (state.stopReason === 'cycle-limit' || state.stopReason === 'mia-paused' || state.stopReason === 'cpu-stopped') return state.stopReason;
-    return 'stopped';
-  }
-
-  private sourceStepResult(state: ExecutionState, reason: SourceStepReason, instructions: number, startLocations: SourceStepLocation[], sourceMap: SourceMapResolver, bank: number | undefined, steppedOverCall: boolean): SourceStepResult {
-    return {state, reason, instructions, startLocations, locations: this.sourceLocations(sourceMap, state.pc, bank), steppedOverCall};
   }
 }
+
 /** Explicit endpoint, optional caller-owned fetch (for authentication/timeouts). */
 export function createHttpEmulatorClient(endpoint: string, fetcher: typeof fetch = fetch): EmulatorClient {
   const url = new URL(endpoint);
