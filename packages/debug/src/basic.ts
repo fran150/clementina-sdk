@@ -1,36 +1,37 @@
-import {basename} from 'node:path';
 import {basicRuntimeDebug, parseBasicSource, type LoadPlan} from '@clementina/basic';
 import {
   type EmulatorClient,
   type ExecutionState,
   type LaunchLoadPlanOptions,
   type SourceStepOptions,
+  type SourceStepLocation,
   type SourceStepResult,
 } from '@clementina/emulator-client';
 import type {DebugBreakpoint, DebugSnapshot, WaitForStopOptions} from './index.js';
+import {readBasicVariables, type BasicRuntimeVariable} from './basic-variables.js';
+import {waitForPoll} from './polling.js';
+import {cpuAddressLabel, sourceName} from './format.js';
+export type {BasicRuntimeVariable} from './basic-variables.js';
 
 interface BasicLineLocation {number: number; physicalLine: number}
 /** Host-side safety limits for waiting on a BASIC statement boundary. */
 export interface BasicSourceStepOptions extends SourceStepOptions {timeoutMs?: number; pollIntervalMs?: number}
-export interface BasicRuntimeVariable {name: string; value: string; type: 'number' | 'integer' | 'string' | 'array'}
 
+/** Keep the final nonempty definition of each validated numbered BASIC line. */
 function effectiveLines(source: string): BasicLineLocation[] {
-  parseBasicSource(source);
-  const effective = new Map<number, number>();
+  const effectiveNumbers = new Set(parseBasicSource(source).map(line => line.number));
+  const physicalByNumber = new Map<number, number>();
   source.replace(/\r\n?/gu, '\n').split('\n').forEach((raw, index) => {
-    const match = /^\s*([0-9]+)(.*)$/u.exec(raw);
+    const match = /^\s*([0-9]+)/u.exec(raw);
     if (!match) return;
     const number = Number(match[1]);
-    const body = match[2]!.replace(/^ +/u, '');
-    if (body === '') effective.delete(number);
-    else effective.set(number, index + 1);
+    if (effectiveNumbers.has(number)) physicalByNumber.set(number, index + 1);
   });
-  return [...effective].map(([number, physicalLine]) => ({number, physicalLine})).sort((a, b) => a.number - b.number);
+  return [...physicalByNumber].map(([number, physicalLine]) => ({number, physicalLine})).sort((a, b) => a.number - b.number);
 }
 
 /** BASIC source debugger using the ROM's NEWSTT2 statement hook and CURLIN. */
 export class ClementinaBasicDebugSession {
-  private readonly lines: BasicLineLocation[];
   private readonly lineByNumber: Map<number, BasicLineLocation>;
   private readonly numberByPhysical: Map<number, number>;
   private readonly requestedLines = new Set<number>();
@@ -41,6 +42,7 @@ export class ClementinaBasicDebugSession {
   private lastPause?: Promise<DebugSnapshot>;
   private disposing?: Promise<void>;
 
+  /** Parse BASIC source and retain its effective numbered-line locations. */
   constructor(
     private readonly client: EmulatorClient,
     private readonly sourcePath: string,
@@ -48,23 +50,27 @@ export class ClementinaBasicDebugSession {
     private readonly threadName = 'Clementina BASIC',
   ) {
     if (!sourcePath) throw new TypeError('sourcePath must not be empty');
-    this.lines = effectiveLines(source);
-    this.lineByNumber = new Map(this.lines.map(line => [line.number, line]));
-    this.numberByPhysical = new Map(this.lines.map(line => [line.physicalLine, line.number]));
+    const lines = effectiveLines(source);
+    this.lineByNumber = new Map(lines.map(line => [line.number, line]));
+    this.numberByPhysical = new Map(lines.map(line => [line.physicalLine, line.number]));
   }
 
+  /** Return the single CPU thread presented to editor clients. */
   threads() { return [{id: 1, name: this.threadName}] as const; }
 
+  /** Read execution state and map the current BASIC line when available. */
   snapshot(): Promise<DebugSnapshot> {
     return this.command(async () => this.snapshotFromState(await this.client.executionState()));
   }
 
+  /** Resume BASIC, keeping the statement hook only while requested. */
   continue(): Promise<ExecutionState> {
     return this.command(async () => {
       if (this.requestedLines.size === 0) await this.releaseHook();
       return this.client.resume();
     });
   }
+  /** Interrupt a running source step and return the paused snapshot. */
   pause(): Promise<DebugSnapshot> {
     if (this.disposed) return Promise.reject(new Error('Debug session is disposed'));
     // A source step may be waiting for a ROM statement hook inside commandTail.
@@ -72,56 +78,44 @@ export class ClementinaBasicDebugSession {
     this.pauseSequence++;
     return this.lastPause = this.client.pause().then(state => this.snapshotFromState(state));
   }
+  /** Reset the emulator and inspect its current BASIC line. */
   reset(): Promise<DebugSnapshot> {
     return this.command(async () => { await this.client.reset(); return this.snapshotFromState(await this.client.executionState()); });
   }
+  /** Execute the project load plan and start BASIC. */
   launch(plan: LoadPlan, options: LaunchLoadPlanOptions = {}): Promise<ExecutionState> {
     return this.command(() => this.client.launchLoadPlan(plan, options));
   }
 
+  /** Advance to the next effective numbered BASIC line. */
   stepIn(options: BasicSourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
+  /** Advance to the next effective numbered BASIC line. */
   next(options: BasicSourceStepOptions = {}): Promise<SourceStepResult> { return this.stepLine(options); }
 
+  /** Execute one machine instruction within the supplied cycle budget. */
   stepInstruction(maxCycles = 10000): Promise<DebugSnapshot> {
     return this.command(async () => this.snapshotFromState(await this.client.stepInstruction(maxCycles)));
   }
 
+  /** Read CPU-mapped memory, preserving unreadable bytes as null. */
   readMemory(address: number, count: number) { return this.command(() => this.client.readMemory(address, count)); }
 
+  /** Decode the ROM's live simple-variable table. */
   variables(): Promise<BasicRuntimeVariable[]> {
-    return this.command(async () => {
-      const pointers = await this.bytes(0x007c, 4);
-      const vartab = pointers[0]! | (pointers[1]! << 8), arytab = pointers[2]! | (pointers[3]! << 8);
-      if (arytab < vartab || (arytab - vartab) % 7 !== 0) throw new Error('Invalid BASIC variable table bounds');
-      const variables: BasicRuntimeVariable[] = [];
-      for (let address = vartab; address < arytab; address += 7) {
-        const record = await this.bytes(address, 7);
-        const name = this.variableName(record[0]!, record[1]!);
-        const string = (record[1]! & 0x80) !== 0, integer = !string && (record[0]! & 0x80) !== 0;
-        if (string) {
-          const length = record[2]!, pointer = record[3]! | (record[4]! << 8);
-          const value = length === 0 ? '' : String.fromCharCode(...await this.bytes(pointer, length));
-          variables.push({name, value: JSON.stringify(value), type: 'string'});
-        } else if (integer) {
-          const unsigned = (record[2]! << 8) | record[3]!;
-          variables.push({name, value: String(unsigned & 0x8000 ? unsigned - 0x10000 : unsigned), type: 'integer'});
-        } else {
-          variables.push({name, value: String(this.decodeFloat(record.slice(2, 7))), type: 'number'});
-        }
-      }
-      return variables.sort((a, b) => a.name.localeCompare(b.name));
-    });
+    return this.command(() => readBasicVariables(this.client));
   }
 
+  /** Look up a simple variable by its first two significant name characters. */
   async evaluate(expression: string): Promise<BasicRuntimeVariable | undefined> {
     if (typeof expression !== 'string') throw new TypeError('expression must be a string');
     const normalized = expression.trim().toUpperCase();
     if (!/^[A-Z][A-Z0-9]*[$%]?$/u.test(normalized)) return undefined;
-    const significant = normalized.slice(0, normalized.endsWith('$') || normalized.endsWith('%') ? Math.min(2, normalized.length - 1) : Math.min(2, normalized.length))
-      + (normalized.endsWith('$') || normalized.endsWith('%') ? normalized.at(-1)! : '');
+    const suffix = normalized.endsWith('$') || normalized.endsWith('%') ? normalized.at(-1)! : '';
+    const significant = normalized.slice(0, suffix ? -1 : undefined).slice(0, 2) + suffix;
     return (await this.variables()).find(variable => variable.name === significant);
   }
 
+  /** Replace requested physical source lines for this BASIC file. */
   setSourceBreakpoints(path: string, physicalLines: readonly number[]): Promise<DebugBreakpoint[]> {
     return this.command(async () => {
       if (!Array.isArray(physicalLines) || physicalLines.some(line => !Number.isInteger(line) || line < 1)) throw new RangeError('lines must contain positive integers');
@@ -140,13 +134,16 @@ export class ClementinaBasicDebugSession {
     });
   }
 
+  /** Remove requested lines and release an owned statement hook. */
   clearSourceBreakpoints(): Promise<void> {
     return this.command(async () => { this.requestedLines.clear(); await this.releaseHook(); });
   }
 
+  /** Poll for a stop, skipping statement hooks for unrequested BASIC lines. */
   async waitForStop(options: WaitForStopOptions): Promise<DebugSnapshot> {
     if (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 1) throw new RangeError('timeoutMs must be a positive integer');
     const interval = options.pollIntervalMs ?? 10;
+    if (!Number.isInteger(interval) || interval < 1 || interval > options.timeoutMs) throw new RangeError('pollIntervalMs must be 1..timeoutMs');
     const deadline = Date.now() + options.timeoutMs;
     for (;;) {
       if (options.signal?.aborted) throw new Error('Stop wait aborted');
@@ -154,19 +151,21 @@ export class ClementinaBasicDebugSession {
       if (!state.running) {
         if (state.stopReason === 'breakpoint' && state.pc === basicRuntimeDebug.statementBoundaryAddress && this.requestedLines.size) {
           const number = await this.currentLine();
-          if (!this.requestedLines.has(number)) { await this.client.resume(); continue; }
+          if (!this.requestedLines.has(number)) {
+            if (Date.now() >= deadline) throw new Error('Timed out waiting for emulator to stop');
+            await this.client.resume();
+            continue;
+          }
         }
         return this.snapshotFromState(state);
       }
       const remaining = deadline - Date.now();
       if (remaining <= 0) throw new Error('Timed out waiting for emulator to stop');
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(resolve, Math.min(interval, remaining));
-        options.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('Stop wait aborted')); }, {once: true});
-      });
+      await waitForPoll(Math.min(interval, remaining), options.signal, () => new Error('Stop wait aborted'));
     }
   }
 
+  /** Stop a pending step and release the statement hook owned by this session. */
   dispose(): Promise<void> {
     if (this.disposing) return this.disposing;
     if (this.disposed) return this.commandTail;
@@ -182,6 +181,7 @@ export class ClementinaBasicDebugSession {
     return this.disposing;
   }
 
+  /** Run until a different BASIC line, a machine stop, or a host limit. */
   private stepLine(options: BasicSourceStepOptions): Promise<SourceStepResult> {
     const sequence = this.pauseSequence;
     return this.command(async () => {
@@ -197,35 +197,59 @@ export class ClementinaBasicDebugSession {
       const startLocation = this.location(startLine);
       let state = startState;
       for (let statements = 1; statements <= limit; statements++) {
-        if (sequence !== this.pauseSequence) state = (await this.lastPause!).state;
-        else state = await this.client.resume();
-        while (state.running) {
-          if (sequence !== this.pauseSequence) { state = (await this.lastPause!).state; break; }
-          if (Date.now() >= deadline) {
-            await this.pause();
-            throw new Error('Timed out waiting for a BASIC statement boundary');
-          }
-          await new Promise<void>(resolve => setTimeout(resolve, Math.min(pollIntervalMs, deadline - Date.now())));
-          state = await this.client.executionState();
-        }
+        state = await this.resumeToStop(sequence, deadline, pollIntervalMs);
         if (sequence !== this.pauseSequence) {
           state = (await this.lastPause!).state;
-          return {state, reason: 'stopped', instructions: statements, startLocations: startLocation ? [startLocation] : [], locations: [], steppedOverCall: false};
+          return this.stepResult(state, 'stopped', statements, startLocation);
         }
         if (state.stopReason !== 'breakpoint' || state.pc !== basicRuntimeDebug.statementBoundaryAddress) {
-          return {state, reason: state.stopReason === 'cpu-stopped' ? 'cpu-stopped' : state.stopReason === 'mia-paused' ? 'mia-paused' : 'stopped', instructions: statements, startLocations: startLocation ? [startLocation] : [], locations: [], steppedOverCall: false};
+          const reason = state.stopReason === 'cpu-stopped' ? 'cpu-stopped' : state.stopReason === 'mia-paused' ? 'mia-paused' : 'stopped';
+          return this.stepResult(state, reason, statements, startLocation);
         }
         const currentLine = await this.currentLine();
         if (currentLine !== startLine) {
           const current = this.location(currentLine);
-          return {state, reason: current ? 'source-location' : 'unmapped', instructions: statements, startLocations: startLocation ? [startLocation] : [], locations: current ? [current] : [], steppedOverCall: false};
+          return this.stepResult(state, current ? 'source-location' : 'unmapped', statements, startLocation, current);
         }
       }
       const current = this.location(await this.currentLine());
-      return {state, reason: 'instruction-limit', instructions: limit, startLocations: startLocation ? [startLocation] : [], locations: current ? [current] : [], steppedOverCall: false};
+      return this.stepResult(state, 'instruction-limit', limit, startLocation, current);
     });
   }
 
+  /** Construct the source-step result shared by each stop condition. */
+  private stepResult(
+    state: ExecutionState,
+    reason: SourceStepResult['reason'],
+    instructions: number,
+    start?: SourceStepLocation,
+    current?: SourceStepLocation,
+  ): SourceStepResult {
+    return {
+      state, reason, instructions,
+      startLocations: start ? [start] : [],
+      locations: current ? [current] : [],
+      steppedOverCall: false,
+    };
+  }
+
+  /** Resume once and poll until the hook, a machine stop, or an external pause. */
+  private async resumeToStop(sequence: number, deadline: number, pollIntervalMs: number): Promise<ExecutionState> {
+    if (sequence !== this.pauseSequence) return (await this.lastPause!).state;
+    let state = await this.client.resume();
+    while (state.running) {
+      if (sequence !== this.pauseSequence) return (await this.lastPause!).state;
+      if (Date.now() >= deadline) {
+        await this.pause();
+        throw new Error('Timed out waiting for a BASIC statement boundary');
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, Math.min(pollIntervalMs, deadline - Date.now())));
+      state = await this.client.executionState();
+    }
+    return state;
+  }
+
+  /** Install the ROM statement breakpoint unless another client already owns it. */
   private async ensureHook(): Promise<void> {
     if (this.hookOwned) return;
     const active = await this.client.breakpoints();
@@ -235,46 +259,27 @@ export class ClementinaBasicDebugSession {
     }
   }
 
+  /** Remove the ROM statement breakpoint only if this session installed it. */
   private async releaseHook(): Promise<void> {
     if (!this.hookOwned) return;
     await this.client.removeBreakpoint(basicRuntimeDebug.statementBoundaryAddress);
     this.hookOwned = false;
   }
 
+  /** Read CURLIN as a little-endian BASIC line number. */
   private async currentLine(): Promise<number> {
     const bytes = await this.client.readMemory(basicRuntimeDebug.currentLineAddress, 2);
     if (bytes[0] === null || bytes[1] === null) throw new Error('CURLIN is not readable');
     return bytes[0]! | (bytes[1]! << 8);
   }
 
-  private async bytes(address: number, count: number): Promise<number[]> {
-    const bytes = await this.client.readMemory(address, count);
-    if (bytes.some(byte => byte === null)) throw new Error(`BASIC memory at $${address.toString(16).toUpperCase()} is not readable`);
-    return bytes as number[];
-  }
-
-  private variableName(first: number, second: number): string {
-    let name = String.fromCharCode(first & 0x7f);
-    if ((second & 0x7f) !== 0) name += String.fromCharCode(second & 0x7f);
-    if (second & 0x80) name += '$';
-    else if (first & 0x80) name += '%';
-    return name;
-  }
-
-  private decodeFloat(bytes: number[]): number {
-    const exponent = bytes[0]!;
-    if (exponent === 0) return 0;
-    const negative = (bytes[1]! & 0x80) !== 0;
-    const fraction = (((bytes[1]! & 0x7f) * 0x1000000) + (bytes[2]! * 0x10000) + (bytes[3]! * 0x100) + bytes[4]!) / 0x80000000;
-    const value = (1 + fraction) * 2 ** (exponent - 129);
-    return negative ? -value : value;
-  }
-
+  /** Map a BASIC line number to its current physical source line. */
   private location(number: number) {
     const line = this.lineByNumber.get(number);
     return line && {path: this.sourcePath, line: line.physicalLine, address: basicRuntimeDebug.statementBoundaryAddress};
   }
 
+  /** Combine emulator state with the current BASIC source location. */
   private async snapshotFromState(state: ExecutionState): Promise<DebugSnapshot> {
     const number = await this.currentLine();
     const location = this.location(number);
@@ -283,7 +288,7 @@ export class ClementinaBasicDebugSession {
       thread: {id: 1, name: this.threadName},
       frame: {
         id: 1, threadId: 1,
-        name: location ? `${basename(this.sourcePath)}:${location.line}` : `$${state.pc.toString(16).toUpperCase().padStart(4, '0')}`,
+        name: location ? `${sourceName(this.sourcePath)}:${location.line}` : cpuAddressLabel(state.pc),
         instructionPointer: state.pc,
         ...(location ? {source: {path: location.path, line: location.line}, locations: [location]} : {locations: []}),
       },
@@ -291,6 +296,7 @@ export class ClementinaBasicDebugSession {
     };
   }
 
+  /** Serialize editor commands while allowing pause to bypass the queue. */
   private command<T>(operation: () => Promise<T>, allowDisposed = false): Promise<T> {
     const result = this.commandTail.then(async () => {
       if (this.disposed && !allowDisposed) throw new Error('Debug session is disposed');

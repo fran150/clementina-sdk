@@ -24,13 +24,23 @@ export interface ProjectDebugRuntime {
   pid: number;
   /** Reset, enter the generated BASIC bootstrap, and begin project execution. */
   launch(options?: LaunchLoadPlanOptions): Promise<ExecutionState>;
+  /** Release owned breakpoints and stop the emulator process once. */
   close(): Promise<EmulatorProcessExit>;
 }
 
 export interface ProjectDebugDependencies {
+  /** Override project building, primarily for host integration and tests. */
   build?: typeof buildProject;
+  /** Override emulator process startup. */
   startProcess?: typeof startEmulatorProcess;
+  /** Override how the BASIC entry source is resolved and read. */
   readBasicSource?: (projectRoot: string, source: string) => Promise<{path: string; text: string}>;
+}
+
+/** Resolve and read the BASIC entry file using the portable project path rules. */
+async function readProjectBasicSource(projectRoot: string, source: string): Promise<{path: string; text: string}> {
+  const path = await resolveProjectPath(projectRoot, source);
+  return {path, text: await readFile(path, 'utf8')};
 }
 
 /**
@@ -64,10 +74,7 @@ export async function createProjectDebugSession(
         ...(threadName === undefined ? {} : {threadName}),
       });
     } else {
-      const loadedSource = await (dependencies.readBasicSource ?? (async (root: string, source: string) => {
-        const path = await resolveProjectPath(root, source);
-        return {path, text: await readFile(path, 'utf8')};
-      }))(projectRoot, build.value.basic.source);
+      const loadedSource = await (dependencies.readBasicSource ?? readProjectBasicSource)(projectRoot, build.value.basic.source);
       session = new ClementinaBasicDebugSession(process.client, loadedSource.path, loadedSource.text, threadName);
     }
     let closing: Promise<EmulatorProcessExit> | undefined;
@@ -76,7 +83,9 @@ export async function createProjectDebugSession(
       session,
       endpoint: process.endpoint,
       pid: process.pid,
+      /** Start the prepared project after callers have installed breakpoints. */
       launch: (launchOptions?: LaunchLoadPlanOptions) => session.launch(build.value.loadPlan, launchOptions),
+      /** Share one cleanup promise across repeated close calls. */
       close: () => closing ??= (async () => {
         await session.dispose().catch(() => undefined);
         return process.close();

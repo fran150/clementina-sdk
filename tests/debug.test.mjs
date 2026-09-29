@@ -28,6 +28,12 @@ test('65C02 disassembly decodes branches and stops at unreadable bytes',()=>{
  assert.throws(()=>decodeInstructions(0x6000,[0xea],65),RangeError);
 });
 
+test('65C02 disassembly formats distinct operand modes without reading past an instruction',()=>{
+ assert.deepEqual(decodeInstructions(0x6000,[0xa9,0x42,0xb1,0x20,0x7c,0x34,0x12,0x00,0x99,0xbd,0x78,0x56],5).map(item=>item.text),[
+  'LDA #$42', 'LDA ($20),Y', 'JMP ($1234,X)', 'BRK', 'LDA $5678,X',
+ ]);
+});
+
 test('debug session replaces source breakpoints while preserving external and shared addresses',async()=>{
  const active=[0x7000];
  const bankActive=[];
@@ -179,6 +185,16 @@ test('debug session waits for a stop and disposal removes only its breakpoints',
  await session.dispose();
 });
 
+test('debug session stop polling responds to an abort signal',async()=>{
+ const client=new EmulatorClient(async()=>({version:1,ok:true,result:machineState({running:true,stopReason:'running'})}));
+ const session=new ClementinaDebugSession(client,sourceMap([]));
+ const controller=new AbortController();
+ const waiting=session.waitForStop({timeoutMs:1000,pollIntervalMs:100,signal:controller.signal});
+ controller.abort();
+ await assert.rejects(waiting,/Stop wait aborted/);
+ await session.dispose();
+});
+
 test('BASIC debug session filters the shared ROM statement hook by CURLIN and maps source lines',async()=>{
  let currentLine=10,polls=0;
  const active=[];
@@ -204,6 +220,21 @@ test('BASIC debug session filters the shared ROM statement hook by CURLIN and ma
  assert.ok(requests.some(request=>request.method==='resume'));
  await session.dispose();
  assert.deepEqual(active,[]);
+});
+
+test('BASIC source mapping follows the final line definition and normalizes frame names',async()=>{
+ const active=[];
+ const client=new EmulatorClient(async request=>{
+  if(request.method==='breakpoints')return {version:1,ok:true,result:[...active]};
+  if(request.method==='addBreakpoint'){active.push(request.address);return {version:1,ok:true,result:[...active]};}
+  if(request.method==='removeBreakpoint'){active.splice(active.indexOf(request.address),1);return {version:1,ok:true,result:[...active]};}
+  return {version:1,ok:true,result:request.method==='readMemory'?[10,0]:machineState()};
+ });
+ const session=new ClementinaBasicDebugSession(client,'C:\\project\\main.bas','10 PRINT "A"\n10\n10 PRINT "B"\n');
+ const breakpoints=await session.setSourceBreakpoints('C:/project/main.bas',[1,2,3]);
+ assert.deepEqual(breakpoints.map(item=>item.verified),[false,false,true]);
+ assert.equal((await session.snapshot()).frame.name,'main.bas:3');
+ await session.dispose();
 });
 test('BASIC source stepping allows pause while waiting for the statement hook',async()=>{
  let current=machineState({stopReason:'reset'}), resumeStarted;
@@ -244,6 +275,47 @@ test('BASIC source stepping stops the emulator when its host wait expires',async
  await assert.rejects(session.stepIn({timeoutMs:20,pollIntervalMs:1}),/Timed out waiting for a BASIC statement boundary/);
  assert.equal(pauses,1);
  assert.equal((await session.snapshot()).state.stopReason,'pause');
+ await session.dispose();
+});
+
+test('BASIC variables decode numeric, integer, and string records for lookup',async()=>{
+ const memory=new Map();
+ const write=(address,bytes)=>bytes.forEach((byte,index)=>memory.set(address+index,byte));
+ write(0x007c,[0x00,0x40,0x15,0x40]);
+ write(0x4000,[0x41,0x00,0x81,0x00,0x00,0x00,0x00]);
+ write(0x4007,[0xc2,0x00,0xff,0xfe,0x00,0x00,0x00]);
+ write(0x400e,[0x43,0x80,0x03,0x00,0x50,0x00,0x00]);
+ write(0x5000,[0x48,0x49,0x21]);
+ write(basicRuntimeDebug.currentLineAddress,[10,0]);
+ const client=new EmulatorClient(async request=>({version:1,ok:true,result:
+  request.method==='readMemory'
+   ? Array.from({length:request.count},(_,index)=>memory.get(request.address+index)??null)
+   : machineState()}));
+ const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 END\n');
+ assert.deepEqual(await session.variables(),[
+  {name:'A',value:'1',type:'number'},
+  {name:'B%',value:'-2',type:'integer'},
+  {name:'C$',value:'"HI!"',type:'string'},
+ ]);
+ assert.deepEqual(await session.evaluate('c$'),{name:'C$',value:'"HI!"',type:'string'});
+ assert.equal(await session.evaluate('A+1'),undefined);
+});
+
+test('BASIC stop wait times out while skipping unrequested statement hooks',async()=>{
+ let resumes=0;
+ const active=[];
+ const client=new EmulatorClient(async request=>{
+  if(request.method==='breakpoints')return {version:1,ok:true,result:[...active]};
+  if(request.method==='addBreakpoint'){active.push(request.address);return {version:1,ok:true,result:[...active]};}
+  if(request.method==='removeBreakpoint'){active.splice(active.indexOf(request.address),1);return {version:1,ok:true,result:[...active]};}
+  if(request.method==='readMemory')return {version:1,ok:true,result:[10,0]};
+  if(request.method==='resume')resumes++;
+  return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress})};
+ });
+ const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 END\n20 END\n');
+ await session.setSourceBreakpoints('/project/main.bas',[2]);
+ await assert.rejects(session.waitForStop({timeoutMs:10,pollIntervalMs:1}),/Timed out waiting for emulator to stop/);
+ assert.ok(resumes>0);
  await session.dispose();
 });
 
