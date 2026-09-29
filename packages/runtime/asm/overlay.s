@@ -9,21 +9,14 @@ rt_show_overlay:
         jsr rt_set_desc
         jsr rt_desc_loc
         bcs @fail
-        lda rt_loc+2
-        cmp #^MIA_OVERLAY
-        bne @copy
-        lda rt_loc+1
-        cmp #>MIA_OVERLAY
-        bne @copy
-        lda rt_loc
-        cmp #<MIA_OVERLAY
-        beq @done
-@copy:  lda #<MIA_OVERLAY
+        lda #<MIA_OVERLAY
         sta rt_to
         lda #>MIA_OVERLAY
         sta rt_to+1
         lda #^MIA_OVERLAY
         sta rt_to+2
+        jsr rt_loc_equals_to
+        beq @done
         lda #<2000
         sta rt_len
         lda #>2000

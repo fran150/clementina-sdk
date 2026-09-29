@@ -191,7 +191,7 @@ by number.
 ### Packaging
 
 - The SDK package is `@clementina/runtime`. Related primitives share modules
-  across 17 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
+  across 20 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
   and written with `ar65 r`. `ld65` includes referenced modules and their helpers.
   `runtime/code-sizes.json` and the memory report record CODE bytes per module;
   these are module sizes, not isolated per-routine costs.

@@ -19,14 +19,9 @@ rt_use_tileset:
         jsr rt_desc_loc
         bcs @fail
         jsr bank_address
-        ldx #2                      ; there already?
-:       lda rt_loc,x
-        cmp rt_to,x
-        bne @copy
-        dex
-        bpl :-
-        bra @mode
-@copy:  stz rt_len
+        jsr rt_loc_equals_to       ; already in the requested CHR bank?
+        beq @mode
+        stz rt_len
         lda #>6144
         sta rt_len+1
         stz rt_len+2

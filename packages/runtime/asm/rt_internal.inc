@@ -104,15 +104,20 @@ OAM_DISABLE   = %00001000   ; ext byte
 .globalzp rt_desc, rt_ptr, rt_cpu, rt_loc, rt_to, rt_len, rt_mul, rt_prod
 .globalzp rt_t0, rt_t1, rt_t2, rt_t3, rt_t4, rt_t5, rt_bank, rt_mode
 
-; core.s
-.global rt_wait, rt_fail, rt_ok, rt_set_desc
-.global rt_seek_a, rt_seek_b, rt_step_a, rt_step_b, rt_limit_a
-.global rt_copy_rows, rt_copy, rt_poke, rt_peek
-.global rt_desc_loc, rt_desc_default, rt_set_desc_loc, rt_check_loc
+; core.s: command synchronization and byte transfers
+.global rt_wait, rt_fail
+.global rt_copy_rows, rt_copy
 .global rt_open_read, rt_read, rt_close_read, rt_open_write, rt_write, rt_bank_select, rt_save_bank
+; mia-index.s: the two MIA index windows
+.global rt_seek_a, rt_seek_b, rt_step_a, rt_step_b, rt_limit_a
+.global rt_poke, rt_peek
+; location.s: descriptor locations and arithmetic
+.global rt_set_desc
+.global rt_desc_loc, rt_desc_default, rt_set_desc_loc, rt_loc_equals_to, rt_check_loc
 .global rt_mul16, rt_add_loc
-; load.s: the SD engine
+; load.s: whole-asset job handling; sd-load.s: the transfer engine
 .global rt_sd_part, rt_load_idle
+.global rt_mia_part, rt_bank_part, rt_check_part
 .global rt_sd_off, rt_sd_rowlen, rt_sd_rows, rt_sd_fstride, rt_sd_dest, rt_sd_dstride
 ; items.s: a sprite file's shapes and animations
 .global rt_items_each, rt_item, rt_item_loc

@@ -97,7 +97,9 @@ test('real toolchain builds the runtime demo, generated descriptors and SD card'
  await cp(new URL('../examples/runtime-demo/',import.meta.url),root,{recursive:true});
  const r=await buildProject(root);assert.equal(r.ok,true,JSON.stringify(r.diagnostics));assert.equal(r.value.sdRoot,'build/sd');assert.equal(r.value.loadPlan.steps.at(-1).path,'DEMO.PRG');
  assert.ok((await readFile(join(root,'build/runtime/runtime.lib'))).length>0);
- assert.ok(r.value.assets.report.runtimeCode['core.s']>900);
+ const code=r.value.assets.report.runtimeCode;
+ assert.ok(code['core.s']>0 && code['mia-index.s']>0 && code['location.s']>0);
+ assert.ok(code['core.s']+code['mia-index.s']+code['location.s']>900);
  assert.equal(r.value.assets.report.runtimeCode['zp.s'],0);
  assert.ok((await readFile(join(root,'build/sd/BOOT.BAS'))).length>0);
  assert.deepEqual(await readFile(join(root,'build/sd/DEMO.PRG')),Buffer.from(r.value.assembly.prg));

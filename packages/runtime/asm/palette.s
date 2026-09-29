@@ -9,19 +9,13 @@ rt_use_palettes:
         jsr rt_set_desc
         jsr rt_desc_loc
         bcs @fail
-        lda rt_loc+2
-        bne @copy
-        lda rt_loc+1
-        cmp #>MIA_PALETTES
-        bne @copy
-        lda rt_loc
-        cmp #<MIA_PALETTES
-        beq @done
-@copy:  lda #<MIA_PALETTES
+        lda #<MIA_PALETTES
         sta rt_to
         lda #>MIA_PALETTES
         sta rt_to+1
         stz rt_to+2
+        jsr rt_loc_equals_to
+        beq @done
         stz rt_len
         lda #1
         sta rt_len+1
