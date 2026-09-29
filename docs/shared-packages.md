@@ -5,6 +5,9 @@
 message, optional source filename, and JSON Pointer `path`. Messages are for people;
 consumers should branch on codes. `check*` APIs accept untrusted JSON and return a
 result; existing `validate*` APIs throw `ValidationError` for compatibility.
+It also holds small helpers every package reuses instead of copying:
+`errorMessage`, `formatHex`, `isIntegerInRange`, and `SerialQueue`, which runs
+async operations one at a time and survives failures.
 
 `@clementina/assets` exports portable models, `checkAsset(value, kind?)`, and
 `checkAssetSet(value)`. Schemas enforce structure without coercing or removing data.
