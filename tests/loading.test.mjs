@@ -5,6 +5,7 @@ import {
   basicTokenTables,
   checkBootstrapSource,
   checkLoadPlan,
+  checkLoadPlanLaunch,
   compileBasicProgram,
   detokenizeBasicProgram,
   encodePrg,
@@ -12,7 +13,9 @@ import {
   inspectPrg,
   parseBasicSource,
   renderBootstrapSource,
+  renderLoadPlanLaunch,
   tokenizeBasicLine,
+  tokenizeBasicLineWithSpans,
 } from '../packages/basic/dist/index.js';
 import {readFile} from 'node:fs/promises';
 
@@ -56,6 +59,27 @@ test('load plans enforce terminal takeover and the permanently reserved SD/FS re
   ]}).ok, false);
 });
 
+test('BASIC launch commands share the editor limit with numbered bootstraps', () => {
+  const directPlan = {format: 'clementina-load-plan', version: 1, steps: [
+    {kind: 'mia', path: 'A'.repeat(55), address: 256, length: 1},
+    {kind: 'basic', path: 'GAME.BAS', length: 2},
+  ]};
+  const launch = renderLoadPlanLaunch(directPlan);
+  assert.deepEqual(launch, {
+    mode: 'direct',
+    lines: [`MIALOAD "${'A'.repeat(55)}",256,1`, 'LOAD "GAME.BAS"'],
+    startCommand: 'RUN',
+  });
+  assert.equal(launch.lines[0].length, 71);
+  assert.equal(checkBootstrapSource(directPlan).diagnostics.some(d => d.code === 'load.basic.bootstrap'), true);
+  assert.equal(checkLoadPlanLaunch({...directPlan, steps: [
+    {...directPlan.steps[0], path: 'A'.repeat(56)}, directPlan.steps[1],
+  ]}).diagnostics.some(d => d.code === 'load.basic.line'), true);
+  assert.equal(checkBootstrapSource({...plan, steps: [
+    {...directPlan.steps[0], path: 'A'.repeat(53)}, plan.steps[2],
+  ]}).diagnostics.some(d => d.code === 'load.basic.line'), true);
+});
+
 test('PRG helpers implement and validate unbanked and banked headers', () => {
   const payload = Uint8Array.of(0xa9, 42, 0x60);
   const plain = encodePrg(payload, 0x6000);
@@ -93,6 +117,17 @@ test('BASIC tokenizer follows ROM table order and lexical modes', () => {
   assert.deepEqual(Array.from(tokenizeBasicLine('mon:money=1:?money')), [0xfe,0x3a,0x4d,0x90,0x45,0x59,0xb2,0x31,0x3a,0x9d,0x4d,0x90,0x45,0x59]);
 });
 
+test('token spans preserve source positions across keyword tables and raw modes', () => {
+  const source = 'inputmode 1:input A:data go:rem print';
+  const {bytes, lexemes} = tokenizeBasicLineWithSpans(source);
+  assert.deepEqual(bytes, tokenizeBasicLine(source));
+  assert.deepEqual(lexemes.filter(lexeme => lexeme.kind === 'keyword').map(lexeme => [lexeme.keyword, source.slice(lexeme.start, lexeme.end)]), [
+    ['INPUTMODE', 'inputmode'], ['INPUT', 'input'], ['DATA', 'data'], ['REM', 'rem'],
+  ]);
+  assert.equal(lexemes.filter(lexeme => lexeme.kind === 'data').map(lexeme => source.slice(lexeme.start, lexeme.end)).join(''), 'go:');
+  assert.equal(lexemes.filter(lexeme => lexeme.kind === 'remark').map(lexeme => source.slice(lexeme.start, lexeme.end)).join(''), ' print');
+});
+
 test('BASIC compiler emits LOAD-ready links and exact absolute line records', () => {
   const source='20 print "TWO"\n10 ? "ONE"\n30 rem done\n';
   assert.deepEqual(parseBasicSource(source).map(line=>line.number),[10,20,30]);
@@ -127,4 +162,12 @@ test('BASIC inspector validates and exposes Clementina styled-literal sidecars',
   assert.equal(detokenizeBasicProgram(styled),'10 PRINT"A"\n');
   const invalid=styled.slice();invalid[13]=1;
   assert.throws(()=>inspectBasicProgram(invalid),/quoted literal/);
+});
+
+test('compiler and inspector reject the same invalid absolute base address', () => {
+  const image = compileBasicProgram('10 END\n');
+  for (const baseAddress of [0xff, 0xc000, 256.5, Number.NaN]) {
+    assert.throws(() => compileBasicProgram('10 END\n', {baseAddress}), /baseAddress/);
+    assert.throws(() => inspectBasicProgram(image, {baseAddress}), /baseAddress/);
+  }
 });
