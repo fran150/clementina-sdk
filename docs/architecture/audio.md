@@ -1,6 +1,7 @@
 # Audio architecture
 
-MIA provides a four-voice stereo PWM PSG at 24 kHz.
+MIA provides a four-voice stereo PWM PSG. It mixes at 48 kHz on a 24 kHz
+tick: register writes, the sequencer and the envelopes step once per tick.
 
 - frequency: unsigned 12.4 fixed-point Hz
 - waveforms: sine, pulse, saw, triangle, noise
@@ -28,13 +29,14 @@ The 32 video direct-OAM descriptors remain contiguous at `$C0-$DF`.
 ## Background sequencer
 
 Each voice has a compact event stream played by MIA inside the audio engine.
-Durations are 24-bit little-endian 24 kHz sample counts, resolved before playback.
-In normal playback, a NOTE or REST occupies its encoded duration plus one sample:
-the event is applied on the decode sample, then its countdown is decremented on
-later samples. The SDK song compiler writes the desired sample count minus one.
+Durations are 24-bit little-endian counts of 24 kHz ticks, resolved before
+playback. In normal playback, a NOTE or REST occupies its encoded duration plus
+one tick: the event is applied on the decode tick, then its countdown is
+decremented on later ticks. The SDK song compiler writes the desired tick count
+minus one. (`AUDIO_SAMPLE_RATE` in `@clementina/assets` is this tick rate.)
 The opcode layout is documented in the MIA repository (`docs/audio-sequencer.md`);
 `specs/audio.json` records the current SDK tooling contract. The MIA guide's
-duration prose still says `dur` samples and needs reconciliation with playback.
+duration prose still says `dur` ticks and needs reconciliation with playback.
 
 A track has no declared length and no header: it is opcode bytes at a
 per-voice `track_base`, decoded live until an `END`, an unrecognized opcode,

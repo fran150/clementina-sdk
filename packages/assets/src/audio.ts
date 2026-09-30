@@ -6,6 +6,7 @@
 // Studio records and portable assets use the same compiler.
 import type {InstrumentAsset, SongAsset, SongNote, SongVoice, SoundAsset, SoundFrame} from './types.js';
 
+/** MIA's sequencer tick rate: song positions and NOTE/REST durations count these. MIA mixes 2 output samples per tick, at 48 kHz. */
 export const AUDIO_SAMPLE_RATE = 24000;
 export const AUDIO_VOICE_COUNT = 4;
 /** Sequencer opcodes (clementina-mia docs/audio-sequencer.md). */

@@ -55,6 +55,6 @@
       20,
       400
     ],
-    "audioSampleHz": 24000
+    "audioTickHz": 24000
   }
 }

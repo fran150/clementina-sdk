@@ -46,7 +46,7 @@ const frameWrites = soundWrites(sound);
 // Each entry holds register/value pairs for one 60 Hz frame, plus a release entry.
 ```
 
-`encodeSongFile` and `encodeSoundFile` wrap those outputs for the SDK runtime. The song compiler resolves steps to 24 kHz sample boundaries and writes the sequencer's encoded duration as the desired sample count minus one. Callers choose MIA RAM locations for tracks; this package does not allocate memory.
+`encodeSongFile` and `encodeSoundFile` wrap those outputs for the SDK runtime. The song compiler resolves steps to 24 kHz sequencer tick boundaries and writes the sequencer's encoded duration as the desired tick count minus one. Callers choose MIA RAM locations for tracks; this package does not allocate memory.
 
 For portable asset layouts and hardware constraints, see the [asset model](../../docs/gamedev/asset-model.md), [builder file formats](../../docs/gamedev/builder.md), [video architecture](../../docs/architecture/video.md), and [audio architecture](../../docs/architecture/audio.md).
 
