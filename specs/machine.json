@@ -13,7 +13,7 @@
     "miaReservedHighRegion":{"start":57344,"end":65503,"guaranteed":false}
   },
   "miaRam":{"addressBits":18,"start":0,"end":262143,"size":262144},
-  "kernel":{"intendedLoadBase":1207,"jumpTable":{"start":1207,"end":1254,"entrySize":3}},
+  "kernel":{"intendedLoadBase":1207,"jumpTable":{"start":1207,"end":1248,"entrySize":3}},
   "timing":{"defaultPhi2Hz":1200000,"requestedPhi2MinHz":1,"requestedPhi2MaxHz":8000000,"wallTimeRecommendedForGameplay":true},
   "knownIssues":"known-issues.json"
 }
