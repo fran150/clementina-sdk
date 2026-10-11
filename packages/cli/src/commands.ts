@@ -1,11 +1,12 @@
-import {readFile, writeFile} from 'node:fs/promises';
-import {resolve} from 'node:path';
+import {lstat, mkdir, readFile, writeFile} from 'node:fs/promises';
+import {basename, extname, join, resolve} from 'node:path';
 import {checkAsset, type AssetKind} from '@clementina/assets';
 import {compileBasicProgram, inspectBasicProgram} from '@clementina/basic';
 import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
-import {loadProject} from '@clementina/project/node';
-import {isValue, parseDoctorArguments, parseRunArguments} from './arguments.js';
+import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
+import {loadProject, saveProject} from '@clementina/project/node';
+import {isValue, parseDoctorArguments, parseImportArguments, parseRunArguments} from './arguments.js';
 import {probeTool, type ToolProbe} from './doctor.js';
 import {EXIT_FAILURE, EXIT_OK, failure, usageFailure, type Command, type CommandResult} from './types.js';
 
@@ -58,6 +59,47 @@ const projectValidate: Command = {
   async run(args, {cwd}) {
     const loaded = await loadProject(resolve(cwd, args[2] ?? '.'));
     return validationResult(loaded.ok, loaded.diagnostics);
+  },
+};
+
+/** `project import <file.cstudio> <directory> [--name <name>]`: a Studio session as a new portable project. */
+const projectImport: Command = {
+  matches: args => args[0] === 'project' && args[1] === 'import',
+  async run(args, {cwd}) {
+    const options = parseImportArguments(args);
+    if (!options) return usageFailure('project import');
+    const source = resolve(cwd, options.source), root = resolve(cwd, options.directory);
+    let project;
+    try {
+      const session = JSON.parse(await readFile(source, 'utf8'));
+      project = importStudioProject(session, options.name ?? basename(source, extname(source)));
+    } catch (error) {
+      return failure('project.import.studio', errorMessage(error), EXIT_FAILURE, options.source);
+    }
+    const written = ['clementina.yaml', 'src/main.s', 'link.cfg', ...Object.keys(project.assets).flatMap(kind => assetPaths(project.manifest, kind as keyof typeof project.assets))];
+    for (const path of written) {
+      try {
+        await lstat(join(root, path));
+        return failure('project.import.exists', `The destination already has ${path}`, EXIT_FAILURE, options.directory);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return failure('project.import.io', errorMessage(error), EXIT_FAILURE, options.directory);
+      }
+    }
+    try {
+      await mkdir(join(root, 'src'), {recursive: true});
+      await saveProject(root, project);
+      await writeFile(join(root, 'src/main.s'), ASSEMBLY_STARTER_MAIN, {flag: 'wx'});
+      await writeFile(join(root, 'link.cfg'), ASSEMBLY_STARTER_LINK_CFG, {flag: 'wx'});
+    } catch (error) {
+      return failure('project.import.io', errorMessage(error), EXIT_FAILURE, options.directory);
+    }
+    const loaded = await loadProject(root);
+    const count = written.length - 3;
+    return {
+      ok: loaded.ok, diagnostics: loaded.diagnostics, exitCode: loaded.ok ? EXIT_OK : EXIT_FAILURE,
+      message: `Imported ${count} assets into ${options.directory}${loaded.ok ? '' : '; the project does not validate yet'}.`,
+      data: {directory: options.directory, assets: count, manifest: project.manifest},
+    };
   },
 };
 
@@ -154,4 +196,4 @@ const assetValidate: Command = {
 };
 
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, projectValidate, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, projectValidate, projectImport, basicCompile, build, run, assetValidate];

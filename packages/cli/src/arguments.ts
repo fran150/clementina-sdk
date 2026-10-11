@@ -39,3 +39,19 @@ export function parseRunArguments(args: readonly string[]): RunArguments | undef
   }
   return {directory, executable, port};
 }
+
+/** Options accepted by `clementina project import`. */
+export interface ImportArguments {source: string; directory: string; name?: string}
+
+/** Parse `project import <file.cstudio> <directory> [--name <name>]`. */
+export function parseImportArguments(args: readonly string[]): ImportArguments | undefined {
+  const positional: string[] = [];
+  let name: string | undefined;
+  for (let index = 2; index < args.length; index++) {
+    if (args[index] === '--name' && name === undefined && isValue(args[index + 1])) name = args[++index];
+    else if (isValue(args[index]) && positional.length < 2) positional.push(args[index]);
+    else return undefined;
+  }
+  if (positional.length !== 2) return undefined;
+  return {source: positional[0], directory: positional[1], ...(name !== undefined ? {name} : {})};
+}

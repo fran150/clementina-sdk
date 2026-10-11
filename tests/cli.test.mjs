@@ -92,3 +92,19 @@ test('basic compile writes the ROM LOAD format through the shared tokenizer',asy
  assert.deepEqual(result.data,{source:'main.bas',output:'game.bas',bytes:22,lines:2});
  assert.deepEqual(Array.from((await readFile(join(root,'game.bas'))).slice(-2)),[0,0]);
 });
+test('project import turns a Studio session into a validating assembly project',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'clementina-import-'));
+ const target=join(dir,'game');
+ const r=run('project','import','tests/fixtures/studio-v2.json',target,'--name','Imported','--json');
+ assert.equal(r.status,0,r.stdout+r.stderr);
+ const out=JSON.parse(r.stdout);assert.equal(out.ok,true);assert.equal(out.data.manifest.name,'Imported');
+ for(const path of Object.values(out.data.manifest.assets).flat())assert.match(path,/^assets\/[a-z-]+\/[A-Za-z0-9._-]+\.json$/);
+ assert.match(await readFile(join(target,'src/main.s'),'utf8'),/game_start/);
+ assert.match(await readFile(join(target,'link.cfg'),'utf8'),/ZEROPAGE/);
+ assert.equal(run('project','validate',target,'--json').status,0);
+ const again=run('project','import','tests/fixtures/studio-v2.json',target,'--json');
+ assert.equal(again.status,1);assert.equal(JSON.parse(again.stdout).diagnostics[0].code,'project.import.exists');
+ assert.equal(run('project','import','tests/fixtures/studio-v2.json','--json').status,2);
+ const bad=run('project','import','package.json',join(dir,'bad'),'--json');
+ assert.equal(bad.status,1);assert.equal(JSON.parse(bad.stdout).diagnostics[0].code,'project.import.studio');
+});

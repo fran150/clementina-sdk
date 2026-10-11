@@ -25,6 +25,7 @@ npm packages unchanged.
 
 ```sh
 npx clementina project validate examples/minimal-game
+npx clementina project import "My game.cstudio" path/to/new-project --name "My Game"
 npx clementina asset validate examples/minimal-game/assets/palettes/main.palette.json
 npx clementina sprite validate examples/minimal-game/assets/shapes/player_idle.shape.json
 npx clementina animation validate examples/minimal-game/assets/animations/player_idle.animation.json
@@ -33,6 +34,13 @@ npx clementina build path/to/project
 npx clementina run path/to/project --emulator /path/to/clementina-automation
 npx clementina doctor
 ```
+
+`project import` turns a Clementina Studio session file (`.cstudio`, format
+version 2) into a new portable assembly project. It refuses to overwrite any
+file, so the destination may be the folder that holds the session. Each asset is written to `assets/<kind>/<asset name>.json`, the session's
+Builder settings become `build.assets`, and a starter `src/main.s` and `link.cfg`
+are added. The name defaults to the session file's name. Studio opens the
+resulting `clementina.yaml` with File > Open and keeps the file paths on save.
 
 `project validate` defaults to the current directory. It reads `clementina.yaml`,
 loads listed assets, validates references and ensures program source files exist.
