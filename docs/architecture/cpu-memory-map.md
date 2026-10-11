@@ -15,8 +15,8 @@ Important base-RAM areas:
 - `$0200-$02FF` line-input buffer
 - `$0300-$03FF` kernel/editor variables
 - `$0400-$04B6` fixed kernel working RAM
-- `$04B7-$04E6` fixed kernel jump table
-- from `$04E7` upward: linked kernel/WozMon/BASIC image, followed by BASIC heap
+- `$04B7-$04E0` fixed kernel jump table
+- from `$04E1` upward: linked kernel/WozMon/BASIC image, followed by BASIC heap
 
 The current intended image is bottom-anchored at `$04B7`. Never hardcode the
 current BASIC heap start because it moves as the ROM grows.
