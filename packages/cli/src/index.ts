@@ -10,6 +10,8 @@ const HELP_FLAGS = ['--help', '-h', 'help'];
 
 export const help = `Usage: clementina <command> [--json]
   project validate [directory]   Validate manifest, assets, references, and sources
+  project import <file.cstudio> <directory> [--name <name>]
+                                Turn a Studio session into a new assembly project
   asset validate <file>          Validate any portable asset
   sprite validate <file>         Validate a portable shape (one or more sprites)
   animation validate <file>      Validate a portable animation
