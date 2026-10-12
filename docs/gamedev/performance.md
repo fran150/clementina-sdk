@@ -1,7 +1,7 @@
 # Performance guidance
 
 Facts:
-- requested PHI2 range: 1 Hz-8 MHz
+- requested PHI2 range: 1 Hz-8 MHz, none of it guaranteed yet (see `docs/architecture/timing-and-interrupts.md`)
 - video is dirty-page/client-paced
 - logical display: 320×200
 - host client defaults to 25 FPS requests
