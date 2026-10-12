@@ -74,9 +74,9 @@ or `resume`. Cycle counts are decimal strings to preserve uint64 precision. Timi
 host wall-clock semantics; cycle stepping does not provide deterministic replay.
 
 Memory reads use the existing mapped peek, including the selected external-RAM
-bank. Unsupported I/O peeks return `null`, never a fabricated zero. The upstream
-MIA peek currently mirrors its register window throughout the high CPU region;
-this is emulator behavior, not a hardware guarantee for reserved `$E000-$FFDF`.
+bank. Unsupported I/O peeks return `null`, never a fabricated zero. A peek in
+`$E000-$FFDF` returns the mirrored MIA register, as on the hardware, without
+the read's side effects.
 Text bytes pass through `DebugQueueInput`; source-mode and existing FIFO overflow
 semantics still apply. A successful call means injection, not ROM consumption.
 No runtime memory allocation is added. The former sequencer/SD MIA-RAM overlap is

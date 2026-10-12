@@ -6,7 +6,7 @@
 | `$8000-$BFFF` | 16 KiB banked window over 512 KiB extended RAM |
 | `$C000-$DFFF` | eight 1 KiB I/O slots |
 | `$E000-$FFFF` | MIA region |
-| `$FFE0-$FFFF` | guaranteed 32-byte MIA register block |
+| `$FFE0-$FFFF` | 32-byte MIA register block |
 
 Important base-RAM areas:
 
@@ -34,4 +34,10 @@ runs; bank-aware software may use banks 1-31 and must restore bank 0 before retu
 The 65C22 VIA occupies `$C000-$C3FF`, mirrored every 16 bytes. Remaining I/O
 slots are presently free.
 
-Only `$FFE0-$FFFF` is guaranteed within the MIA CPU region; `$E000-$FFDF` is reserved.
+## MIA region
+
+MIA is selected for all of `$E000-$FFFF` but sees only A0-A4, so its 32
+registers at `$FFE0-$FFFF` repeat every 32 bytes across `$E000-$FFDF`. A mirror
+is the same register, side effects included (reading `$E010` clears pending
+IRQs like `$FFF0`). Programs use `$FFE0-$FFFF` only and never touch
+`$E000-$FFDF`.
