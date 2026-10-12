@@ -15,7 +15,11 @@ export interface ClementinaMachineSpec {
   format: "clementina-machine";
   version: number;
   cpu: { model: string; addressBits: number; cpuAddressSpaceBytes: number };
-  miaRam: { addressBits: number; start: number; end: number; size: number };
+  /** `firmware` is MIA's own state, `programs` is free for programs. */
+  miaRam: {
+    addressBits: number; start: number; end: number; size: number;
+    firmware: { start: number; end: number }; programs: { start: number; end: number };
+  };
 }
 
 /** A machine-readable issue with a human-readable explanation. */

@@ -46,7 +46,7 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
 }
 export function validateProjectManifest(value: unknown): void { assertValid(checkProjectManifest(value)); }
 
-/** MIA RAM a user slot may use: everything the firmware leaves free. */
+/** MIA RAM a user slot may use: the programs block, specs/machine.json miaRam.programs. */
 export const MIA_FREE_START = 0x14000, MIA_FREE_END = 0x40000;
 /** Slots every build has: the hardware places a file can load straight into. */
 export const BUILTIN_SLOTS: readonly Required<Pick<ProjectAssetSlot, 'name' | 'mia' | 'size'>>[] = [

@@ -43,10 +43,12 @@ needs neither the kernel nor BASIC.
 Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
 `audio/audio.h`, `sd/sd.h`.
 
-- `$14000–$17FFF` is free. `AUDIO_RESET` does not clear it.
-- The firmware assigns nothing to `$00040–$000FF`, `$10D50–$10FFF`,
-  `$11080–$11FFF`, `$12050–$12FFF` or `$13C00–$13FFF`. The Builder shows these
-  gaps but doesn't offer them as slots until the firmware documents them as free.
+- `$14000–$3FFFF` is the programs' block of MIA RAM. The firmware writes it
+  only where a program points it, and no reset clears it.
+- Everything below `$14000` belongs to the firmware, including the unassigned
+  gaps `$00040–$000FF`, `$10D50–$10FFF`, `$11080–$11FFF`, `$12050–$12FFF` and
+  `$13C00–$13FFF`, which it keeps for future state. The Builder shows the gaps
+  but never offers them as slots.
 
 ### CPU memory
 

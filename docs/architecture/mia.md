@@ -2,6 +2,24 @@
 
 MIA has a 32-byte CPU register window at `$FFE0-$FFFF` plus 256 KiB of separate RAM.
 
+## RAM map
+
+MIA RAM is split at `$14000`. The firmware owns `$00000-$13FFF` and programs
+own `$14000-$3FFFF` (176 KiB); `specs/machine.json` `miaRam` records both
+blocks.
+
+| Range | Owner |
+| --- | --- |
+| `$00000-$10D4F` | Video |
+| `$11000-$1107F` | Input, clock snapshot at `$11078` |
+| `$12000-$1204F` | Audio |
+| `$13000-$13BFF` | SD/FS |
+| `$14000-$3FFFF` | Programs |
+
+The gaps below `$14000` belong to the firmware. The firmware writes the
+programs block only where a program points it, and no reset clears it.
+Source: the "MIA RAM map" in `clementina-mia`'s README.
+
 ## Indexed RAM
 
 There are 256 descriptors and two active windows, A and B. Each descriptor has:
