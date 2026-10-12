@@ -10,6 +10,18 @@ MIA generates PHI2.
 
 Speed changes are staged through MIA configuration fields and applied asynchronously.
 
+No speed is guaranteed yet; the board has not been built and tested. What each
+range depends on:
+
+| PHI2 | Pico clock | Board glue logic |
+| --- | --- | --- |
+| up to 4.6875 MHz | 150 MHz, the RP2350's rated clock | within datasheet timing with worst-case parts |
+| 4.6875-6.5 MHz | overclocked to 256 MHz | within datasheet timing with worst-case parts |
+| 6.5-8 MHz | overclocked to 256 MHz | needs typical parts |
+
+Sources: `clementina-mia` README "PHI2 Speed Control" and `clementina-hardware`
+README "Glue logic timing".
+
 ## Wall time
 
 For gameplay and elapsed-time logic, prefer MIA wall time over counting CPU cycles.
