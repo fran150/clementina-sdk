@@ -1,3 +1,4 @@
+import {basicRuntimeDebug} from '@clementina/basic';
 import type {EmulatorClient} from '@clementina/emulator-client';
 
 /** A decoded simple variable in the ROM BASIC variable table. */
@@ -9,7 +10,7 @@ export interface BasicRuntimeVariable {
 
 /** Read the ROM's simple-variable table and return variables sorted by name. */
 export async function readBasicVariables(client: EmulatorClient): Promise<BasicRuntimeVariable[]> {
-  const pointers = await readBytes(client, 0x007c, 4);
+  const pointers = await readBytes(client, basicRuntimeDebug.variableTablePointerAddress, 4);
   const vartab = pointers[0]! | (pointers[1]! << 8);
   const arytab = pointers[2]! | (pointers[3]! << 8);
   if (arytab < vartab || (arytab - vartab) % 7 !== 0) throw new Error('Invalid BASIC variable table bounds');
