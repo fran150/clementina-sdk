@@ -4,7 +4,10 @@ One active source feeds a common interface:
 
 - console
 - Wi-Fi
-- USB host
+
+Input mode 2 (USB host) and source bit 7 are reserved for a USB keyboard on a
+later board. Rev 1 is powered through the Pico's USB port, so MIA reports that
+mode as unavailable and `INPUTMODE 2` errors.
 
 The CPU can consume a 64-byte text FIFO, held keyboard/consumer HID bitmaps,
 mouse state, four gamepads, source/capability flags, and event flags.
