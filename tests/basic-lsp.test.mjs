@@ -142,7 +142,7 @@ test('formatBasicSource keeps valid shorthand when LIST expansion exceeds the in
   const output = formatBasicSource(input);
   assert.equal(output, input);
   assert.deepEqual(analyzeDiagnostics(output), []);
-  const atLimit = `10${'?:'.repeat(34)}?\n`;
+  const atLimit = `10${'?:'.repeat(38)}?1\n`;
   assert.equal(formatBasicSource(atLimit), atLimit);
   assert.deepEqual(analyzeDiagnostics(formatBasicSource(atLimit)), []);
 });

@@ -8,7 +8,7 @@ and [`specs/schema/load-plan.schema.json`](../../specs/schema/load-plan.schema.j
 
 - Node.js 20 or newer.
 - `@clementina/core` 0.2.0, installed with this package.
-- Numbered source using printable 7-bit ASCII, at most 71 input characters per
+- Numbered source using printable 7-bit ASCII, at most 80 input characters per
   line, and line numbers from 0 through 63999.
 
 ## Use

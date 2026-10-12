@@ -12,7 +12,7 @@ the ROM tokenizer, parser, token tables, and source limits.
 - An editor with a generic LSP client for server use. Associate `.bas` files
   with the `clementina-basic-lsp` executable and use stdio transport.
 - Numbered Clementina BASIC source encoded as printable 7-bit ASCII. The ROM
-  accepts line numbers from 0 through 63999 and at most 71 input characters
+  accepts line numbers from 0 through 63999 and at most 80 input characters
   per source line.
 
 Install with `npm install @clementina/basic-lsp`. Launch the server from your

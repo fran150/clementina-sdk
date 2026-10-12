@@ -20,7 +20,7 @@ export const basicTokenTables = {
   extensionSubtokenStart: 0x80,
 } as const;
 
-export const basicSourceLimits = {maxLineNumber: 63999, maxInputCharacters: 71} as const;
+export const basicSourceLimits = {maxLineNumber: 63999, maxInputCharacters: 80} as const;
 /** ROM interpreter hook used by source debuggers; synchronized with specs/basic.json. */
 export const basicRuntimeDebug = {
   statementBoundaryAddress: 0x1e92,

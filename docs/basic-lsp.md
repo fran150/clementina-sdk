@@ -37,7 +37,7 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
 - **Formatting**: round-trips through the canonical tokenizer and detokenizer,
   producing ROM `LIST`-style source. Effective program lines are sorted, keywords
   are uppercased, and quoted/`DATA`/`REM` text keeps its lexical content. If a
-  canonical line exceeds the ROM's 71-character input limit, formatting keeps
+  canonical line exceeds the ROM's 80-character input limit, formatting keeps
   that valid source line's shorthand instead.
 - **Renumbering**: the `Renumber BASIC program` source action defaults to line 10
   with a step of 10 and updates static references to existing lines. The VS Code
