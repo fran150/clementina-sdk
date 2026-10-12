@@ -4,7 +4,7 @@ import {readFile, mkdtemp, writeFile, cp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {checkProject, checkProjectManifest} from '../packages/project/dist/index.js';
+import {checkProject, checkProjectManifest, MIA_FREE_START, MIA_FREE_END} from '../packages/project/dist/index.js';
 import {saveProject} from '../packages/project/dist/node.js';
 import {planAssetBuild, buildProject, runtimeCodeSize} from '../packages/build/dist/index.js';
 import {runtimeDirectory, RUNTIME_DESCRIPTOR, RUNTIME_STATE_SIZE, RUNTIME_ANIM_SIZE} from '../packages/runtime/dist/index.js';
@@ -16,6 +16,10 @@ function project() {
  return {assets,manifest:{format:'clementina-project',version:1,name:'Runtime demo',target:{machine:'clementina-6502'},program:{kind:'assembly',entry:'src/main.s'},assets:Object.fromEntries(Object.entries(assets).map(([k,a])=>[k,a.map((_,i)=>`assets/${k}/${i}.json`)])),build:{outputDirectory:'build',assembly:{linkerConfig:'link.cfg',outputName:'demo',loadAddress:0x1800,entrySymbol:'game_start'},assets:{slots:[{name:'work',mia:0x14000,size:0x10000},{name:'bank',bank:1,address:0x8000,size:0x4000}],include:Object.entries(kinds).map(([kind,list])=>({kind,id:assets[list][0].id,slot:'work'}))}}}};
 }
 const codes=r=>r.diagnostics.map(d=>d.code);
+test('Builder slots use the MIA RAM programs block from the machine spec', async () => {
+ const {miaRam}=JSON.parse(await readFile(new URL('../specs/machine.json',import.meta.url),'utf8'));
+ assert.deepEqual([MIA_FREE_START,MIA_FREE_END-1],[miaRam.programs.start,miaRam.programs.end]);
+});
 test('Builder validates slot placement, bounds, overlap and include references',()=>{
  assert.equal(checkProject(project()).ok,true);
  for(const [edit,code] of [
