@@ -1,6 +1,6 @@
 {
   "format":"clementina-input","version":1,
-  "modes":[{"id":0,"name":"console"},{"id":1,"name":"wifi"},{"id":2,"name":"usb-host"}],
+  "modes":[{"id":0,"name":"console"},{"id":1,"name":"wifi"},{"id":2,"name":"usb-host","reserved":true,"note":"reserved for a USB keyboard on a later board; MIA reports it unavailable on rev 1"}],
   "textFifo":{"size":64,"encoding":"PETSCII-compatible","overflow":"drop-oldest"},
   "wifi":{"udpPort":6503},
   "stateRegion":{"start":69632,"endExclusive":69760,"size":128},
