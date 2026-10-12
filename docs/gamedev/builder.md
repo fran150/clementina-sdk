@@ -210,7 +210,8 @@ by number.
 - **Initialization.** BLOAD does not clear BSS. The game must zero its BSS
   before the first runtime call; `examples/runtime-demo/src/main.s` shows this.
   Link at `$1800` or higher to preserve the resident loader. Keep zero page
-  below `$F0` while using the kernel IRQ, which updates `$F7–$F8`.
+  below `$E0`: `$E0–$FF` belongs to the system, and the kernel IRQ updates
+  `$F7–$F8`.
 - **Results.** Carry is clear on success. On failure carry is set and the
   reason is in `rt_error`.
 - **MIA resources.** Routines use both index windows, `CFG_SELECT` and the

@@ -10,7 +10,10 @@
 
 Important base-RAM areas:
 
-- `$0000-$00FF` zero page
+- `$0000-$00FF` zero page: BASIC `$00-$97`; free for programs `$98-$DF`;
+  system `$E0-$FF` (spare `$E0-$E7`, WozMon `$E8-$EF`, kernel `$F0-$FF`).
+  Machine code that returns to BASIC uses only `$98-$DF`; a program that
+  replaces BASIC may also use `$00-$97`.
 - `$0100-$01FF` CPU stack
 - `$0200-$02FF` line-input buffer
 - `$0300-$03FF` kernel/editor variables

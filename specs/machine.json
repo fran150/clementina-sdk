@@ -10,7 +10,8 @@
     "via":{"start":49152,"end":50175,"registerMirrorPeriod":16},
     "miaRegion":{"start":57344,"end":65535},
     "miaGuaranteedRegisters":{"start":65504,"end":65535,"size":32},
-    "miaReservedHighRegion":{"start":57344,"end":65503,"guaranteed":false}
+    "miaReservedHighRegion":{"start":57344,"end":65503,"guaranteed":false},
+    "zeroPage":{"basic":{"start":0,"end":151},"programs":{"start":152,"end":223},"systemSpare":{"start":224,"end":231},"wozmon":{"start":232,"end":239},"kernel":{"start":240,"end":255}}
   },
   "miaRam":{"addressBits":18,"start":0,"end":262143,"size":262144},
   "kernel":{"intendedLoadBase":1207,"jumpTable":{"start":1207,"end":1248,"entrySize":3}},

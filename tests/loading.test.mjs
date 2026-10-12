@@ -103,6 +103,7 @@ test('BASIC token tables stay synchronized with the developer spec', async () =>
   assert.equal(basicTokenTables.mon,spec.tokens.special.MON);
   assert.equal(basicRuntimeDebug.statementBoundaryAddress,spec.runtimeDebug.statementBoundaryAddress);
   assert.equal(basicRuntimeDebug.currentLineAddress,spec.runtimeDebug.currentLineAddress);
+  assert.equal(basicRuntimeDebug.variableTablePointerAddress,spec.runtimeDebug.variableTablePointerAddress);
   assert.equal(basicRuntimeDebug.directModeLine,spec.runtimeDebug.directModeLine);
 });
 
