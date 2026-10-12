@@ -85,7 +85,7 @@ MIA steps name the exact file length and must fit in the physical 256 KiB MIA RA
 Lengths at most 65,535 are emitted as `MIALOAD`'s `maxlen`; larger exact files load
 to EOF because the BASIC argument is only 16-bit. Paths are relative portable paths
 inside the mounted build output and cannot contain traversal, quotes, backslashes,
-or control characters. Generated lines must fit the ROM's 71-character input limit.
+or control characters. Generated lines must fit the ROM's 80-character input limit.
 The SDK caps a plan at 6,399 steps so its line numbers, emitted in increments of
 10, remain within the ROM BASIC line-number parser's range.
 

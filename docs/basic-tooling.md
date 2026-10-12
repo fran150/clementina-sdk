@@ -44,7 +44,7 @@ end of the installed ROM image and can move when the ROM changes.
 
 The tokenizer mirrors the ROM behavior:
 
-- source lines use printable 7-bit ASCII, contain at most 71 characters, and use
+- source lines use printable 7-bit ASCII, contain at most 80 characters, and use
   line numbers 0 through 63999;
 - lines are stored in numeric order; a later duplicate replaces an earlier one,
   and a number with no body deletes that line, matching interactive entry;

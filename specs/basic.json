@@ -4,7 +4,7 @@
   "source": "clementina-rom/src/basic/token.s, program.s, misc1.s, inline.s, clementina_extra.s and defines_clementina.s",
   "sourceLimits": {
     "maxLineNumber": 63999,
-    "maxInputCharacters": 71,
+    "maxInputCharacters": 80,
     "encoding": "7-bit ASCII for portable source"
   },
   "runtimeDebug": {

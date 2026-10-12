@@ -61,22 +61,22 @@ test('load plans enforce terminal takeover and the permanently reserved SD/FS re
 
 test('BASIC launch commands share the editor limit with numbered bootstraps', () => {
   const directPlan = {format: 'clementina-load-plan', version: 1, steps: [
-    {kind: 'mia', path: 'A'.repeat(55), address: 256, length: 1},
+    {kind: 'mia', path: 'A'.repeat(64), address: 256, length: 1},
     {kind: 'basic', path: 'GAME.BAS', length: 2},
   ]};
   const launch = renderLoadPlanLaunch(directPlan);
   assert.deepEqual(launch, {
     mode: 'direct',
-    lines: [`MIALOAD "${'A'.repeat(55)}",256,1`, 'LOAD "GAME.BAS"'],
+    lines: [`MIALOAD "${'A'.repeat(64)}",256,1`, 'LOAD "GAME.BAS"'],
     startCommand: 'RUN',
   });
-  assert.equal(launch.lines[0].length, 71);
+  assert.equal(launch.lines[0].length, 80);
   assert.equal(checkBootstrapSource(directPlan).diagnostics.some(d => d.code === 'load.basic.bootstrap'), true);
   assert.equal(checkLoadPlanLaunch({...directPlan, steps: [
-    {...directPlan.steps[0], path: 'A'.repeat(56)}, directPlan.steps[1],
+    {...directPlan.steps[0], path: 'A'.repeat(65)}, directPlan.steps[1],
   ]}).diagnostics.some(d => d.code === 'load.basic.line'), true);
   assert.equal(checkBootstrapSource({...plan, steps: [
-    {...directPlan.steps[0], path: 'A'.repeat(53)}, plan.steps[2],
+    {...directPlan.steps[0], path: 'A'.repeat(62)}, plan.steps[2],
   ]}).diagnostics.some(d => d.code === 'load.basic.line'), true);
 });
 
@@ -146,7 +146,7 @@ test('BASIC compiler emits LOAD-ready links and exact absolute line records', ()
 
 test('BASIC compiler mirrors editor replacement/deletion and rejects unsafe source', () => {
   assert.equal(detokenizeBasicProgram(compileBasicProgram('10 PRINT 1\n10 PRINT 2\n20\n')),'10 PRINT 2\n');
-  for(const source of ['PRINT 1','64000 PRINT 1',`10 ${'A'.repeat(69)}`,'10 PRINT "é"']) {
+  for(const source of ['PRINT 1','64000 PRINT 1',`10 ${'A'.repeat(78)}`,'10 PRINT "é"']) {
     assert.throws(()=>compileBasicProgram(source));
   }
   assert.throws(()=>inspectBasicProgram(Uint8Array.of(0xff,0xff,10,0,0,0)),/end marker|forward link|bytes follow/i);
