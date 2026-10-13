@@ -27,7 +27,7 @@ MIA `MIALOAD/MIASAVE`, and asset load/save operations.
 
 CPU PRG convention:
 - unbanked: 2-byte little-endian load address
-- banked `$8000-$BFFF`: load address plus explicit bank byte 1-31
+- banked `$8000-$BFFF`: load address plus explicit bank byte 0-31
 
 ## Audio
 BASIC drives four PSG voices and a MIA-side background sequencer.

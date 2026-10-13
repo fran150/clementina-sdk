@@ -1378,7 +1378,7 @@ export const schemas = {
                 },
                 "bank": {
                   "type": "integer",
-                  "minimum": 1,
+                  "minimum": 0,
                   "maximum": 31
                 },
                 "runAddress": {

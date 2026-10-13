@@ -31,6 +31,8 @@ hardcode the current BASIC heap start because it moves as the ROM grows.
 
 VIA Port A PA0-PA4 selects 32 banks. Bank 0 is BASIC's live high heap while BASIC
 runs; bank-aware software may use banks 1-31 and must restore bank 0 before returning.
+A program that lowers `MEMSIZ` and runs `CLEAR` can also use bank 0 above it (see
+[program loading](../program-loading.md)).
 
 ## I/O
 

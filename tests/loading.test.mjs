@@ -38,19 +38,28 @@ test('load plans render ordered ROM BASIC bootstrap source', () => {
   ].join('\n'));
 });
 
-test('load plans enforce terminal takeover and the permanently reserved SD/FS region', () => {
+test('load plans enforce terminal takeover and warn about risky destinations', () => {
+  const warns = (value, code) => {
+    const checked = checkLoadPlan(value);
+    assert.equal(checked.ok, true);
+    assert.ok(checked.diagnostics.some(d => d.code === code && d.severity === 'warning'));
+  };
   const overlap = {format: 'clementina-load-plan', version: 1, steps: [
     {kind: 'mia', path: 'TRACK.BIN', address: 0x13000, length: 16},
     {kind: 'prg', path: 'GAME.PRG', loadAddress: 0x6000, length: 1, runAddress: 0x6000},
   ]};
-  assert.ok(checkLoadPlan(overlap).diagnostics.some(d => d.code === 'load.mia.reserved'));
-  assert.equal(checkLoadPlan({...overlap, steps: [
+  warns(overlap, 'load.mia.reserved');
+  assert.deepEqual(checkLoadPlan({...overlap, steps: [
     {kind: 'mia', path: 'TRACK.BIN', address: 0x14000, length: 16}, overlap.steps[1],
-  ]}).ok, true);
+  ]}).diagnostics, []);
+  warns({...plan, steps: [{kind: 'prg', path: 'LOW.PRG', loadAddress: 0x2000, length: 1}, plan.steps[2]]}, 'load.prg.return');
+  warns({...plan, steps: [{kind: 'prg', path: 'TOP.PRG', loadAddress: 0xb000, bank: 0, length: 1}, plan.steps[2]]}, 'load.prg.return');
+  assert.deepEqual(checkLoadPlan({...plan, steps: [
+    {kind: 'prg', path: 'GAME.PRG', loadAddress: 0x8000, bank: 0, length: 1, runAddress: 0x8000},
+  ]}).diagnostics, []);
   for (const changed of [
     {...plan, steps: plan.steps.slice(0, 2)},
     {...plan, steps: [plan.steps[2], plan.steps[0]]},
-    {...plan, steps: [{kind: 'prg', path: 'LOW.PRG', loadAddress: 0x2000, length: 1}, plan.steps[2]]},
     {...plan, steps: [{kind: 'mia', path: '../BAD.BIN', address: 0, length: 1}, plan.steps[2]]},
     {...plan, steps: [{kind: 'mia', path: 'TOO-LARGE.BIN', address: 0x3ffff, length: 2}, plan.steps[2]]},
   ]) assert.equal(checkLoadPlan(changed).ok, false);
@@ -90,7 +99,8 @@ test('PRG helpers implement and validate unbanked and banked headers', () => {
   assert.deepEqual(inspectPrg(banked), {loadAddress: 0x8000, bank: 7, headerLength: 3, payloadLength: 3});
   assert.throws(() => encodePrg(payload, 0x8000), /Bank/);
   assert.throws(() => encodePrg(payload, 0x6000, 1), /must not declare/);
-  assert.throws(() => inspectPrg(Uint8Array.of(0, 0x80, 0, 1)), /bank|>= 1/i);
+  assert.deepEqual(inspectPrg(Uint8Array.of(0, 0xb0, 0, 1)), {loadAddress: 0xb000, bank: 0, headerLength: 3, payloadLength: 1});
+  assert.throws(() => inspectPrg(Uint8Array.of(0, 0x80, 32, 1)), /bank|<= 31/i);
   assert.throws(() => encodePrg(new Uint8Array(0), 0x6000), /non-empty/);
 });
 

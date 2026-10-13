@@ -34,7 +34,7 @@
               "path": {"type": "string", "minLength": 1, "maxLength": 255},
               "loadAddress": {"type": "integer", "minimum": 1, "maximum": 49151},
               "length": {"type": "integer", "minimum": 1, "maximum": 524288},
-              "bank": {"type": "integer", "minimum": 1, "maximum": 31},
+              "bank": {"type": "integer", "minimum": 0, "maximum": 31},
               "runAddress": {"type": "integer", "minimum": 1, "maximum": 65535}
             }
           },
