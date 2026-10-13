@@ -17,12 +17,12 @@ Important base-RAM areas:
 - `$0100-$01FF` CPU stack
 - `$0200-$02FF` line-input buffer
 - `$0300-$03FF` kernel/editor variables
-- `$0400-$04B6` fixed kernel working RAM
-- `$04B7-$04E3` fixed kernel jump table
-- from `$04E4` upward: linked kernel/WozMon/BASIC image, followed by BASIC heap
+- `$0400-$042C` fixed kernel jump table, the first bytes of the loaded image
+- from `$042D` upward: the rest of the image (BASIC's DIR scratch buffer,
+  kernel, WozMon, BASIC), followed by BASIC heap
 
-The current intended image is bottom-anchored at `$04B7`. Never hardcode the
-current BASIC heap start because it moves as the ROM grows.
+The image is bottom-anchored at `$0400`, so base RAM has no unused gap. Never
+hardcode the current BASIC heap start because it moves as the ROM grows.
 
 ## Extended RAM
 

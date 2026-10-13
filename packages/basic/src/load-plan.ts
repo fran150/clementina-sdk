@@ -53,7 +53,7 @@ const MIA_SIZE = 0x40000;
 /** SD/FS control/sector/path/dir/transfer state; permanently reserved (see specs/storage.json). */
 const SDFS_RESERVED_START = 0x13000;
 const SDFS_RESERVED_END = 0x13c00;
-const KERNEL_BASE = 0x04b7;
+const KERNEL_BASE = 0x0400;
 
 /** Check whether a path can be safely emitted inside a ROM BASIC quoted argument. */
 function portablePath(path: string): boolean {
