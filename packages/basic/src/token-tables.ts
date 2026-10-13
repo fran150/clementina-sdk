@@ -23,7 +23,7 @@ export const basicTokenTables = {
 export const basicSourceLimits = {maxLineNumber: 63999, maxInputCharacters: 80} as const;
 /** ROM interpreter hook used by source debuggers; synchronized with specs/basic.json. */
 export const basicRuntimeDebug = {
-  statementBoundaryAddress: 0x1e3c,
+  statementBoundaryAddress: 0x1e2a,
   currentLineAddress: 0x0041,
   /** VARTAB, followed by ARYTAB: the simple-variable table's bounds. */
   variableTablePointerAddress: 0x0035,

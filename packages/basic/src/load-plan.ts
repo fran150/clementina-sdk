@@ -22,7 +22,7 @@ export interface PrgLoadStep {
   loadAddress: number;
   /** Payload length, excluding the two- or three-byte PRG header. */
   length: number;
-  /** Required for load addresses $8000-$BFFF; forbidden below $8000. */
+  /** Bank 0-31, required for load addresses $8000-$BFFF; forbidden below $8000. */
   bank?: number;
   /** A nonzero value makes this the terminal takeover step. */
   runAddress?: number;
@@ -50,7 +50,7 @@ export interface LoadPlanLaunch {
 }
 
 const MIA_SIZE = 0x40000;
-/** SD/FS control/sector/path/dir/transfer state; permanently reserved (see specs/storage.json). */
+/** SD/FS control/sector/path/dir/transfer state (see specs/storage.json); loading over it only warns. */
 const SDFS_RESERVED_START = 0x13000;
 const SDFS_RESERVED_END = 0x13c00;
 const KERNEL_BASE = 0x0400;
@@ -69,7 +69,16 @@ function prgCapacity(step: Pick<PrgLoadStep, 'loadAddress' | 'bank'>): number {
   return (32 - step.bank) * 0x4000 - (step.loadAddress - 0x8000);
 }
 
-/** Validate an untrusted, versioned load plan without coercion. */
+/** A diagnostic that reports a likely mistake without failing the plan. */
+function warning(code: string, path: string, message: string): ClementinaDiagnostic {
+  return {...diagnostic(code, path, message), severity: 'warning'};
+}
+
+/**
+ * Validate an untrusted, versioned load plan without coercion. The ROM loads
+ * wherever a plan says, so a destination that may overwrite BASIC or the SD/FS
+ * state is a warning, not an error.
+ */
 export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
   const diagnostics = schemaDiagnostics('load-plan', value);
   if (diagnostics.length) return result(value, diagnostics);
@@ -85,7 +94,7 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
       const end = step.address + step.length;
       if (end > MIA_SIZE) diagnostics.push(diagnostic('load.mia.bounds', base, 'MIA load exceeds the 256 KiB MIA RAM'));
       if (step.address < SDFS_RESERVED_END && end > SDFS_RESERVED_START) {
-        diagnostics.push(diagnostic('load.mia.reserved', base, 'MIA load overlaps the permanently reserved SD/FS state region $13000-$13BFF'));
+        diagnostics.push(warning('load.mia.reserved', base, 'MIA load overlaps the SD/FS state at $13000-$13BFF that later file commands rely on'));
       }
       return;
     }
@@ -97,14 +106,14 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
     }
 
     const banked = step.loadAddress >= 0x8000;
-    if (banked && step.bank === undefined) diagnostics.push(diagnostic('load.prg.bank', `${base}/bank`, 'Bank 1-31 is required for a PRG loading at $8000-$BFFF'));
+    if (banked && step.bank === undefined) diagnostics.push(diagnostic('load.prg.bank', `${base}/bank`, 'Bank 0-31 is required for a PRG loading at $8000-$BFFF'));
     if (!banked && step.bank !== undefined) diagnostics.push(diagnostic('load.prg.bank', `${base}/bank`, 'An unbanked PRG must not declare a bank'));
-    if (step.length > prgCapacity(step)) diagnostics.push(diagnostic('load.prg.bounds', base, 'PRG payload exceeds its available unbanked RAM or banks 1-31'));
+    if (step.length > prgCapacity(step)) diagnostics.push(diagnostic('load.prg.bounds', base, 'PRG payload exceeds its available unbanked RAM or the banks up to 31'));
     if (step.runAddress !== undefined) {
       if (terminal !== -1) diagnostics.push(diagnostic('load.run.multiple', `${base}/runAddress`, 'Only one terminal run step is allowed'));
       terminal = index;
-    } else if (!banked) {
-      diagnostics.push(diagnostic('load.prg.return', base, `Portable plans do not use returning unbanked BLOADs: below $${KERNEL_BASE.toString(16).toUpperCase()} is system RAM and at/above it may overwrite BASIC; use a banked image or make it the terminal run step`));
+    } else if (!banked || step.bank === 0) {
+      diagnostics.push(warning('load.prg.return', base, `This BLOAD returns to BASIC: below $${KERNEL_BASE.toString(16).toUpperCase()} is system RAM, and from there up through bank 0 it may overwrite the kernel or BASIC unless the program lowered MEMSIZ; banks 1-31 are always safe`));
     }
   });
 

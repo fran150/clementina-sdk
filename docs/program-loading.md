@@ -12,7 +12,8 @@ program. The game then loads its assets through the runtime.
 `buildProject().value.sdRoot` is project-relative. CLI `run`, SDK debug sessions
 and Studio mount `resolve(projectRoot, build.sdRoot)`; load-plan paths are
 relative to that mount. Builds without `build.assets` retain `sdRoot: "."`.
-Load runtime games at `$1800` or higher so BLOAD's resident loader survives.
+Load runtime games at `$1800` or higher so BLOAD's resident loader survives: the
+kernel, which holds the loader, ends below `$1600`, and `$1800` leaves some room.
 
 
 The common Clementina runtime entry point is a small BASIC bootstrap. It loads
@@ -37,10 +38,11 @@ The final line uses `BLOAD`'s run argument:
 
 `BLOAD "GAME.PRG",24576` loads the PRG according to its header and jumps to
 `$6000`. It does not return to BASIC. A separate `BLOAD` followed by `SYS` is not
-the standard takeover path: the ROM rejects a returning unbanked load into BASIC's
-resident region at or above `$0400`, since the load can overwrite the interpreter.
+the standard takeover path: the ROM loads wherever the file says, so a returning
+load at or above `$0400` may overwrite the kernel or the interpreter it returns to.
 `SYS` remains appropriate for a machine-code subroutine that was loaded without
-destroying BASIC and returns with `RTS`.
+destroying BASIC and returns with `RTS`: below `$0400` (`$0280-$02F7` is free), in
+banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE 63,lo:POKE 64,hi:CLEAR`).
 
 ## Portable load plan
 
@@ -74,12 +76,13 @@ const info = inspectPrg(file);
 Steps execute in array order. An assembly plan ends with exactly one PRG step
 containing `runAddress`; no later step could execute because the kernel jumps away
 permanently. A BASIC plan ends with the `basic` step described below.
-Returning PRG steps use `$8000-$BFFF` with an explicit bank 1-31. Although the ROM
-loader can return from some lower unbanked addresses, the space below `$0400` is
-system zero page, stack, input buffers and kernel variables rather than portable
-program storage. The SDK therefore does not generate returning unbanked loads. The terminal
-image may be unbanked or banked. Payload bounds account for the loader's automatic
-advance across extended-RAM banks.
+Returning PRG steps normally use `$8000-$BFFF` with an explicit bank 1-31, which
+BASIC never touches. The ROM loads a returning PRG anywhere, so the check only warns
+(`load.prg.return`) about a returning unbanked or bank-0 step: below `$0400` is
+system zero page, stack, input buffers and kernel variables, and from `$0400` up
+through bank 0 the load may overwrite the kernel or BASIC unless the program lowered
+`MEMSIZ`. The terminal image may be unbanked or banked, in any bank 0-31. Payload
+bounds account for the loader's automatic advance across extended-RAM banks.
 
 MIA steps name the exact file length and must fit in the physical 256 KiB MIA RAM.
 Lengths at most 65,535 are emitted as `MIALOAD`'s `maxlen`; larger exact files load
@@ -90,11 +93,11 @@ The SDK caps a plan at 6,399 steps so its line numbers, emitted in increments of
 10, remain within the ROM BASIC line-number parser's range.
 
 SD/FS state permanently occupies MIA RAM `$13000-$13BFF` (see
-`docs/architecture/storage.md`). A `mia` step that overlaps that range always
-fails validation; there is no acknowledgement escape, since nothing else has a
-legitimate default claim on that range (the audio sequencer's tracks defaulted
-there in early firmware; tracks now have no default address — see
-`docs/compatibility.md`).
+`docs/architecture/storage.md`). A `mia` step that overlaps that range gets a
+`load.mia.reserved` warning: MIA loads it over the state that later file
+commands, including the rest of the plan, rely on. Nothing else has a default
+claim on that range (the audio sequencer's tracks defaulted there in early
+firmware; tracks now have no default address — see `docs/compatibility.md`).
 
 ## BASIC terminal step
 

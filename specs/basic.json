@@ -8,11 +8,11 @@
     "encoding": "7-bit ASCII for portable source"
   },
   "runtimeDebug": {
-    "statementBoundaryAddress": 7740,
+    "statementBoundaryAddress": 7722,
     "currentLineAddress": 65,
     "variableTablePointerAddress": 53,
     "directModeLine": 65535,
-    "source": "current ROM kernel.lbl symbols NEWSTT2=$1E3C, CURLIN=$0041 and VARTAB=$0035 (ARYTAB follows at $0037)",
+    "source": "current ROM kernel.lbl symbols NEWSTT2=$1E2A, CURLIN=$0041 and VARTAB=$0035 (ARYTAB follows at $0037)",
     "behavior": "NEWSTT2 runs immediately before each statement dispatch, after CURLIN is updated for a new numbered line; an address breakpoint there can be filtered by the little-endian CURLIN value"
   },
   "savedProgram": {
