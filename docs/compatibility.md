@@ -12,9 +12,9 @@ for the full contract and reconciliation record.
 
 SD/FS's own `$13000-$13BFF` region remains permanently reserved for its
 control/sector/path/dir/transfer state, independent of audio. `@clementina/basic`'s
-load-plan validation rejects any MIA load step that overlaps it; this is a hard
-bounds failure, not an acknowledgeable trade-off, since nothing else has a
-legitimate default claim on that range. A caller relocating a sequencer track with
+load-plan validation warns (`load.mia.reserved`) about any MIA load step that
+overlaps it: the load goes ahead, but later file commands rely on that state (see
+`docs/program-loading.md`). A caller relocating a sequencer track with
 an explicit `AUDIO_SEQ_SET_BASE` address is responsible for avoiding SD/FS state
 and other reserved regions themselves — the SDK does not allocate or check
 addresses set this way.
