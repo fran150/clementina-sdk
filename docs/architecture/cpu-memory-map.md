@@ -15,10 +15,13 @@ Important base-RAM areas:
   Machine code that returns to BASIC uses only `$98-$DF`; a program that
   replaces BASIC may also use `$00-$97`.
 - `$0100-$01FF` CPU stack
-- `$0200-$02FF` line-input buffer
+- `$0200-$027F` line-input buffers
+- `$0280-$02F7` free for programs
+- `$02F8-$02FF` clock snapshot written by `KERN_RDTIM` (see
+  [kernel ABI](kernel-abi.md))
 - `$0300-$03FF` kernel/editor variables
-- `$0400-$042C` fixed kernel jump table, the first bytes of the loaded image
-- from `$042D` upward: the rest of the image (BASIC's DIR scratch buffer,
+- `$0400-$0435` fixed kernel jump table, the first bytes of the loaded image
+- from `$0436` upward: the rest of the image (BASIC's DIR scratch buffer,
   kernel, WozMon, BASIC), followed by BASIC heap
 
 The image is bottom-anchored at `$0400`, so base RAM has no unused gap. Never
