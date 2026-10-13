@@ -143,6 +143,26 @@
       "name": "AUDIO_VOICE_RELEASE"
     },
     {
+      "id": 104,
+      "hex": "$68",
+      "name": "AUDIO_SEQ_SET_BASE0"
+    },
+    {
+      "id": 105,
+      "hex": "$69",
+      "name": "AUDIO_SEQ_SET_BASE1"
+    },
+    {
+      "id": 106,
+      "hex": "$6A",
+      "name": "AUDIO_SEQ_SET_BASE2"
+    },
+    {
+      "id": 107,
+      "hex": "$6B",
+      "name": "AUDIO_SEQ_SET_BASE3"
+    },
+    {
       "id": 112,
       "hex": "$70",
       "name": "SD_INIT"
