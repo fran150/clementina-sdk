@@ -38,7 +38,7 @@ The final line uses `BLOAD`'s run argument:
 `BLOAD "GAME.PRG",24576` loads the PRG according to its header and jumps to
 `$6000`. It does not return to BASIC. A separate `BLOAD` followed by `SYS` is not
 the standard takeover path: the ROM rejects a returning unbanked load into BASIC's
-resident region at or above `$04B7`, since the load can overwrite the interpreter.
+resident region at or above `$0400`, since the load can overwrite the interpreter.
 `SYS` remains appropriate for a machine-code subroutine that was loaded without
 destroying BASIC and returns with `RTS`.
 
@@ -75,9 +75,9 @@ Steps execute in array order. An assembly plan ends with exactly one PRG step
 containing `runAddress`; no later step could execute because the kernel jumps away
 permanently. A BASIC plan ends with the `basic` step described below.
 Returning PRG steps use `$8000-$BFFF` with an explicit bank 1-31. Although the ROM
-loader can return from some lower unbanked addresses, the space below `$04B7` is
-system zero page, stack, input, and kernel working RAM rather than portable program
-storage. The SDK therefore does not generate returning unbanked loads. The terminal
+loader can return from some lower unbanked addresses, the space below `$0400` is
+system zero page, stack, input buffers and kernel variables rather than portable
+program storage. The SDK therefore does not generate returning unbanked loads. The terminal
 image may be unbanked or banked. Payload bounds account for the loader's automatic
 advance across extended-RAM banks.
 
