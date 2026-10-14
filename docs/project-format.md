@@ -173,7 +173,9 @@ The audio assets are the ones Studio's Sounds and Music editors author. An
 instrument is what the sequencer's `SET_*` opcodes put on a voice: waveform,
 pulse width, envelope and volume. A song is four voices of notes on a step grid,
 at a tempo, with an optional loop start; its notes name instruments by id, and
-the notes on one voice must not overlap. A sound effect is one voice's register
+the notes on one voice must not overlap. Each note starts with its own attack,
+except a `legato` one, which carries on the note sounding before it with a new
+pitch and no new attack. A sound effect is one voice's register
 values frame by frame (60 frames a second) under one envelope and pan.
 `@clementina/assets` compiles them the way the hardware plays them:
 `compileSong` produces the sequencer tracks and `soundWrites` the per-frame
