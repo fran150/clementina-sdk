@@ -32,10 +32,11 @@ from [the audio spec](../specs/audio.json) and the ROM's BASIC audio contract.
 
 ## Capture audio
 
-Follow the board's documented audio output and measurement setup. Capture the
-left, right, and released states as separate stereo, 16-bit PCM WAV files after
-the board's audio output stage. Record the instrument, sample rate, connection,
-and any filtering or gain applied. The SDK supplies measurements with:
+Capture from J4, the board's stereo audio jack. Its wiring, output stage and
+level are in the `clementina-hardware` README, under Connectors, J4. Capture the
+left, right, and released states as separate stereo, 16-bit PCM WAV files from
+that jack. Record the instrument, sample rate, connection, and any filtering or
+gain applied. The SDK supplies measurements with:
 
 ```sh
 node scripts/analyze-audio-capture.mjs left.wav
