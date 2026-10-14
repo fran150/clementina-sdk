@@ -36,10 +36,11 @@ test('long notes split at the sequencer 24-bit duration limit without losing sam
   const note = {step: 0, length: 500, pitch: 57, instrumentId: 'instrument:lead'};
   const song = {bpm: 20, stepsPerBeat: 1, length: 500, voices: [{pan: 0, notes: [note]}, {pan: 0, notes: []}, {pan: 0, notes: []}, {pan: 0, notes: []}]};
   const track = compileSong(song, [instrument]).voices[0].bytes;
-  assert.deepEqual([...track.slice(0, 6)], [SEQ_OP.SET_PAN, 0, SEQ_OP.REST, 1, 0, 0]);
-  let samples = 1;
+  assert.deepEqual([...track.slice(0, 2)], [SEQ_OP.SET_PAN, 0]);
+  // After the instrument: one NOTE, then TIEs, so the note keeps its one attack.
+  let samples = 0;
   let chunks = 0;
-  for (let offset = 15; track[offset] === SEQ_OP.NOTE; offset += 6) {
+  for (let offset = 11; track[offset] === (chunks ? SEQ_OP.TIE : SEQ_OP.NOTE); offset += 6) {
     const duration = track[offset + 3] | (track[offset + 4] << 8) | (track[offset + 5] << 16);
     samples += duration;
     chunks++;
@@ -58,8 +59,23 @@ test('a loop inside a note continues it and restores its instrument at the loop 
   const voice = compileSong(song, [instrument]).voices[0];
   assert.equal(voice.notes, 1);
   assert.equal(voice.bytes[voice.loop], SEQ_OP.SET_WAVE);
-  assert.equal(voice.bytes[voice.loop + 9], SEQ_OP.NOTE);
+  assert.equal(voice.bytes[voice.loop + 9], SEQ_OP.TIE);
   assert.equal(voice.bytes.at(-4), SEQ_OP.JUMP);
+});
+
+test('each note starts with its own attack and a legato note carries on the one before it', () => {
+  const instrument = {id: 'instrument:lead', wave: 1, pulse: 128, attack: 0, decay: 6, sustain: 10, release: 5, volume: 200};
+  const note = (step, legato) => ({step, length: 1, pitch: 48 + step, instrumentId: instrument.id, legato});
+  const song = {bpm: 120, stepsPerBeat: 4, length: 6, voices: [
+    // A legato first note, a repeated note, a legato note, a rest, a legato note after the rest.
+    {pan: 0, notes: [note(0, true), note(1), note(2, true), note(4, true)]},
+    {pan: 0, notes: []}, {pan: 0, notes: []}, {pan: 0, notes: []},
+  ]};
+  const track = compileSong(song, [instrument]).voices[0].bytes;
+  const timed = [];
+  for (let offset = 11; offset < track.length - 1; offset += track[offset] === SEQ_OP.REST ? 4 : 6) timed.push(track[offset]);
+  assert.deepEqual(timed, [SEQ_OP.NOTE, SEQ_OP.NOTE, SEQ_OP.TIE, SEQ_OP.REST, SEQ_OP.NOTE, SEQ_OP.REST]);
+  assert.equal(track.at(-1), SEQ_OP.END);
 });
 
 test('the audio subpath retains Studio validation exports', () => {

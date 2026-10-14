@@ -15,16 +15,16 @@ test('a song compiles to one sequencer track per voice that has notes',()=>{
   // 120 BPM at four steps a beat is 3,000 samples a step.
   const song={bpm:120,stepsPerBeat:4,length:16,loopStart:4,voices:[{pan:0,notes:[{step:0,length:4,pitch:48,instrumentId:lead.id},{step:4,length:4,pitch:52,instrumentId:lead.id}]},{pan:0,notes:[]},{pan:0,notes:[]},{pan:0,notes:[]}]};
   const instrument=[3,1, 4,0x06,0xa5, 7,128, 6,200];
-  // Each note is a 1-sample retrigger REST and an 11,999-sample NOTE; the gap is a 24,000-sample REST.
-  const want=[5,0, 2,1,0,0, ...instrument, 1,0x5a,0x10,0xdf,0x2e,0,
+  // Each note is a 12,000-sample NOTE; the gap is a 24,000-sample REST.
+  const want=[5,0, ...instrument, 1,0x5a,0x10,0xe0,0x2e,0,
     // The loop starts here, so nothing about the voice is assumed: the instrument is set again.
-    2,1,0,0, ...instrument, 1,0x9a,0x14,0xdf,0x2e,0,
+    ...instrument, 1,0x9a,0x14,0xe0,0x2e,0,
     2,0xc0,0x5d,0,
-    // JUMP back 27 bytes from the end of its operand, to offset 21.
-    8,0xe5,0xff,0xff];
+    // JUMP back 23 bytes from the end of its operand, to offset 17.
+    8,0xe9,0xff,0xff];
   const compiled=compileSong(song,[lead]);
   assert.deepEqual(Array.from(compiled.voices[0].bytes),want);
-  assert.equal(compiled.voices[0].loop,21);
+  assert.equal(compiled.voices[0].loop,17);
   assert.deepEqual(compiled.voices.slice(1),[null,null,null]);
   assert.equal(compiled.samples,48000);
   assert.equal(compiled.loopSample,12000);

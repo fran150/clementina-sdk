@@ -56,8 +56,10 @@ test('Builder rejects song offsets that collide with the missing-voice sentinel'
  const p=project(), song=p.assets.songs[0], instruments=p.assets.instruments;
  song.length=4096;
  delete song.loopStart;
+ // Two full voices of 15-byte notes put the third voice's offset past $FFFF.
  song.voices[0].notes=Array.from({length:4096},(_,step)=>({step,length:1,pitch:48,instrumentId:instruments[step%2].id}));
- song.voices[1].notes=[{step:0,length:1,pitch:24,instrumentId:instruments[0].id}];
+ song.voices[1].notes=structuredClone(song.voices[0].notes);
+ song.voices[2].notes=[{step:0,length:1,pitch:24,instrumentId:instruments[0].id}];
  p.manifest.build.assets.slots[0].size=0x20000;
  const checked=checkProject(p);
  assert.equal(checked.ok,true,JSON.stringify(checked.diagnostics));

@@ -6,11 +6,11 @@
 // Studio records and portable assets use the same compiler.
 import type {InstrumentAsset, SongAsset, SongNote, SongVoice, SoundAsset, SoundFrame} from './types.js';
 
-/** MIA's sequencer tick rate: song positions and NOTE/REST durations count these. MIA mixes 2 output samples per tick, at 48 kHz. */
+/** MIA's sequencer tick rate: song positions and NOTE/TIE/REST durations count these. MIA mixes 2 output samples per tick, at 48 kHz. */
 export const AUDIO_SAMPLE_RATE = 24000;
 export const AUDIO_VOICE_COUNT = 4;
 /** Sequencer opcodes (clementina-mia docs/audio-sequencer.md). */
-export const SEQ_OP = {END: 0, NOTE: 1, REST: 2, SET_WAVE: 3, SET_ADSR: 4, SET_PAN: 5, SET_VOL: 6, SET_PULSE: 7, JUMP: 8} as const;
+export const SEQ_OP = {END: 0, NOTE: 1, REST: 2, SET_WAVE: 3, SET_ADSR: 4, SET_PAN: 5, SET_VOL: 6, SET_PULSE: 7, JUMP: 8, TIE: 9} as const;
 /** Offsets in one 16-byte voice record. */
 export const VOICE_REG = {FREQ_L: 0, FREQ_H: 1, PULSE_WIDTH: 2, ATTACK_DECAY: 3, SUSTAIN_RELEASE: 4, WAVEFORM: 5, PAN: 6, CONTROL: 7, VOLUME: 8} as const;
 export const VOICE_CONTROL_GATE = 1, VOICE_CONTROL_RESET_PHASE = 2;
@@ -46,14 +46,13 @@ export interface CompiledSong {
 
 /**
  * A song as four sequencer tracks. Per voice, in time order: a SET_PAN, then
- * for each note the SET_* opcodes its instrument changes, a one-sample REST
- * when the note must restart the envelope, and the NOTE; RESTs fill the
- * gaps; a JUMP back to the loop start, or END.
+ * for each note the SET_* opcodes its instrument changes and the note; RESTs
+ * fill the gaps; a JUMP back to the loop start, or END.
  *
- * The one-sample REST exists because the sequencer's NOTE sets the gate, and
- * an envelope only restarts on the gate's rising edge (audio_apply_register):
- * two NOTEs in a row slide from one pitch to the next under one envelope.
- * That slide is what a legato note asks for, so it skips the REST.
+ * A note is a NOTE, which starts it with its own attack. A legato note, and
+ * the part of a note that carries on past the loop start, is a TIE instead:
+ * it changes the pitch of the note that is sounding without a new attack, or
+ * starts its own when the voice is released.
  */
 export function compileSong(song: SongData, instruments: readonly InstrumentData[]): CompiledSong {
   const byId = new Map(instruments.map(instrument => [instrument.id, instrument]));
@@ -91,13 +90,17 @@ function append24(output: number[], value: number): void {
   output.push(value & 255, (value >> 8) & 255, (value >> 16) & 255);
 }
 
-/** Append timed NOTE or REST records, splitting durations above the 24-bit field. */
-function appendTimedEvent(output: number[], opcode: typeof SEQ_OP.NOTE | typeof SEQ_OP.REST, samples: number, frequency = 0): void {
+/**
+ * Append timed NOTE, TIE or REST records, splitting durations above the 24-bit
+ * field. A split NOTE carries on as TIEs, so it keeps its one attack.
+ */
+function appendTimedEvent(output: number[], opcode: typeof SEQ_OP.NOTE | typeof SEQ_OP.TIE | typeof SEQ_OP.REST, samples: number, frequency = 0): void {
   for (; samples > 0; samples -= MAX_EVENT_SAMPLES) {
     output.push(opcode);
-    if (opcode === SEQ_OP.NOTE) output.push(frequency & 255, frequency >> 8);
+    if (opcode !== SEQ_OP.REST) output.push(frequency & 255, frequency >> 8);
     // An event lasts exactly its encoded duration, the decoding tick included.
     append24(output, Math.min(samples, MAX_EVENT_SAMPLES));
+    if (opcode === SEQ_OP.NOTE) opcode = SEQ_OP.TIE;
   }
 }
 
@@ -107,11 +110,14 @@ function compileVoice(voice: SongVoice, byId: Map<string, InstrumentData>, at: (
 
   const out: number[] = [];
   out.push(SEQ_OP.SET_PAN, voice.pan & 255);
-  // What the voice holds, as far as the track knows. Nothing is known at the
-  // start - a sound effect may have left the voice gated - nor where playback
-  // arrives from two places, the loop start.
+  // What the voice holds, as far as the track knows. No setting is known at
+  // the start - a sound effect may have changed any of them - nor where
+  // playback arrives from two places, the loop start. The gate counts as
+  // released at the start, so a legato first note starts fresh instead of
+  // continuing whatever an effect left sounding. At the loop start it is
+  // unknown: a TIE there continues a sounding note or starts its own.
   let state: Record<string, number> = {};
-  let gate: boolean | undefined;
+  let gate: boolean | undefined = false;
   let loopOffset: number | null = null;
   let notes = 0;
   segments.forEach((segment, index) => {
@@ -128,15 +134,14 @@ function compileVoice(voice: SongVoice, byId: Map<string, InstrumentData>, at: (
     }
     const note = segment.note;
     const instrument = byId.get(note.instrumentId);
-    const retrigger = !segment.continued && !note.legato && gate !== false;
-    if (retrigger) appendTimedEvent(out, SEQ_OP.REST, 1);
+    const tie = (segment.continued || note.legato) && gate !== false;
     if (instrument) for (const [setting, opcode, ...values] of instrumentOps(instrument)) {
       const value = values[0] * 256 + (values[1] ?? 0);
       if (state[setting] === value) continue;
       state[setting] = value;
       out.push(opcode, ...values);
     }
-    appendTimedEvent(out, SEQ_OP.NOTE, samples - (retrigger ? 1 : 0), noteFrequency(note.pitch));
+    appendTimedEvent(out, tie ? SEQ_OP.TIE : SEQ_OP.NOTE, samples, noteFrequency(note.pitch));
     gate = true;
     if (!segment.continued) notes++;
   });
