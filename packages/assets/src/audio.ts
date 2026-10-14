@@ -14,7 +14,7 @@ export const SEQ_OP = {END: 0, NOTE: 1, REST: 2, SET_WAVE: 3, SET_ADSR: 4, SET_P
 /** Offsets in one 16-byte voice record. */
 export const VOICE_REG = {FREQ_L: 0, FREQ_H: 1, PULSE_WIDTH: 2, ATTACK_DECAY: 3, SUSTAIN_RELEASE: 4, WAVEFORM: 5, PAN: 6, CONTROL: 7, VOLUME: 8} as const;
 export const VOICE_CONTROL_GATE = 1, VOICE_CONTROL_RESET_PHASE = 2;
-const MAX_FREQ = 0xFFFF, MAX_EVENT_SAMPLES = 0x1000000;
+const MAX_FREQ = 0xFFFF, MAX_EVENT_SAMPLES = 0xFFFFFF;
 
 export type InstrumentData = Pick<InstrumentAsset, 'id' | 'wave' | 'pulse' | 'attack' | 'decay' | 'sustain' | 'release' | 'volume'>;
 export type SongData = Pick<SongAsset, 'bpm' | 'length' | 'loopStart' | 'voices'> & {stepsPerBeat: number};
@@ -96,8 +96,8 @@ function appendTimedEvent(output: number[], opcode: typeof SEQ_OP.NOTE | typeof 
   for (; samples > 0; samples -= MAX_EVENT_SAMPLES) {
     output.push(opcode);
     if (opcode === SEQ_OP.NOTE) output.push(frequency & 255, frequency >> 8);
-    // Playback consumes the decoding sample plus the encoded duration.
-    append24(output, Math.min(samples, MAX_EVENT_SAMPLES) - 1);
+    // An event lasts exactly its encoded duration, the decoding tick included.
+    append24(output, Math.min(samples, MAX_EVENT_SAMPLES));
   }
 }
 

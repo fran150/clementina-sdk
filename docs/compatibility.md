@@ -19,13 +19,7 @@ an explicit `AUDIO_SEQ_SET_BASE` address is responsible for avoiding SD/FS state
 and other reserved regions themselves — the SDK does not allocate or check
 addresses set this way.
 
-## Audio timing and playback limits
-
-The MIA sequencer guide describes NOTE and REST as lasting `dur` samples. Current
-firmware and emulator playback lasts `dur + 1` samples because decoding applies
-an event before subsequent samples decrement its countdown. The SDK song compiler
-writes the requested duration minus one. Reconcile the guide with the
-implementation before changing event timing; see [audio architecture](architecture/audio.md).
+## Audio playback limits
 
 ROM `TRACK` emits adjacent notes without turning the gate off, so they do not
 retrigger the envelope like non-legato notes compiled by the SDK. The sequencer
