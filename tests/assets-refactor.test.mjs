@@ -36,12 +36,12 @@ test('long notes split at the sequencer 24-bit duration limit without losing sam
   const note = {step: 0, length: 500, pitch: 57, instrumentId: 'instrument:lead'};
   const song = {bpm: 20, stepsPerBeat: 1, length: 500, voices: [{pan: 0, notes: [note]}, {pan: 0, notes: []}, {pan: 0, notes: []}, {pan: 0, notes: []}]};
   const track = compileSong(song, [instrument]).voices[0].bytes;
-  assert.deepEqual([...track.slice(0, 6)], [SEQ_OP.SET_PAN, 0, SEQ_OP.REST, 0, 0, 0]);
+  assert.deepEqual([...track.slice(0, 6)], [SEQ_OP.SET_PAN, 0, SEQ_OP.REST, 1, 0, 0]);
   let samples = 1;
   let chunks = 0;
   for (let offset = 15; track[offset] === SEQ_OP.NOTE; offset += 6) {
     const duration = track[offset + 3] | (track[offset + 4] << 8) | (track[offset + 5] << 16);
-    samples += duration + 1;
+    samples += duration;
     chunks++;
   }
   assert.equal(chunks, 3);

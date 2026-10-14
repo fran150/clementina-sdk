@@ -30,13 +30,12 @@ The 32 video direct-OAM descriptors remain contiguous at `$C0-$DF`.
 
 Each voice has a compact event stream played by MIA inside the audio engine.
 Durations are 24-bit little-endian counts of 24 kHz ticks, resolved before
-playback. In normal playback, a NOTE or REST occupies its encoded duration plus
-one tick: the event is applied on the decode tick, then its countdown is
-decremented on later ticks. The SDK song compiler writes the desired tick count
-minus one. (`AUDIO_SAMPLE_RATE` in `@clementina/assets` is this tick rate.)
-The opcode layout is documented in the MIA repository (`docs/audio-sequencer.md`);
-`specs/audio.json` records the current SDK tooling contract. The MIA guide's
-duration prose still says `dur` ticks and needs reconciliation with playback.
+playback. A NOTE or REST lasts exactly its encoded duration, counting the tick
+that decodes it; a duration of 0 still takes that one tick. The SDK song
+compiler writes the desired tick count. (`AUDIO_SAMPLE_RATE` in
+`@clementina/assets` is this tick rate.) The opcode layout is documented in the
+MIA repository (`docs/audio-sequencer.md`); `specs/audio.json` records the
+current SDK tooling contract.
 
 A track has no declared length and no header: it is opcode bytes at a
 per-voice `track_base`, decoded live until an `END`, an unrecognized opcode,
