@@ -96,8 +96,8 @@ SD/FS state permanently occupies MIA RAM `$13000-$13BFF` (see
 `docs/architecture/storage.md`). A `mia` step that overlaps that range gets a
 `load.mia.reserved` warning: MIA loads it over the state that later file
 commands, including the rest of the plan, rely on. Nothing else has a default
-claim on that range (the audio sequencer's tracks defaulted there in early
-firmware; tracks now have no default address — see `docs/compatibility.md`).
+claim on that range: sequencer tracks have no default address (see
+`docs/architecture/audio.md`).
 
 ## BASIC terminal step
 

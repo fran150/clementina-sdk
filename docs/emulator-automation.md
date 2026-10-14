@@ -79,8 +79,7 @@ bank. Unsupported I/O peeks return `null`, never a fabricated zero. A peek in
 the read's side effects.
 Text bytes pass through `DebugQueueInput`; source-mode and existing FIFO overflow
 semantics still apply. A successful call means injection, not ROM consumption.
-No runtime memory allocation is added. The former sequencer/SD MIA-RAM overlap is
-resolved; see `docs/compatibility.md`.
+No runtime memory allocation is added.
 
 Video snapshots contain the complete 68,944-byte MIA video region at one serialized
 machine boundary. The video client's new public Go `pkg/render.Snapshot` API calls

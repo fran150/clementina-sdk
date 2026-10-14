@@ -1,10 +1,1 @@
-[
-  {
-    "id": "audio-sequencer-sd-memory-overlap",
-    "severity": "high",
-    "status": "resolved",
-    "summary": "Audio sequencer track buffers used to default into MIA RAM $13000-$13FFF while SD/FS state uses $13000-$13BFF. Current physical MIA and emulator code both defined these overlapping ranges by default.",
-    "resolution": "Sequencer tracks are now relocatable: a track is undeclared-length bytes at a per-voice track_base set by AUDIO_SEQ_SET_BASE0-3 ($68-$6B), with no fixed per-track size. Default track bases moved off SD/FS territory to $14000-$17FFF and were later removed entirely: a voice has no track until AUDIO_SEQ_SET_BASE gives it one, and audio reset clears no MIA RAM. The 1024-byte-per-voice fixed layout and its 4-byte header are retired; looping is expressed with a JUMP opcode instead of a header LOOP field. SD/FS's own $13000-$13BFF region remains permanently reserved for its control/sector/path/dir/transfer state, independent of audio.",
-    "sdkPolicy": "A load-plan MIA step overlapping $13000-$13BFF (SD/FS state) gets a load.mia.reserved warning: the load goes ahead, but later file commands rely on that state. Callers choosing an explicit AUDIO_SEQ_SET_BASE address are responsible for avoiding SD/FS state and other subsystems' regions themselves; the SDK does not allocate or reserve sequencer track addresses."
-  }
-]
+[]
