@@ -46,10 +46,10 @@ every base and clear no MIA RAM, and `AUDIO_SEQ_START` leaves a voice without a
 base stopped. The caller is responsible for avoiding the video sync region,
 input/clock state, the audio register block, SD/FS state
 (`$13000-$13BFF`, see `docs/architecture/storage.md`), and other voices'
-tracks — the SDK does not allocate or check this beyond rejecting a load-plan
-MIA step that overlaps SD/FS state (see `docs/compatibility.md`). Looping is
-expressed with a self-relative `JUMP` opcode rather than a header `LOOP`
-field, so a track's internal jumps are invariant under relocation.
+tracks — the SDK does not allocate or check this beyond warning about a
+load-plan MIA step that overlaps SD/FS state (see `docs/program-loading.md`).
+Looping is expressed with a self-relative `JUMP` opcode rather than a header
+`LOOP` field, so a track's internal jumps are invariant under relocation.
 
 Per-voice `SEQ_NOTE_INDEX` (offsets `$09-$0A` of the 16-byte voice record) and
 `SEQ_STATUS` (offset `$0B`) back the BASIC `CUE`/`PLAYING` functions and are
