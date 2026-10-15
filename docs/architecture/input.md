@@ -11,6 +11,7 @@ mode as unavailable and `INPUTMODE 2` errors.
 
 The CPU can consume a 64-byte text FIFO, held keyboard/consumer HID bitmaps,
 mouse state, four gamepads, source/capability flags, and event flags.
+`INPUT_STATUS` (`$FFF2`) bits are in `specs/input.json` under `status`.
 
 Wi-Fi input uses UDP port 6503.
 

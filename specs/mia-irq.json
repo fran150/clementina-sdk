@@ -1,0 +1,98 @@
+{
+  "format": "clementina-mia-irq",
+  "version": 1,
+  "statusRegisters": [
+    "IRQ_STATUS_L",
+    "IRQ_STATUS_H"
+  ],
+  "maskRegisters": [
+    "IRQ_MASK_L",
+    "IRQ_MASK_H"
+  ],
+  "notes": [
+    "IRQB is driven low while IRQ_STATUS & IRQ_MASK is nonzero; IRQ_TRIGGERED (bit 15) mirrors that state.",
+    "Reading IRQ_STATUS_L ($FFF0) clears every IRQ_STATUS bit and releases IRQB. IRQ_STATUS_H ($FFF1) has no side effect, so read it first when the high bits matter."
+  ],
+  "bits": [
+    {
+      "bit": 0,
+      "name": "IRQ_ERROR",
+      "description": "An error was pushed into the error queue."
+    },
+    {
+      "bit": 1,
+      "name": "IRQ_IDXA_WRAPPED",
+      "description": "The active index in window A wrapped and its WRAP_IRQ flag was enabled."
+    },
+    {
+      "bit": 2,
+      "name": "IRQ_IDXB_WRAPPED",
+      "description": "The active index in window B wrapped and its WRAP_IRQ flag was enabled."
+    },
+    {
+      "bit": 3,
+      "name": "IRQ_COMMAND",
+      "description": "Command handler completed; asynchronous commands may raise it again on actual completion."
+    },
+    {
+      "bit": 4,
+      "name": "IRQ_SPEED_CHANGED",
+      "description": "A requested PHI2 speed change was applied."
+    },
+    {
+      "bit": 5,
+      "name": "IRQ_VIDEO_FRAME_REQUEST",
+      "description": "Video client update request accepted."
+    },
+    {
+      "bit": 6,
+      "name": "IRQ_VIDEO_FRAME_SENT",
+      "description": "Initial video response send completed."
+    },
+    {
+      "bit": 7,
+      "name": "IRQ_VIDEO_FRAME_ACKED",
+      "description": "Video client acknowledged the response."
+    },
+    {
+      "bit": 8,
+      "name": "IRQ_INPUT_KEYBOARD",
+      "description": "Enabled keyboard, consumer, or text input event pending."
+    },
+    {
+      "bit": 9,
+      "name": "IRQ_INPUT_MOUSE",
+      "description": "Enabled mouse input event pending."
+    },
+    {
+      "bit": 10,
+      "name": "IRQ_INPUT_GAMEPAD",
+      "description": "Enabled gamepad input event pending."
+    },
+    {
+      "bit": 11,
+      "name": "IRQ_SD_DONE",
+      "description": "An SD/FS command completed successfully."
+    },
+    {
+      "bit": 12,
+      "name": "IRQ_SD_ERROR",
+      "description": "An SD/FS command failed."
+    },
+    {
+      "bit": 13,
+      "name": "IRQ_FS_EVENT",
+      "description": "A filesystem command completed."
+    },
+    {
+      "bit": 14,
+      "name": "IRQ_AUDIO_SEQ_DONE",
+      "description": "A sequenced voice's track finished: it reached END, an unrecognized opcode, or its decode/catch-up budget."
+    },
+    {
+      "bit": 15,
+      "name": "IRQ_TRIGGERED",
+      "description": "Aggregate state maintained by MIA when any masked IRQ flag is pending."
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "format": "clementina-mia-config",
+  "version": 1,
+  "selectRegister": "CFG_SELECT",
+  "portRegister": "CFG_PORT",
+  "notes": [
+    "Writing CFG_SELECT loads the selected field into CFG_PORT; reading or writing CFG_PORT accesses it.",
+    "Ids $00-$0F act on the index selected in window A (IDXA_SELECT) and $10-$1F on the one in window B (IDXB_SELECT); the low nibble picks the field.",
+    "Writing a current-address byte refreshes that window's data port. Writing SPEED_H commits the staged PHI2 speed."
+  ],
+  "reserved": [
+    "$0C-$0F",
+    "$1C-$1F"
+  ],
+  "fields": [
+    {
+      "id": 0,
+      "hex": "$00",
+      "name": "IDXA_ADDR_L",
+      "description": "Low byte of window A index current address."
+    },
+    {
+      "id": 1,
+      "hex": "$01",
+      "name": "IDXA_ADDR_M",
+      "description": "Middle byte of window A index current address."
+    },
+    {
+      "id": 2,
+      "hex": "$02",
+      "name": "IDXA_ADDR_H",
+      "description": "High byte of window A index current address."
+    },
+    {
+      "id": 3,
+      "hex": "$03",
+      "name": "IDXA_DEF_L",
+      "description": "Low byte of window A index default address."
+    },
+    {
+      "id": 4,
+      "hex": "$04",
+      "name": "IDXA_DEF_M",
+      "description": "Middle byte of window A index default address."
+    },
+    {
+      "id": 5,
+      "hex": "$05",
+      "name": "IDXA_DEF_H",
+      "description": "High byte of window A index default address."
+    },
+    {
+      "id": 6,
+      "hex": "$06",
+      "name": "IDXA_LIM_L",
+      "description": "Low byte of window A index limit address."
+    },
+    {
+      "id": 7,
+      "hex": "$07",
+      "name": "IDXA_LIM_M",
+      "description": "Middle byte of window A index limit address."
+    },
+    {
+      "id": 8,
+      "hex": "$08",
+      "name": "IDXA_LIM_H",
+      "description": "High byte of window A index limit address."
+    },
+    {
+      "id": 9,
+      "hex": "$09",
+      "name": "IDXA_STP_L",
+      "description": "Low byte of window A index step magnitude."
+    },
+    {
+      "id": 10,
+      "hex": "$0A",
+      "name": "IDXA_STP_H",
+      "description": "High byte of window A index step magnitude."
+    },
+    {
+      "id": 11,
+      "hex": "$0B",
+      "name": "IDXA_FLAGS",
+      "description": "Window A index flags."
+    },
+    {
+      "id": 16,
+      "hex": "$10",
+      "name": "IDXB_ADDR_L",
+      "description": "Low byte of window B index current address."
+    },
+    {
+      "id": 17,
+      "hex": "$11",
+      "name": "IDXB_ADDR_M",
+      "description": "Middle byte of window B index current address."
+    },
+    {
+      "id": 18,
+      "hex": "$12",
+      "name": "IDXB_ADDR_H",
+      "description": "High byte of window B index current address."
+    },
+    {
+      "id": 19,
+      "hex": "$13",
+      "name": "IDXB_DEF_L",
+      "description": "Low byte of window B index default address."
+    },
+    {
+      "id": 20,
+      "hex": "$14",
+      "name": "IDXB_DEF_M",
+      "description": "Middle byte of window B index default address."
+    },
+    {
+      "id": 21,
+      "hex": "$15",
+      "name": "IDXB_DEF_H",
+      "description": "High byte of window B index default address."
+    },
+    {
+      "id": 22,
+      "hex": "$16",
+      "name": "IDXB_LIM_L",
+      "description": "Low byte of window B index limit address."
+    },
+    {
+      "id": 23,
+      "hex": "$17",
+      "name": "IDXB_LIM_M",
+      "description": "Middle byte of window B index limit address."
+    },
+    {
+      "id": 24,
+      "hex": "$18",
+      "name": "IDXB_LIM_H",
+      "description": "High byte of window B index limit address."
+    },
+    {
+      "id": 25,
+      "hex": "$19",
+      "name": "IDXB_STP_L",
+      "description": "Low byte of window B index step magnitude."
+    },
+    {
+      "id": 26,
+      "hex": "$1A",
+      "name": "IDXB_STP_H",
+      "description": "High byte of window B index step magnitude."
+    },
+    {
+      "id": 27,
+      "hex": "$1B",
+      "name": "IDXB_FLAGS",
+      "description": "Window B index flags."
+    },
+    {
+      "id": 32,
+      "hex": "$20",
+      "name": "SPEED_L",
+      "description": "Low byte of applied/requested PHI2 frequency in Hz."
+    },
+    {
+      "id": 33,
+      "hex": "$21",
+      "name": "SPEED_M",
+      "description": "Middle byte of applied/requested PHI2 frequency in Hz."
+    },
+    {
+      "id": 34,
+      "hex": "$22",
+      "name": "SPEED_H",
+      "description": "High byte of applied/requested PHI2 frequency in Hz. Writing this byte commits the staged speed change."
+    }
+  ]
+}

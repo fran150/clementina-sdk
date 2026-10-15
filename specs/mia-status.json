@@ -1,0 +1,70 @@
+{
+  "format": "clementina-mia-status",
+  "version": 1,
+  "registers": [
+    "STATUS_L",
+    "STATUS_H"
+  ],
+  "bits": [
+    {
+      "bit": 0,
+      "name": "MIA_STAT_MASTER_MODE",
+      "description": "0 = loader mode, 1 = normal mode."
+    },
+    {
+      "bit": 1,
+      "name": "MIA_STAT_ERRORS",
+      "description": "Error queue contains at least one error."
+    },
+    {
+      "bit": 2,
+      "name": "MIA_STAT_CMD_RUNNING",
+      "description": "Command handler is executing queued commands."
+    },
+    {
+      "bit": 3,
+      "name": "MIA_STAT_DMA_RUNNING",
+      "description": "MIA RAM DMA copy is in progress."
+    },
+    {
+      "bit": 4,
+      "name": "MIA_STAT_SPEED_CHANGING",
+      "description": "A PHI2 speed change has been requested and not yet applied."
+    },
+    {
+      "bit": 5,
+      "name": "MIA_STAT_VIDEO_FRAME_REQUESTED",
+      "description": "Video client update request accepted; ACK not received yet."
+    },
+    {
+      "bit": 6,
+      "name": "MIA_STAT_VIDEO_FRAME_SENT",
+      "description": "Initial video response send finished; ACK may still be pending."
+    },
+    {
+      "bit": 7,
+      "name": "MIA_STAT_EXEC_PAUSED",
+      "description": "PHI2 is stopped by the exec pause control."
+    },
+    {
+      "bit": 8,
+      "name": "MIA_STAT_AUDIO_ACTIVE",
+      "description": "PWM audio IRQ is running."
+    },
+    {
+      "bit": 9,
+      "name": "MIA_STAT_SD_PRESENT",
+      "description": "SD card initialized successfully. This is not a physical socket-detect bit."
+    },
+    {
+      "bit": 10,
+      "name": "MIA_STAT_SD_BUSY",
+      "description": "SD/FS command is in progress."
+    },
+    {
+      "bit": 11,
+      "name": "MIA_STAT_FS_MOUNTED",
+      "description": "FAT filesystem is mounted."
+    }
+  ]
+}

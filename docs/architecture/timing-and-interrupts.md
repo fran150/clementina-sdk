@@ -54,3 +54,5 @@ Command `$56` sets TI. TI wraps at 5,184,000 ticks (24 hours).
 | 13 | filesystem event |
 | 14 | audio sequencer done |
 | 15 | aggregate triggered |
+
+Names and descriptions: `specs/mia-irq.json`.

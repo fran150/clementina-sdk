@@ -1,0 +1,259 @@
+{
+  "format": "clementina-mia-errors",
+  "version": 1,
+  "register": "ERROR_L",
+  "queueEntries": 16,
+  "notes": [
+    "Reading ERROR_L ($FFEC) pops the oldest queued error; 0 means the queue is empty.",
+    "A full queue drops its oldest unread entry and queues ERROR_QUEUE_OVERFLOW.",
+    "MIA_STAT_ERRORS is set while the queue holds an error, and IRQ_ERROR is raised for each one pushed."
+  ],
+  "errors": [
+    {
+      "code": 1,
+      "hex": "$01",
+      "name": "ERROR_MIA_CANNOT_ALLOCATE_RAM",
+      "description": "Reserved/startup RAM allocation failure code. Current RAM is statically allocated, so this should not normally occur."
+    },
+    {
+      "code": 2,
+      "hex": "$02",
+      "name": "ERROR_QUEUE_OVERFLOW",
+      "description": "Error queue overwrote one or more unread errors."
+    },
+    {
+      "code": 16,
+      "hex": "$10",
+      "name": "ERROR_DMA_SIZE_ZERO",
+      "description": "DMA copy requested with a byte count of zero."
+    },
+    {
+      "code": 17,
+      "hex": "$11",
+      "name": "ERROR_DMA_SRC_WILL_OVERFLOW",
+      "description": "DMA source range would exceed the 256 KiB MIA RAM region."
+    },
+    {
+      "code": 18,
+      "hex": "$12",
+      "name": "ERROR_DMA_TGT_WILL_OVERFLOW",
+      "description": "DMA destination range would exceed the 256 KiB MIA RAM region."
+    },
+    {
+      "code": 19,
+      "hex": "$13",
+      "name": "ERROR_DMA_QUEUE_FULL",
+      "description": "A copy could not wait behind the running one: eight were already waiting."
+    },
+    {
+      "code": 32,
+      "hex": "$20",
+      "name": "ERROR_CMD_QUEUE_FULL",
+      "description": "Command trigger could not be queued for core 0."
+    },
+    {
+      "code": 33,
+      "hex": "$21",
+      "name": "ERROR_CMD_UNKNOWN",
+      "description": "Unknown command id."
+    },
+    {
+      "code": 34,
+      "hex": "$22",
+      "name": "ERROR_CTX_OVERFLOW",
+      "description": "MIA_CTX push with the context stack already four deep. Nothing was saved."
+    },
+    {
+      "code": 35,
+      "hex": "$23",
+      "name": "ERROR_CTX_UNDERFLOW",
+      "description": "MIA_CTX pop with nothing saved. Nothing changed."
+    },
+    {
+      "code": 48,
+      "hex": "$30",
+      "name": "ERROR_WIFI_INIT_FAILED",
+      "description": "CYW43/Wi-Fi chip initialization failed."
+    },
+    {
+      "code": 49,
+      "hex": "$31",
+      "name": "ERROR_WIFI_CONNECT_FAILED",
+      "description": "STA connection failed."
+    },
+    {
+      "code": 64,
+      "hex": "$40",
+      "name": "ERROR_VIDEO_UDP_ALLOC_FAILED",
+      "description": "Video UDP PCB allocation failed."
+    },
+    {
+      "code": 65,
+      "hex": "$41",
+      "name": "ERROR_VIDEO_UDP_BIND_FAILED",
+      "description": "Video UDP bind failed."
+    },
+    {
+      "code": 80,
+      "hex": "$50",
+      "name": "ERROR_INPUT_MODE_UNAVAILABLE",
+      "description": "Requested input mode is unknown, reserved (2), or not available right now (Wi-Fi without its listener)."
+    },
+    {
+      "code": 81,
+      "hex": "$51",
+      "name": "ERROR_INPUT_PROBE_INVALID",
+      "description": "Requested input probe id is invalid."
+    },
+    {
+      "code": 82,
+      "hex": "$52",
+      "name": "ERROR_INPUT_UDP_ALLOC_FAILED",
+      "description": "Input UDP PCB allocation failed."
+    },
+    {
+      "code": 83,
+      "hex": "$53",
+      "name": "ERROR_INPUT_UDP_BIND_FAILED",
+      "description": "Input UDP bind failed."
+    },
+    {
+      "code": 96,
+      "hex": "$60",
+      "name": "ERROR_AUDIO_QUEUE_OVERFLOW",
+      "description": "Live audio register writes outran the audio IRQ queue; the IRQ resynchronized from RAM."
+    },
+    {
+      "code": 112,
+      "hex": "$70",
+      "name": "ERROR_SD_BUSY",
+      "description": "A new SD/FS request was made while another request was running."
+    },
+    {
+      "code": 113,
+      "hex": "$71",
+      "name": "ERROR_SD_INIT_FAILED",
+      "description": "SD card initialization failed."
+    },
+    {
+      "code": 114,
+      "hex": "$72",
+      "name": "ERROR_SD_NOT_READY",
+      "description": "Raw SD command requested before initialization."
+    },
+    {
+      "code": 115,
+      "hex": "$73",
+      "name": "ERROR_SD_READ_FAILED",
+      "description": "Raw SD sector read failed."
+    },
+    {
+      "code": 116,
+      "hex": "$74",
+      "name": "ERROR_SD_WRITE_FAILED",
+      "description": "Raw SD sector write failed."
+    },
+    {
+      "code": 120,
+      "hex": "$78",
+      "name": "ERROR_FS_MOUNT_FAILED",
+      "description": "FAT filesystem mount failed."
+    },
+    {
+      "code": 121,
+      "hex": "$79",
+      "name": "ERROR_FS_OPEN_FAILED",
+      "description": "FAT file open failed."
+    },
+    {
+      "code": 122,
+      "hex": "$7A",
+      "name": "ERROR_FS_READ_FAILED",
+      "description": "FAT file read or load failed."
+    },
+    {
+      "code": 123,
+      "hex": "$7B",
+      "name": "ERROR_FS_CLOSE_FAILED",
+      "description": "FAT file close failed."
+    },
+    {
+      "code": 124,
+      "hex": "$7C",
+      "name": "ERROR_FS_DIR_FAILED",
+      "description": "FAT directory operation failed."
+    },
+    {
+      "code": 125,
+      "hex": "$7D",
+      "name": "ERROR_FS_INVALID_REQUEST",
+      "description": "SD/FS request parameters are invalid."
+    },
+    {
+      "code": 126,
+      "hex": "$7E",
+      "name": "ERROR_FS_NO_FILE_OPEN",
+      "description": "File I/O was requested with no open file."
+    },
+    {
+      "code": 127,
+      "hex": "$7F",
+      "name": "ERROR_FS_WRITE_FAILED",
+      "description": "FAT file write failed."
+    },
+    {
+      "code": 128,
+      "hex": "$80",
+      "name": "ERROR_FS_SEEK_FAILED",
+      "description": "FAT file seek failed."
+    },
+    {
+      "code": 129,
+      "hex": "$81",
+      "name": "ERROR_FS_SYNC_FAILED",
+      "description": "FAT file sync failed."
+    },
+    {
+      "code": 130,
+      "hex": "$82",
+      "name": "ERROR_FS_STAT_FAILED",
+      "description": "FAT stat failed."
+    },
+    {
+      "code": 131,
+      "hex": "$83",
+      "name": "ERROR_FS_MKDIR_FAILED",
+      "description": "FAT mkdir failed."
+    },
+    {
+      "code": 132,
+      "hex": "$84",
+      "name": "ERROR_FS_DELETE_FAILED",
+      "description": "FAT delete failed."
+    },
+    {
+      "code": 133,
+      "hex": "$85",
+      "name": "ERROR_FS_RENAME_FAILED",
+      "description": "FAT rename failed."
+    },
+    {
+      "code": 134,
+      "hex": "$86",
+      "name": "ERROR_FS_FREE_FAILED",
+      "description": "FAT free-space query failed."
+    },
+    {
+      "code": 135,
+      "hex": "$87",
+      "name": "ERROR_FS_HANDLE_ALREADY_OPEN",
+      "description": "FS_OPEN requested on a handle slot that is already open."
+    },
+    {
+      "code": 136,
+      "hex": "$88",
+      "name": "ERROR_FS_INVALID_HANDLE",
+      "description": "SD_HANDLE_SELECT names a slot outside the supported range."
+    }
+  ]
+}
