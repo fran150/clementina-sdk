@@ -1,0 +1,967 @@
+{
+  "format": "clementina-mia-indexes",
+  "version": 1,
+  "count": 256,
+  "notes": [
+    "Owners: programs, the MIA firmware's input, video, sd and audio subsystems, and the ROM kernel (kernel.inc names its ids KIDX_*).",
+    "MIA sets the default of each firmware id at reset (default.start is the current and default address, the limit is start + length). Every other id resets to all zeros.",
+    "Programs may use the firmware ids; the kernel re-seeks them before each use, so their current address does not survive a kernel call. Never change $F0-$FF.",
+    "name is the MIA header #define and docName the name MIA's docs print; for a run of ids (count > 1) both name the first id, and id + n is entry n."
+  ],
+  "flagBits": [
+    {
+      "bit": 0,
+      "name": "R_STP_ENA",
+      "description": "Step after the window's data port is read."
+    },
+    {
+      "bit": 1,
+      "name": "W_STP_ENA",
+      "description": "Step after the window's data port is written."
+    },
+    {
+      "bit": 2,
+      "name": "STP_DIR",
+      "description": "Step direction: 0 forward, 1 backward."
+    },
+    {
+      "bit": 3,
+      "name": "WRAP_ENA",
+      "description": "Wrap when the current address crosses the configured range."
+    },
+    {
+      "bit": 4,
+      "name": "WRAP_IRQ",
+      "description": "Raise the window's wrap IRQ flag when wrapping."
+    }
+  ],
+  "ids": [
+    {
+      "id": 0,
+      "hex": "$00",
+      "count": 80,
+      "owner": "programs",
+      "description": "Free for programs. Never configured or touched by the firmware, the kernel or BASIC. The SDK game runtime is part of the program that links it and takes $40-$41."
+    },
+    {
+      "id": 80,
+      "hex": "$50",
+      "count": 8,
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_KEYBOARD_PROBE_0",
+      "docName": "IIDX_KEYBOARD_PROBE_0",
+      "description": "Keyboard/Keypad bitmap probes. CMD_INPUT_SET_PROBE moves one within the 32-byte bitmap; probes never step.",
+      "default": {
+        "start": 69632,
+        "length": 1,
+        "stride": 0,
+        "step": 1,
+        "flags": [
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 88,
+      "hex": "$58",
+      "count": 8,
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_CONSUMER_PROBE_0",
+      "docName": "IIDX_CONSUMER_PROBE_0",
+      "description": "Consumer bitmap probes. CMD_INPUT_SET_PROBE moves one within the 32-byte bitmap; probes never step.",
+      "default": {
+        "start": 69664,
+        "length": 1,
+        "stride": 0,
+        "step": 1,
+        "flags": [
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 96,
+      "hex": "$60",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_INPUT_STATE",
+      "docName": "IIDX_INPUT_STATE",
+      "description": "Stream the complete input state block.",
+      "default": {
+        "start": 69632,
+        "length": 128,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 97,
+      "hex": "$61",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_KEYBOARD_BITMAP",
+      "docName": "IIDX_KEYBOARD_BITMAP",
+      "description": "Stream the Keyboard/Keypad bitmap.",
+      "default": {
+        "start": 69632,
+        "length": 32,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 98,
+      "hex": "$62",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_CONSUMER_BITMAP",
+      "docName": "IIDX_CONSUMER_BITMAP",
+      "description": "Stream the Consumer bitmap.",
+      "default": {
+        "start": 69664,
+        "length": 32,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 99,
+      "hex": "$63",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_MOUSE_STATE",
+      "docName": "IIDX_MOUSE_STATE",
+      "description": "Stream the mouse state.",
+      "default": {
+        "start": 69696,
+        "length": 5,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 100,
+      "hex": "$64",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_GAMEPAD_0",
+      "docName": "IIDX_GAMEPAD_0",
+      "description": "Stream gamepad slot 0.",
+      "default": {
+        "start": 69712,
+        "length": 10,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 101,
+      "hex": "$65",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_GAMEPAD_1",
+      "docName": "IIDX_GAMEPAD_1",
+      "description": "Stream gamepad slot 1.",
+      "default": {
+        "start": 69722,
+        "length": 10,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 102,
+      "hex": "$66",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_GAMEPAD_2",
+      "docName": "IIDX_GAMEPAD_2",
+      "description": "Stream gamepad slot 2.",
+      "default": {
+        "start": 69732,
+        "length": 10,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 103,
+      "hex": "$67",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_GAMEPAD_3",
+      "docName": "IIDX_GAMEPAD_3",
+      "description": "Stream gamepad slot 3.",
+      "default": {
+        "start": 69742,
+        "length": 10,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 104,
+      "hex": "$68",
+      "owner": "input",
+      "name": "MIA_INPUT_INDEX_INPUT_CONTROL",
+      "docName": "IIDX_INPUT_CONTROL",
+      "description": "Stream device flags and event control bytes.",
+      "default": {
+        "start": 69701,
+        "length": 11,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 105,
+      "hex": "$69",
+      "count": 7,
+      "owner": "input",
+      "reserved": true,
+      "description": "Reserved for MIA input."
+    },
+    {
+      "id": 112,
+      "hex": "$70",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_LOCAL_CONTROL",
+      "docName": "VIDX_LOCAL_CONTROL",
+      "description": "Read the local control page; it never syncs to the video client.",
+      "default": {
+        "start": 0,
+        "length": 32,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 113,
+      "hex": "$71",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_FRAME_ID",
+      "docName": "VIDX_FRAME_ID",
+      "description": "Read the latest frame id.",
+      "default": {
+        "start": 4,
+        "length": 4,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 114,
+      "hex": "$72",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_LAST_RESPONSE_DIRTY_PAGES",
+      "docName": "VIDX_LAST_RESPONSE_DIRTY_PAGES",
+      "description": "Read the latest stable dirty-page count.",
+      "default": {
+        "start": 8,
+        "length": 2,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 115,
+      "hex": "$73",
+      "count": 13,
+      "owner": "video",
+      "reserved": true,
+      "description": "Reserved for video local-control indexes."
+    },
+    {
+      "id": 128,
+      "hex": "$80",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_RENDER_CONTROL",
+      "docName": "VIDX_RENDER_CONTROL",
+      "description": "Stream the render control page.",
+      "default": {
+        "start": 32,
+        "length": 32,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 129,
+      "hex": "$81",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_LAYER_ENABLE",
+      "docName": "VIDX_LAYER_ENABLE",
+      "description": "Write the layer enable flags.",
+      "default": {
+        "start": 33,
+        "length": 1,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 130,
+      "hex": "$82",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_BG_VIEWPORT",
+      "docName": "VIDX_BG_VIEWPORT",
+      "description": "Write the viewport mode and active background set.",
+      "default": {
+        "start": 34,
+        "length": 2,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 131,
+      "hex": "$83",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_SCROLL_X",
+      "docName": "VIDX_SCROLL_X",
+      "description": "Write viewport X low, high, repeat.",
+      "default": {
+        "start": 36,
+        "length": 2,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 132,
+      "hex": "$84",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_SCROLL_Y",
+      "docName": "VIDX_SCROLL_Y",
+      "description": "Write viewport Y low, high, repeat.",
+      "default": {
+        "start": 38,
+        "length": 2,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 133,
+      "hex": "$85",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_BANK_SELECT",
+      "docName": "VIDX_BANK_SELECT",
+      "description": "Write the bg, bg alt, overlay, overlay alt and sprite banks.",
+      "default": {
+        "start": 40,
+        "length": 5,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 134,
+      "hex": "$86",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_CHR_1BPP",
+      "docName": "VIDX_CHR_1BPP",
+      "description": "Write CHR_1BPP_MASK and CHR_1BPP_PLANES, repeat.",
+      "default": {
+        "start": 45,
+        "length": 2,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 135,
+      "hex": "$87",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_BACKDROP_COLOR",
+      "docName": "VIDX_BACKDROP_COLOR",
+      "description": "Write the backdrop color selector.",
+      "default": {
+        "start": 47,
+        "length": 1,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 136,
+      "hex": "$88",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_OAM_LAST",
+      "docName": "VIDX_OAM_LAST",
+      "description": "Write the last evaluated OAM index.",
+      "default": {
+        "start": 48,
+        "length": 1,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 137,
+      "hex": "$89",
+      "count": 7,
+      "owner": "video",
+      "reserved": true,
+      "description": "Reserved for video render-control indexes."
+    },
+    {
+      "id": 144,
+      "hex": "$90",
+      "count": 16,
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_PALETTE_0",
+      "docName": "VIDX_PALETTE_0",
+      "description": "Stream one palette bank (palettes 0-15).",
+      "default": {
+        "start": 256,
+        "length": 16,
+        "stride": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 160,
+      "hex": "$A0",
+      "count": 8,
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_CHR_BANK_0",
+      "docName": "VIDX_CHR_BANK_0",
+      "description": "Stream one CHR bank (banks 0-7).",
+      "default": {
+        "start": 512,
+        "length": 6144,
+        "stride": 6144,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 168,
+      "hex": "$A8",
+      "count": 8,
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_BG_NT_0",
+      "docName": "VIDX_BG_NT_0",
+      "description": "Stream one background nametable (tables 0-7).",
+      "default": {
+        "start": 49664,
+        "length": 1000,
+        "stride": 1000,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 176,
+      "hex": "$B0",
+      "count": 8,
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_BG_ATTR_0",
+      "docName": "VIDX_BG_ATTR_0",
+      "description": "Stream one background attribute table (tables 0-7).",
+      "default": {
+        "start": 57664,
+        "length": 1000,
+        "stride": 1000,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 184,
+      "hex": "$B8",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_OVERLAY_NT",
+      "docName": "VIDX_OVERLAY_NT",
+      "description": "Stream the overlay nametable (the console's text).",
+      "default": {
+        "start": 65664,
+        "length": 1000,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 185,
+      "hex": "$B9",
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_OVERLAY_ATTR",
+      "docName": "VIDX_OVERLAY_ATTR",
+      "description": "Stream the overlay attributes.",
+      "default": {
+        "start": 66664,
+        "length": 1000,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 186,
+      "hex": "$BA",
+      "count": 6,
+      "owner": "video",
+      "reserved": true,
+      "description": "Reserved for video indexes."
+    },
+    {
+      "id": 192,
+      "hex": "$C0",
+      "count": 32,
+      "owner": "video",
+      "name": "MIA_VIDEO_INDEX_OAM_SPRITE_0",
+      "docName": "VIDX_OAM_SPRITE_0",
+      "description": "Stream one OAM sprite record (sprites 0-31).",
+      "default": {
+        "start": 67664,
+        "length": 5,
+        "stride": 5,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 224,
+      "hex": "$E0",
+      "owner": "sd",
+      "name": "MIA_SD_INDEX_CONTROL",
+      "docName": "IIDX_SD_CONTROL",
+      "description": "SD/FS control block.",
+      "default": {
+        "start": 77824,
+        "length": 64,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 225,
+      "hex": "$E1",
+      "owner": "sd",
+      "name": "MIA_SD_INDEX_SECTOR",
+      "docName": "IIDX_SD_SECTOR",
+      "description": "Raw 512-byte sector buffer.",
+      "default": {
+        "start": 77888,
+        "length": 512,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 226,
+      "hex": "$E2",
+      "owner": "sd",
+      "name": "MIA_FS_INDEX_PATH",
+      "docName": "IIDX_FS_PATH",
+      "description": "Path buffer.",
+      "default": {
+        "start": 78400,
+        "length": 256,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 227,
+      "hex": "$E3",
+      "owner": "sd",
+      "name": "MIA_FS_INDEX_DIR_ENTRY",
+      "docName": "IIDX_FS_DIR_ENTRY",
+      "description": "Directory entry/result buffer.",
+      "default": {
+        "start": 78656,
+        "length": 256,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 228,
+      "hex": "$E4",
+      "owner": "sd",
+      "name": "MIA_FS_INDEX_TRANSFER",
+      "docName": "IIDX_FS_TRANSFER",
+      "description": "File transfer buffer.",
+      "default": {
+        "start": 78912,
+        "length": 1984,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 229,
+      "hex": "$E5",
+      "owner": "sd",
+      "name": "MIA_FS_INDEX_PATH2",
+      "docName": "IIDX_FS_PATH2",
+      "description": "Secondary path buffer, overlaid on the first 256 bytes of the transfer buffer.",
+      "default": {
+        "start": 78912,
+        "length": 256,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 230,
+      "hex": "$E6",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_ALL",
+      "docName": "IIDX_AUDIO_ALL",
+      "description": "Whole audio block.",
+      "default": {
+        "start": 73728,
+        "length": 80,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 231,
+      "hex": "$E7",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_VOICE0",
+      "docName": "IIDX_AUDIO_CH0",
+      "description": "Voice 0 record.",
+      "default": {
+        "start": 73744,
+        "length": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 232,
+      "hex": "$E8",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_VOICE1",
+      "docName": "IIDX_AUDIO_CH1",
+      "description": "Voice 1 record.",
+      "default": {
+        "start": 73760,
+        "length": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 233,
+      "hex": "$E9",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_VOICE2",
+      "docName": "IIDX_AUDIO_CH2",
+      "description": "Voice 2 record.",
+      "default": {
+        "start": 73776,
+        "length": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 234,
+      "hex": "$EA",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_VOICE3",
+      "docName": "IIDX_AUDIO_CH3",
+      "description": "Voice 3 record.",
+      "default": {
+        "start": 73792,
+        "length": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 235,
+      "hex": "$EB",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_HEADER",
+      "docName": "IIDX_AUDIO_HEADER",
+      "description": "Audio header.",
+      "default": {
+        "start": 73728,
+        "length": 16,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 236,
+      "hex": "$EC",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_SEQ_VOICE0",
+      "docName": "IIDX_AUDIO_SEQ0",
+      "description": "Voice 0 sequencer status (SEQ_NOTE_INDEX_L/H, SEQ_STATUS).",
+      "default": {
+        "start": 73753,
+        "length": 3,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 237,
+      "hex": "$ED",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_SEQ_VOICE1",
+      "docName": "IIDX_AUDIO_SEQ1",
+      "description": "Voice 1 sequencer status (SEQ_NOTE_INDEX_L/H, SEQ_STATUS).",
+      "default": {
+        "start": 73769,
+        "length": 3,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 238,
+      "hex": "$EE",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_SEQ_VOICE2",
+      "docName": "IIDX_AUDIO_SEQ2",
+      "description": "Voice 2 sequencer status (SEQ_NOTE_INDEX_L/H, SEQ_STATUS).",
+      "default": {
+        "start": 73785,
+        "length": 3,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 239,
+      "hex": "$EF",
+      "owner": "audio",
+      "name": "MIA_AUDIO_INDEX_SEQ_VOICE3",
+      "docName": "IIDX_AUDIO_SEQ3",
+      "description": "Voice 3 sequencer status (SEQ_NOTE_INDEX_L/H, SEQ_STATUS).",
+      "default": {
+        "start": 73801,
+        "length": 3,
+        "step": 1,
+        "flags": [
+          "R_STP_ENA",
+          "W_STP_ENA",
+          "WRAP_ENA"
+        ]
+      }
+    },
+    {
+      "id": 240,
+      "hex": "$F0",
+      "owner": "kernel",
+      "name": "KIDX_SCROLL_NT_SRC",
+      "description": "Scroll DMA source: overlay nametable + 40. The kernel configures it before each use."
+    },
+    {
+      "id": 241,
+      "hex": "$F1",
+      "owner": "kernel",
+      "name": "KIDX_SCROLL_NT_DST",
+      "description": "Scroll DMA destination: overlay nametable base. The kernel configures it before each use."
+    },
+    {
+      "id": 242,
+      "hex": "$F2",
+      "owner": "kernel",
+      "name": "KIDX_SCROLL_ATTR_SRC",
+      "description": "Scroll DMA source: overlay attributes + 40. The kernel configures it before each use."
+    },
+    {
+      "id": 243,
+      "hex": "$F3",
+      "owner": "kernel",
+      "name": "KIDX_SCROLL_ATTR_DST",
+      "description": "Scroll DMA destination: overlay attributes base. The kernel configures it before each use."
+    },
+    {
+      "id": 244,
+      "hex": "$F4",
+      "owner": "kernel",
+      "name": "KIDX_MEMORY_SRC",
+      "description": "Source for the kernel's MIA memory copy, fill and rectangle services. The kernel configures it before each use."
+    },
+    {
+      "id": 245,
+      "hex": "$F5",
+      "owner": "kernel",
+      "name": "KIDX_MEMORY_DST",
+      "description": "Destination for the same services. The kernel configures it before each use."
+    },
+    {
+      "id": 246,
+      "hex": "$F6",
+      "count": 10,
+      "owner": "kernel",
+      "reserved": true,
+      "description": "Reserved for the kernel."
+    }
+  ]
+}

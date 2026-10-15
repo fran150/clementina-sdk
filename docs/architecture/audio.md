@@ -23,8 +23,8 @@ Commands:
 - `$67` voice release
 - `$68`-`$6B` sequencer set base, voice 0-3 (24-bit little-endian address)
 
-Audio indexes are `$E6-$EB`; direct sequencer-status indexes are `$EC-$EF`.
-The 32 video direct-OAM descriptors remain contiguous at `$C0-$DF`.
+Audio indexes are `$E6-$EB`; direct sequencer-status indexes are `$EC-$EF`
+(`specs/mia-indexes.json`).
 
 ## Background sequencer
 

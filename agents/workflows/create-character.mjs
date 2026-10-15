@@ -9,9 +9,10 @@ import {loadProject, resolveProjectPath} from '@clementina/project/node';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const videoSpec = JSON.parse(await readFile(join(sdkRoot, 'specs/video.json'), 'utf8'));
+const ramMap = JSON.parse(await readFile(join(sdkRoot, 'specs/mia-ram-map.json'), 'utf8'));
 const DISPLAY = {
   width: videoSpec.display.width, height: videoSpec.display.height,
-  videoBytes: videoSpec.videoRegion.size,
+  videoBytes: ramMap.blocks.find(block => block.name === 'VIDEO').size,
   oamStart: videoSpec.regions.find(region => region.name === 'OAM').start,
   recordBytes: videoSpec.sprites.recordBytes,
 };

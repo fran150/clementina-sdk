@@ -1,0 +1,98 @@
+{
+  "format": "clementina-mia-ram-map",
+  "version": 1,
+  "size": 262144,
+  "addressBits": 18,
+  "notes": [
+    "The firmware owns $00000-$13FFF and programs own $14000-$3FFFF (machine.json miaRam).",
+    "Programs write below $14000 only through the documented video, input, audio and SD/FS layouts.",
+    "The serial console's 'audio seq test' debug command writes its test tracks to the top 1 KiB ($3FC00-$3FFFF), the one firmware write programs did not ask for."
+  ],
+  "blocks": [
+    {
+      "name": "VIDEO",
+      "owner": "video",
+      "start": 0,
+      "endExclusive": 68944,
+      "size": 68944,
+      "range": "$00000-$10D4F",
+      "spec": "video.json",
+      "description": "Local and render control, palettes, CHR banks, background tables, overlay and OAM."
+    },
+    {
+      "name": "FIRMWARE_RESERVED",
+      "owner": "firmware",
+      "start": 68944,
+      "endExclusive": 69632,
+      "size": 688,
+      "range": "$10D50-$10FFF",
+      "description": "Reserved for future firmware state."
+    },
+    {
+      "name": "INPUT",
+      "owner": "input",
+      "start": 69632,
+      "endExclusive": 69760,
+      "size": 128,
+      "range": "$11000-$1107F",
+      "spec": "input.json",
+      "description": "Input state; clock snapshot at $11078-$1107F."
+    },
+    {
+      "name": "FIRMWARE_RESERVED",
+      "owner": "firmware",
+      "start": 69760,
+      "endExclusive": 73728,
+      "size": 3968,
+      "range": "$11080-$11FFF",
+      "description": "Reserved for future firmware state."
+    },
+    {
+      "name": "AUDIO",
+      "owner": "audio",
+      "start": 73728,
+      "endExclusive": 73808,
+      "size": 80,
+      "range": "$12000-$1204F",
+      "spec": "audio.json",
+      "description": "Audio header and four voices."
+    },
+    {
+      "name": "FIRMWARE_RESERVED",
+      "owner": "firmware",
+      "start": 73808,
+      "endExclusive": 77824,
+      "size": 4016,
+      "range": "$12050-$12FFF",
+      "description": "Reserved for future firmware state."
+    },
+    {
+      "name": "SD_FS",
+      "owner": "sd",
+      "start": 77824,
+      "endExclusive": 80896,
+      "size": 3072,
+      "range": "$13000-$13BFF",
+      "spec": "storage.json",
+      "description": "SD/FS control block and buffers."
+    },
+    {
+      "name": "FIRMWARE_RESERVED",
+      "owner": "firmware",
+      "start": 80896,
+      "endExclusive": 81920,
+      "size": 1024,
+      "range": "$13C00-$13FFF",
+      "description": "Reserved for future firmware state."
+    },
+    {
+      "name": "PROGRAMS",
+      "owner": "programs",
+      "start": 81920,
+      "endExclusive": 262144,
+      "size": 180224,
+      "range": "$14000-$3FFFF",
+      "description": "Free. The firmware writes here only where a program points it (an index, a DMA copy, an SD transfer, a sequencer track), and no reset clears it."
+    }
+  ]
+}

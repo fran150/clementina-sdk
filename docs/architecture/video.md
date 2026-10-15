@@ -63,4 +63,5 @@ backdrop → background → sprites → priority background pixels → overlay.
 Video sync is client-paced dirty-page transfer, not raw pixels. Pages are 32 bytes.
 Default video UDP port is 6502.
 
-Direct OAM descriptors are available contiguously at `$C0-$DF` for sprites 0-31.
+Direct OAM descriptors are available contiguously at `$C0-$DF` for sprites 0-31
+(`specs/mia-indexes.json`).
