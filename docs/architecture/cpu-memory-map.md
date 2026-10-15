@@ -8,6 +8,9 @@
 | `$E000-$FFFF` | MIA region |
 | `$FFE0-$FFFF` | 32-byte MIA register block |
 
+Every region, zero page byte (BASIC's included), system page variable and VIA
+register, with its owner and a description: `specs/cpu-memory-map.json`.
+
 Important base-RAM areas:
 
 - `$0000-$00FF` zero page: BASIC `$00-$97`; free for programs `$98-$DF`;
@@ -37,7 +40,8 @@ A program that lowers `MEMSIZ` and runs `CLEAR` can also use bank 0 above it (se
 ## I/O
 
 The 65C22 VIA occupies `$C000-$C3FF`, mirrored every 16 bytes. Remaining I/O
-slots are presently free.
+slots are presently free. What the kernel uses in each VIA register:
+`specs/cpu-memory-map.json` `via`.
 
 ## MIA region
 
