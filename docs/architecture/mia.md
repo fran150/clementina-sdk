@@ -31,7 +31,7 @@ There are 256 descriptors and two active windows, A and B. Each descriptor has:
 - flags: read-step, write-step, direction, wrap, wrap-IRQ
 
 Window A: `$FFE0/$FFE1`. Window B: `$FFE4/$FFE5`.
-Configuration: `$FFE2/$FFE3`.
+Configuration: `$FFE2/$FFE3`. Field ids: `specs/mia-config.json`.
 
 ## Commands
 
@@ -47,6 +47,12 @@ Two commands copy inside MIA RAM, and neither moves the descriptors.
   the first row.
 - A copy requested while another is running waits behind it, up to eight deep.
   A full queue reports error `$13`.
+
+## Status and errors
+
+`STATUS_L/H` (`$FFEA-$FFEB`) bits are in `specs/mia-status.json`. Reading
+`ERROR_L` (`$FFEC`) pops the oldest queued error, or returns 0 when the queue
+is empty; the codes are in `specs/mia-errors.json`.
 
 ## Context stack
 

@@ -1,6 +1,7 @@
 {
   "format":"clementina-input","version":1,
   "modes":[{"id":0,"name":"console"},{"id":1,"name":"wifi"},{"id":2,"name":"usb-host","reserved":true,"note":"reserved for a USB keyboard on a later board; MIA reports it unavailable on rev 1"}],
+  "status":{"register":"INPUT_STATUS","bits":[{"bit":0,"name":"INPUT_TEXT_READY","description":"The text FIFO contains at least one byte."},{"bit":1,"name":"INPUT_KEYBOARD_DOWN","description":"At least one represented Keyboard/Keypad usage is held."},{"bit":2,"name":"INPUT_CONSUMER_DOWN","description":"At least one represented Consumer usage is held."},{"bit":3,"name":"INPUT_MOUSE_DOWN","description":"At least one mouse button is held."},{"bit":4,"name":"INPUT_GAMEPAD_DOWN","description":"At least one gamepad digital control is held."},{"bit":5,"name":"INPUT_SOURCE_CONSOLE","description":"The console input source owns input."},{"bit":6,"name":"INPUT_SOURCE_WIFI","description":"The Wi-Fi input source owns input."},{"bit":7,"name":"INPUT_SOURCE_USB_HOST","description":"Reserved for a later board's USB keyboard; reads as zero."}]},
   "textFifo":{"size":64,"encoding":"PETSCII-compatible","overflow":"drop-oldest"},
   "wifi":{"udpPort":6503},
   "stateRegion":{"start":69632,"endExclusive":69760,"size":128},
