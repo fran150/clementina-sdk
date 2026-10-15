@@ -18,7 +18,8 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   token byte(s) (e.g. `TRACK` → extension2 token `$FC,$A8`). A trailing `$`/`(`
   is only treated as part of the keyword when that longer form actually
   matches a table entry (`STR$`, `TAB(`), not for an ordinary function call
-  like `CUE(0)`.
+  like `CUE(0)`. The editor's hover also shows the keyword's syntax line and
+  one-line summary.
 - **Completion**: every keyword across all four tables plus `MON`, filtered by
   statement or expression context, plus variables already used in the document.
 - **Line targets**: precise diagnostics and go-to-definition for static targets
@@ -26,9 +27,10 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   comma-separated target lists used by `ON...GOTO`/`ON...GOSUB`. The analysis
   follows the ROM tokenizer's no-boundary matching and ignores apparent keywords
   inside quoted strings, `DATA`, and `REM`.
-- **Signature help**: argument names and the active argument for the ROM's
-  built-in numeric/string functions, core statements, and every Clementina
-  extension callable, including nested calls.
+- **Signature help**: the syntax line, argument names, and the active argument
+  for every ROM statement and function, including nested calls. Optional
+  arguments end in `?` and repeating ones in `...`; function calls with too few
+  or too many arguments get a diagnostic.
 - **Symbols and refactoring**: effective numbered lines and variables appear as
   document symbols. References and rename work for variables and for numbered
   lines plus their static targets, with new names checked against the ROM tokenizer.
@@ -62,6 +64,14 @@ dependencies don't ride along with every consumer of `@clementina/basic` (CLI,
 build, emulator-client, debug) — the same reasoning that already keeps
 `@clementina/debug` and `@clementina/emulator-client` separate from
 `@clementina/assembler`/`@clementina/basic`.
+
+## Keyword data
+
+Syntax lines, arguments, accepted ranges, and summaries come from the
+`keywords` section of `specs/basic.json`, which has one entry per ROM token.
+`npm run generate:basic-keywords` copies it into `src/keyword-data.ts`, and
+`npm test` fails when that copy is stale. Edit the spec, never the generated
+file.
 
 ## Running it
 

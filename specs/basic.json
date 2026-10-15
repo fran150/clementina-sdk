@@ -1,7 +1,7 @@
 {
   "format": "clementina-basic",
   "version": 1,
-  "source": "clementina-rom/src/basic/token.s, program.s, misc1.s, inline.s, clementina_extra.s and defines_clementina.s",
+  "source": "clementina-rom/src/basic/token.s, program.s, misc1.s, inline.s, defines_clementina.s, and the statement and function handlers in the stock and clementina_*.s sources",
   "sourceLimits": {
     "maxLineNumber": 63999,
     "maxInputCharacters": 80,
@@ -56,5 +56,1631 @@
       "case": "ASCII uppercase outside quoted strings, DATA, and REM",
       "keywordBoundary": "none"
     }
+  },
+  "keywords": {
+    "notes": [
+      "One entry per ROM token, in token-table order: primary, MON, extension, extension2, then extension functions.",
+      "kind is statement, function, operator, or keyword (a word that only appears inside another statement, such as TO).",
+      "syntax uses [ ] for optional parts, ... for repeats, and | between alternative forms; argument names appear in it in order.",
+      "An argument outside min..max raises ILLEGAL QUANTITY unless its note names another error. Without min and max BASIC checks no range.",
+      "Where min and max are given, the value is rounded down to a whole number before the check.",
+      "A string where a number is expected, or the reverse, raises TYPE MISMATCH."
+    ],
+    "argumentTypes": {
+      "number": "Numeric expression.",
+      "string": "String expression.",
+      "expression": "Numeric or string expression.",
+      "path": "String expression naming an SD card file or directory, relative to the current directory (CD) or absolute from /. An SD error raises FILE I/O ERROR.",
+      "handle": "File number 1-16 of a file opened with OPEN.",
+      "line-number": "Line number written as literal digits, not an expression; a line that does not exist raises UNDEF'D STATEMENT.",
+      "condition": "Numeric expression where 0 is false and any other value is true.",
+      "variable": "Numeric or string variable, or array element, that receives a value.",
+      "numeric-variable": "Numeric variable, or array element, that receives a value.",
+      "array": "Array name.",
+      "name": "Name of a DEF FN function, written like a numeric variable name right after FN.",
+      "statement": "One or more statements separated by colons.",
+      "text": "Characters stored as typed, up to the end of the statement or line.",
+      "keyword": "One of a fixed set of words, listed in the note."
+    },
+    "entries": [
+      {
+        "keyword": "END", "kind": "statement",
+        "syntax": "END",
+        "arguments": [],
+        "summary": "Ends the program, stops background music and returns to the READY prompt."
+      },
+      {
+        "keyword": "FOR", "kind": "statement",
+        "syntax": "FOR variable=start TO end [STEP step]",
+        "arguments": [
+          {"name": "variable", "type": "numeric-variable", "note": "Simple numeric variable; an integer (%) variable or array element gives SYNTAX ERROR. A FOR on a variable already looping replaces that loop."},
+          {"name": "start", "type": "number", "note": "Assigned to the variable when the loop starts."},
+          {"name": "end", "type": "number", "note": "Evaluated once. The test is made at NEXT, so the body runs at least once."},
+          {"name": "step", "type": "number", "optional": true, "note": "Defaults to 1; a negative step counts down and STEP 0 never ends."}
+        ],
+        "summary": "Starts a loop: sets the variable to start and repeats the body up to NEXT, adding step (default 1) until it passes end; the body runs at least once."
+      },
+      {
+        "keyword": "NEXT", "kind": "statement",
+        "syntax": "NEXT [variable[,variable...]]",
+        "arguments": [
+          {"name": "variable", "type": "numeric-variable", "optional": true, "repeats": true, "note": "Omitted: the innermost loop. Naming an outer loop closes the inner ones; with no matching FOR, NEXT WITHOUT FOR."}
+        ],
+        "summary": "Ends a FOR loop: adds the step and loops back while the limit is not passed; NEXT I,J closes several loops in turn."
+      },
+      {
+        "keyword": "DATA", "kind": "statement",
+        "syntax": "DATA value[,value...]",
+        "arguments": [
+          {"name": "value", "type": "text", "repeats": true, "note": "Number or string constant. Quoted strings may hold commas and colons; unquoted ones end at a comma or colon."}
+        ],
+        "summary": "Holds constants that READ takes in program order; executing a DATA statement does nothing."
+      },
+      {
+        "keyword": "INPUT", "kind": "statement",
+        "syntax": "INPUT [prompt;] variable[,variable...]",
+        "arguments": [
+          {"name": "prompt", "type": "string", "optional": true, "note": "A quoted string literal followed by a semicolon; \"? \" is printed after it."},
+          {"name": "variable", "type": "variable", "repeats": true, "note": "Missing items prompt ??, a bad number asks to REDO FROM START and extra items print EXTRA IGNORED."}
+        ],
+        "summary": "Reads values typed in the screen editor into variables; program mode only, and an empty line stops the run (CONT resumes)."
+      },
+      {
+        "keyword": "DIM", "kind": "statement",
+        "syntax": "DIM array(dimensions)[,array...]",
+        "arguments": [
+          {"name": "array", "type": "array", "repeats": true, "note": "Float, integer (%) or string array name."},
+          {"name": "dimensions", "type": "number", "repeats": true, "min": 0, "max": 32767, "note": "Highest subscript of each dimension, separated by commas; a dimension holds one more element than its highest subscript."}
+        ],
+        "summary": "Creates arrays with the given highest subscripts, starting at 0; an array used without DIM gets 0-10 per dimension, and a second DIM gives REDIM'D ARRAY."
+      },
+      {
+        "keyword": "READ", "kind": "statement",
+        "syntax": "READ variable[,variable...]",
+        "arguments": [
+          {"name": "variable", "type": "variable", "repeats": true, "note": "A non-numeric item read into a numeric variable gives SYNTAX ERROR on the DATA line; reading past the last item gives OUT OF DATA."}
+        ],
+        "summary": "Assigns the next DATA items, in program order, to the listed variables."
+      },
+      {
+        "keyword": "LET", "kind": "statement",
+        "syntax": "[LET] variable=expression",
+        "arguments": [
+          {"name": "variable", "type": "variable", "note": "An integer (%) variable takes the floored value and must be -32768 to 32767. TI accepts 0-5183999."},
+          {"name": "expression", "type": "expression"}
+        ],
+        "summary": "Assigns an expression to a variable; the word LET is optional. Assigning TI sets the 60 Hz clock."
+      },
+      {
+        "keyword": "GOTO", "kind": "statement",
+        "syntax": "GOTO line",
+        "arguments": [
+          {"name": "line", "type": "line-number", "min": 0, "max": 63999}
+        ],
+        "summary": "Jumps to the given line number."
+      },
+      {
+        "keyword": "RUN", "kind": "statement",
+        "syntax": "RUN [line]",
+        "arguments": [
+          {"name": "line", "type": "line-number", "optional": true, "min": 0, "max": 63999, "note": "Omitted: the first line."}
+        ],
+        "summary": "Clears variables, arrays, strings, the DATA pointer and the FOR/GOSUB stack, then runs the program from its start or from the given line."
+      },
+      {
+        "keyword": "IF", "kind": "statement",
+        "syntax": "IF condition THEN line|statement | IF condition GOTO line",
+        "arguments": [
+          {"name": "condition", "type": "condition", "note": "0 is false and any other number true; comparisons give -1 or 0. Strings cannot be tested."},
+          {"name": "line", "type": "line-number", "optional": true, "min": 0, "max": 63999, "note": "After THEN or GOTO, the line to jump to when the condition is true."},
+          {"name": "statement", "type": "statement", "optional": true, "note": "After THEN, the rest of the line, run only when the condition is true. There is no ELSE."}
+        ],
+        "summary": "Tests a condition: when true it jumps to a line or runs the rest of the line, otherwise it continues with the next line."
+      },
+      {
+        "keyword": "RESTORE", "kind": "statement",
+        "syntax": "RESTORE",
+        "arguments": [],
+        "summary": "Resets the DATA pointer so the next READ starts at the first DATA item; it takes no line number (RESTORE 10 is a SYNTAX ERROR)."
+      },
+      {
+        "keyword": "GOSUB", "kind": "statement",
+        "syntax": "GOSUB line",
+        "arguments": [
+          {"name": "line", "type": "line-number", "min": 0, "max": 63999}
+        ],
+        "summary": "Calls the subroutine at the given line; RETURN resumes after the GOSUB. Nesting too deep gives OUT OF MEMORY."
+      },
+      {
+        "keyword": "RETURN", "kind": "statement",
+        "syntax": "RETURN",
+        "arguments": [],
+        "summary": "Returns from the most recent GOSUB, dropping any FOR loops opened inside it; with no GOSUB active it gives RETURN WITHOUT GOSUB."
+      },
+      {
+        "keyword": "REM", "kind": "statement",
+        "syntax": "REM [text]",
+        "arguments": [
+          {"name": "text", "type": "text", "optional": true, "note": "Stored as typed, not tokenized."}
+        ],
+        "summary": "Marks the rest of the line as a comment; nothing after REM on that line runs."
+      },
+      {
+        "keyword": "STOP", "kind": "statement",
+        "syntax": "STOP",
+        "arguments": [],
+        "summary": "Stops the program with BREAK IN line and stops background music; CONT resumes after it. Ctrl-C between statements does the same."
+      },
+      {
+        "keyword": "ON", "kind": "statement",
+        "syntax": "ON index GOTO|GOSUB line[,line...]",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255, "note": "Truncated; 0 or a value past the end of the list continues with the next statement."},
+          {"name": "line", "type": "line-number", "repeats": true, "min": 0, "max": 63999}
+        ],
+        "summary": "Jumps to (GOTO) or calls (GOSUB) the line at position index in the list; 0 or a position past the end continues."
+      },
+      {
+        "keyword": "WAIT", "kind": "statement",
+        "syntax": "WAIT address,mask[,invert]",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 65535, "note": "CPU address."},
+          {"name": "mask", "type": "number", "min": 0, "max": 255},
+          {"name": "invert", "type": "number", "optional": true, "min": 0, "max": 255, "note": "Defaults to 0; its set bits are inverted before masking."}
+        ],
+        "summary": "Pauses until (PEEK(address) XOR invert) AND mask is nonzero; the loop does not check Ctrl-C, so a condition that never comes true hangs the machine."
+      },
+      {
+        "keyword": "LOAD", "kind": "statement",
+        "syntax": "LOAD path",
+        "arguments": [
+          {"name": "path", "type": "path", "note": "A failed open leaves the current program in memory; a program too large for BASIC memory gives FILE I/O ERROR."}
+        ],
+        "summary": "Replaces the program with a tokenized BASIC file from the SD card and clears variables; control returns to direct mode even when run from a program."
+      },
+      {
+        "keyword": "SAVE", "kind": "statement",
+        "syntax": "SAVE path",
+        "arguments": [
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Writes the current program's tokenized text (TXTTAB to VARTAB, no header) to a file on the SD card, creating or truncating it."
+      },
+      {
+        "keyword": "DEF", "kind": "statement",
+        "syntax": "DEF FNname(variable)=expression",
+        "arguments": [
+          {"name": "name", "type": "name", "note": "Numeric function name written right after FN, as in FNA; a string name gives TYPE MISMATCH."},
+          {"name": "variable", "type": "numeric-variable", "note": "The one simple numeric parameter."},
+          {"name": "expression", "type": "number", "note": "The function body; it is not evaluated until FN is called."}
+        ],
+        "summary": "Defines a one-argument numeric function FNname for later use in expressions; program mode only (ILLEGAL DIRECT in direct mode)."
+      },
+      {
+        "keyword": "POKE", "kind": "statement",
+        "syntax": "POKE address,value",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 65535, "note": "CPU address; $8000-$BFFF writes the mapped Extended RAM bank, and $C000 and up reach I/O and the MIA registers."},
+          {"name": "value", "type": "number", "min": 0, "max": 255}
+        ],
+        "summary": "Writes a byte to a CPU memory address."
+      },
+      {
+        "keyword": "COLOR", "kind": "statement",
+        "syntax": "COLOR bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15, "note": "Palette bank of the BASIC pen; its flip and ALT bits are kept."}
+        ],
+        "summary": "Sets the BASIC pen palette (0-15) used for READY, error messages, INPUT prompts, numbers and unstyled text; the editor pen is not changed."
+      },
+      {
+        "keyword": "FLIPX", "kind": "statement",
+        "syntax": "FLIPX enabled",
+        "arguments": [
+          {"name": "enabled", "type": "number", "min": 0, "max": 255, "note": "0 off, any other value on."}
+        ],
+        "summary": "Turns the horizontal flip on (nonzero) or off (0) in the BASIC pen used for messages and unstyled output."
+      },
+      {
+        "keyword": "FLIPY", "kind": "statement",
+        "syntax": "FLIPY enabled",
+        "arguments": [
+          {"name": "enabled", "type": "number", "min": 0, "max": 255, "note": "0 off, any other value on."}
+        ],
+        "summary": "Turns the vertical flip on (nonzero) or off (0) in the BASIC pen used for messages and unstyled output."
+      },
+      {
+        "keyword": "ALT", "kind": "statement",
+        "syntax": "ALT enabled",
+        "arguments": [
+          {"name": "enabled", "type": "number", "min": 0, "max": 255, "note": "0 off, any other value on."}
+        ],
+        "summary": "Turns the alternate (reverse) character bank on (nonzero) or off (0) in the BASIC pen used for messages and unstyled output."
+      },
+      {
+        "keyword": "STYLE", "kind": "statement",
+        "syntax": "STYLE mask",
+        "arguments": [
+          {"name": "mask", "type": "number", "min": 0, "max": 15, "note": "Bit 0 color, bit 1 flip X, bit 2 flip Y, bit 3 ALT. A set bit makes styled strings take that field from the BASIC pen; 0 keeps their own."}
+        ],
+        "summary": "Chooses which attribute fields (1 color, 2 flip-X, 4 flip-Y, 8 ALT) printed styled strings take from the BASIC pen instead of their own."
+      },
+      {
+        "keyword": "CRSR", "kind": "statement",
+        "syntax": "CRSR column,row",
+        "arguments": [
+          {"name": "column", "type": "number", "min": 0, "max": 39},
+          {"name": "row", "type": "number", "min": 0, "max": 24}
+        ],
+        "summary": "Moves the text cursor to column 0-39, row 0-24 (0,0 is the top-left corner) and sets BASIC's column counter to match."
+      },
+      {
+        "keyword": "CLS", "kind": "statement",
+        "syntax": "CLS",
+        "arguments": [],
+        "summary": "Clears the screen, homes the cursor and resets BASIC's column counter to 0."
+      },
+      {
+        "keyword": "PRINT", "kind": "statement",
+        "syntax": "PRINT [expression][,|;expression...]",
+        "arguments": [
+          {"name": "expression", "type": "expression", "optional": true, "repeats": true, "note": "A comma moves to the next 14-column zone and a semicolon adds no space; a trailing comma or semicolon keeps the cursor on the line. ? is short for PRINT."}
+        ],
+        "summary": "Prints values; strings keep their stored per-character colors and attributes, while numbers and unstyled text use the BASIC pen set by COLOR."
+      },
+      {
+        "keyword": "CONT", "kind": "statement",
+        "syntax": "CONT",
+        "arguments": [],
+        "summary": "Continues a program stopped by STOP, Ctrl-C or an empty INPUT line; after an error, a program edit, NEW, CLEAR, RUN or LOAD it gives CAN'T CONTINUE."
+      },
+      {
+        "keyword": "LIST", "kind": "statement",
+        "syntax": "LIST [start][-[end]]",
+        "arguments": [
+          {"name": "start", "type": "line-number", "optional": true, "min": 0, "max": 63999, "note": "LIST n lists only line n."},
+          {"name": "end", "type": "line-number", "optional": true, "min": 0, "max": 63999, "note": "LIST n- lists to the end and LIST -m from the first line."}
+        ],
+        "summary": "Lists program lines, all or a range, with string literals in their stored colors, then returns to READY (a LIST inside a program ends the run)."
+      },
+      {
+        "keyword": "CLEAR", "kind": "statement",
+        "syntax": "CLEAR",
+        "arguments": [],
+        "summary": "Clears all variables, arrays and strings and resets the DATA pointer and FOR/GOSUB stack; Clementina spells it CLEAR (not CLR) and it takes no argument."
+      },
+      {
+        "keyword": "GET", "kind": "statement",
+        "syntax": "GET variable[,variable...]",
+        "arguments": [
+          {"name": "variable", "type": "variable", "repeats": true, "note": "A string variable gets the key; a numeric variable accepts only a digit key, and any other key gives SYNTAX ERROR."}
+        ],
+        "summary": "Waits for a key for each variable and stores it without echo; program mode only (ILLEGAL DIRECT in direct mode)."
+      },
+      {
+        "keyword": "NEW", "kind": "statement",
+        "syntax": "NEW",
+        "arguments": [],
+        "summary": "Erases the program and all variables and stops background music; inside a running program it also ends the run."
+      },
+      {
+        "keyword": "TAB(", "kind": "function",
+        "syntax": "TAB(column)",
+        "arguments": [
+          {"name": "column", "type": "number", "min": 0, "max": 255, "note": "Nothing is printed when output is already at or past that column."}
+        ],
+        "summary": "Inside PRINT, prints spaces up to the given column; it is not valid elsewhere and returns no value."
+      },
+      {
+        "keyword": "TO", "kind": "keyword",
+        "syntax": "FOR variable=start TO end | GO TO line",
+        "arguments": [],
+        "summary": "Separates the start value from the limit in FOR, and follows GO in GO TO; it is not a statement by itself."
+      },
+      {
+        "keyword": "FN", "kind": "function",
+        "syntax": "FNname(argument)",
+        "arguments": [
+          {"name": "argument", "type": "number", "note": "The parameter variable's own value is restored after the call."}
+        ],
+        "returns": {"type": "number", "note": "Value of the DEF FN body."},
+        "summary": "Calls a function defined with DEF FNname, passing one numeric argument; an undefined name gives UNDEF'D FUNCTION."
+      },
+      {
+        "keyword": "SPC(", "kind": "function",
+        "syntax": "SPC(count)",
+        "arguments": [
+          {"name": "count", "type": "number", "min": 0, "max": 255}
+        ],
+        "summary": "Inside PRINT, prints the given number of spaces (0-255); it is not valid elsewhere and returns no value."
+      },
+      {
+        "keyword": "THEN", "kind": "keyword",
+        "syntax": "IF condition THEN line|statement",
+        "arguments": [],
+        "summary": "Follows the condition in IF; GOTO may stand in its place when jumping to a line."
+      },
+      {
+        "keyword": "NOT", "kind": "operator",
+        "syntax": "NOT value",
+        "arguments": [
+          {"name": "value", "type": "number", "min": -32768, "max": 32767, "note": "Floored to an integer first. NOT binds looser than comparisons, so NOT A=B is NOT (A=B)."}
+        ],
+        "returns": {"type": "number", "min": -32768, "max": 32767},
+        "summary": "Bitwise NOT of a 16-bit integer, giving -value-1, so NOT 0 is -1 (true) and NOT -1 is 0 (false)."
+      },
+      {
+        "keyword": "STEP", "kind": "keyword",
+        "syntax": "FOR variable=start TO end STEP step",
+        "arguments": [],
+        "summary": "Sets the amount added to the FOR variable on each NEXT (default 1); a negative step counts down."
+      },
+      {
+        "keyword": "+", "kind": "operator",
+        "syntax": "left + right | +right",
+        "arguments": [
+          {"name": "left", "type": "expression", "optional": true, "note": "Omitted for unary plus, which does nothing."},
+          {"name": "right", "type": "expression", "note": "Same type as left, else TYPE MISMATCH."}
+        ],
+        "returns": {"type": "expression", "note": "The sum of two numbers, or two strings joined (at most 255 characters, else STRING TOO LONG)."},
+        "summary": "Adds two numbers or joins two strings (up to 255 characters); a leading + is ignored."
+      },
+      {
+        "keyword": "-", "kind": "operator",
+        "syntax": "left - right | -right",
+        "arguments": [
+          {"name": "left", "type": "number", "optional": true, "note": "Omitted for negation."},
+          {"name": "right", "type": "number"}
+        ],
+        "returns": {"type": "number"},
+        "summary": "Subtracts two numbers or negates one; negation binds tighter than * and / but looser than ^, so -2^2 is -4."
+      },
+      {
+        "keyword": "*", "kind": "operator",
+        "syntax": "left * right",
+        "arguments": [
+          {"name": "left", "type": "number"},
+          {"name": "right", "type": "number"}
+        ],
+        "returns": {"type": "number", "note": "OVERFLOW beyond about 1.70141183E+38."},
+        "summary": "Multiplies two numbers; a result too large for the float format gives OVERFLOW."
+      },
+      {
+        "keyword": "/", "kind": "operator",
+        "syntax": "left / right",
+        "arguments": [
+          {"name": "left", "type": "number"},
+          {"name": "right", "type": "number", "note": "0 gives DIVISION BY ZERO."}
+        ],
+        "returns": {"type": "number"},
+        "summary": "Divides the left number by the right; dividing by zero gives DIVISION BY ZERO."
+      },
+      {
+        "keyword": "^", "kind": "operator",
+        "syntax": "left ^ right",
+        "arguments": [
+          {"name": "left", "type": "number", "note": "A negative base needs a whole exponent, else ILLEGAL QUANTITY."},
+          {"name": "right", "type": "number"}
+        ],
+        "returns": {"type": "number", "note": "0^0 is 1. Computed as EXP(Y*LOG(X)), so results are approximate; OVERFLOW if too large."},
+        "summary": "Raises a number to a power, with the highest precedence; a negative base needs an integer exponent, otherwise ILLEGAL QUANTITY."
+      },
+      {
+        "keyword": "AND", "kind": "operator",
+        "syntax": "left AND right",
+        "arguments": [
+          {"name": "left", "type": "number", "min": -32768, "max": 32767, "note": "Floored to an integer first."},
+          {"name": "right", "type": "number", "min": -32768, "max": 32767, "note": "Floored to an integer first."}
+        ],
+        "returns": {"type": "number", "min": -32768, "max": 32767},
+        "summary": "Bitwise AND of two 16-bit integers; applied to comparison results (-1 or 0) it acts as logical AND."
+      },
+      {
+        "keyword": "OR", "kind": "operator",
+        "syntax": "left OR right",
+        "arguments": [
+          {"name": "left", "type": "number", "min": -32768, "max": 32767, "note": "Floored to an integer first."},
+          {"name": "right", "type": "number", "min": -32768, "max": 32767, "note": "Floored to an integer first."}
+        ],
+        "returns": {"type": "number", "min": -32768, "max": 32767},
+        "summary": "Bitwise OR of two 16-bit integers; applied to comparison results (-1 or 0) it acts as logical OR; it binds looser than AND."
+      },
+      {
+        "keyword": ">", "kind": "operator",
+        "syntax": "left > right",
+        "arguments": [
+          {"name": "left", "type": "expression"},
+          {"name": "right", "type": "expression", "note": "Same type as left, else TYPE MISMATCH."}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 0, "note": "-1 when true, 0 when false. Strings compare by character code; >= and <> combine the signs."},
+        "summary": "Greater-than comparison of two numbers or two strings (by character code), giving -1 if true and 0 if false."
+      },
+      {
+        "keyword": "=", "kind": "operator",
+        "syntax": "left = right",
+        "arguments": [
+          {"name": "left", "type": "expression"},
+          {"name": "right", "type": "expression", "note": "Same type as left, else TYPE MISMATCH."}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 0, "note": "-1 when true, 0 when false. Strings compare by character code. The same token is the assignment sign in LET, FOR and DEF."},
+        "summary": "Equality comparison of two numbers or two strings (by character code), giving -1 if true and 0 if false."
+      },
+      {
+        "keyword": "<", "kind": "operator",
+        "syntax": "left < right",
+        "arguments": [
+          {"name": "left", "type": "expression"},
+          {"name": "right", "type": "expression", "note": "Same type as left, else TYPE MISMATCH."}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 0, "note": "-1 when true, 0 when false. Strings compare by character code; <= and <> combine the signs."},
+        "summary": "Less-than comparison of two numbers or two strings (by character code), giving -1 if true and 0 if false."
+      },
+      {
+        "keyword": "SGN", "kind": "function",
+        "syntax": "SGN(number)",
+        "arguments": [
+          {"name": "number", "type": "number"}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 1},
+        "summary": "Returns -1, 0 or 1 for a negative, zero or positive number."
+      },
+      {
+        "keyword": "INT", "kind": "function",
+        "syntax": "INT(number)",
+        "arguments": [
+          {"name": "number", "type": "number"}
+        ],
+        "returns": {"type": "number", "note": "Values of 2^31 or more are returned unchanged."},
+        "summary": "Returns the largest integer not greater than the number (floor), so INT(-1.5) is -2."
+      },
+      {
+        "keyword": "ABS", "kind": "function",
+        "syntax": "ABS(number)",
+        "arguments": [
+          {"name": "number", "type": "number"}
+        ],
+        "returns": {"type": "number", "min": 0},
+        "summary": "Returns the absolute value of a number."
+      },
+      {
+        "keyword": "USR", "kind": "function",
+        "syntax": "USR(value)",
+        "arguments": [
+          {"name": "value", "type": "expression", "note": "Passed in the floating-point accumulator; any type."}
+        ],
+        "returns": {"type": "number", "note": "The number the routine leaves in the accumulator; the default vector gives ILLEGAL QUANTITY."},
+        "summary": "Calls the machine-code routine named by the USR vector in zero page, passing the argument in the floating-point accumulator."
+      },
+      {
+        "keyword": "FRE", "kind": "function",
+        "syntax": "FRE(value)",
+        "arguments": [
+          {"name": "value", "type": "expression", "note": "Ignored."}
+        ],
+        "returns": {"type": "number", "note": "Signed 16-bit, so more than 32767 free bytes would read negative."},
+        "summary": "Collects unused strings and returns the free bytes between the arrays and the string heap; the argument is ignored."
+      },
+      {
+        "keyword": "POS", "kind": "function",
+        "syntax": "POS(value)",
+        "arguments": [
+          {"name": "value", "type": "expression", "note": "Ignored."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255, "note": "BASIC's output column counter, set to 0 by a new line, CLS or CRSR."},
+        "summary": "Returns BASIC's output column counter (0-255); the argument is ignored."
+      },
+      {
+        "keyword": "SQR", "kind": "function",
+        "syntax": "SQR(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "min": 0}
+        ],
+        "returns": {"type": "number", "min": 0},
+        "summary": "Returns the square root, computed as X^0.5; a negative argument gives ILLEGAL QUANTITY."
+      },
+      {
+        "keyword": "RND", "kind": "function",
+        "syntax": "RND(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Positive: next number. 0: repeats the last number. Negative: reseeds from the argument (the same value restarts the same sequence)."}
+        ],
+        "returns": {"type": "number", "min": 0, "note": "Less than 1. The sequence is the same after every cold start unless reseeded."},
+        "summary": "Returns a pseudo-random number from 0 up to 1: a positive argument gives the next one, 0 repeats the last, a negative one reseeds."
+      },
+      {
+        "keyword": "LOG", "kind": "function",
+        "syntax": "LOG(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Must be greater than 0; 0 or negative gives ILLEGAL QUANTITY."}
+        ],
+        "returns": {"type": "number"},
+        "summary": "Returns the natural logarithm; the argument must be greater than 0, else ILLEGAL QUANTITY."
+      },
+      {
+        "keyword": "EXP", "kind": "function",
+        "syntax": "EXP(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Above about 88.03 the result exceeds the float range and gives OVERFLOW; very negative values give 0."}
+        ],
+        "returns": {"type": "number", "min": 0},
+        "summary": "Returns e raised to the number; results beyond the float range (argument above about 88.03) give OVERFLOW."
+      },
+      {
+        "keyword": "COS", "kind": "function",
+        "syntax": "COS(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Radians."}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 1},
+        "summary": "Returns the cosine of an angle in radians."
+      },
+      {
+        "keyword": "SIN", "kind": "function",
+        "syntax": "SIN(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Radians."}
+        ],
+        "returns": {"type": "number", "min": -1, "max": 1},
+        "summary": "Returns the sine of an angle in radians."
+      },
+      {
+        "keyword": "TAN", "kind": "function",
+        "syntax": "TAN(number)",
+        "arguments": [
+          {"name": "number", "type": "number", "note": "Radians."}
+        ],
+        "returns": {"type": "number", "note": "Computed as SIN/COS; DIVISION BY ZERO only if the computed cosine is exactly 0."},
+        "summary": "Returns the tangent of an angle in radians."
+      },
+      {
+        "keyword": "ATN", "kind": "function",
+        "syntax": "ATN(number)",
+        "arguments": [
+          {"name": "number", "type": "number"}
+        ],
+        "returns": {"type": "number", "note": "Radians, between -PI/2 and PI/2."},
+        "summary": "Returns the arctangent, in radians, between -PI/2 and PI/2."
+      },
+      {
+        "keyword": "PEEK", "kind": "function",
+        "syntax": "PEEK(address)",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 65535, "note": "CPU address; $8000-$BFFF reads the mapped Extended RAM bank."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255},
+        "summary": "Returns the byte (0-255) at a CPU memory address."
+      },
+      {
+        "keyword": "LEN", "kind": "function",
+        "syntax": "LEN(string)",
+        "arguments": [
+          {"name": "string", "type": "string"}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255, "note": "Characters only; attribute bytes are not counted."},
+        "summary": "Returns the number of characters in a string (0-255)."
+      },
+      {
+        "keyword": "STR$", "kind": "function",
+        "syntax": "STR$(number)",
+        "arguments": [
+          {"name": "number", "type": "number"}
+        ],
+        "returns": {"type": "string", "note": "Up to 9 significant digits, with E notation for large or small values."},
+        "summary": "Converts a number to the text PRINT would show, with a leading space for positive numbers or a minus sign."
+      },
+      {
+        "keyword": "VAL", "kind": "function",
+        "syntax": "VAL(string)",
+        "arguments": [
+          {"name": "string", "type": "string"}
+        ],
+        "returns": {"type": "number"},
+        "summary": "Converts the leading decimal number in a string to its value, or 0 if there is none; hex $ prefixes are not recognized."
+      },
+      {
+        "keyword": "ASC", "kind": "function",
+        "syntax": "ASC(string)",
+        "arguments": [
+          {"name": "string", "type": "string", "note": "An empty string gives ILLEGAL QUANTITY."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255},
+        "summary": "Returns the code (0-255) of the first character of a string; an empty string gives ILLEGAL QUANTITY."
+      },
+      {
+        "keyword": "CHR$", "kind": "function",
+        "syntax": "CHR$(code)",
+        "arguments": [
+          {"name": "code", "type": "number", "min": 0, "max": 255}
+        ],
+        "returns": {"type": "string", "note": "One character, with the default attribute ($00)."},
+        "summary": "Returns a one-character string with the given code (0-255)."
+      },
+      {
+        "keyword": "LEFT$", "kind": "function",
+        "syntax": "LEFT$(string, length)",
+        "arguments": [
+          {"name": "string", "type": "string"},
+          {"name": "length", "type": "number", "min": 0, "max": 255, "note": "0 gives an empty string; a length past the end returns the whole string."}
+        ],
+        "returns": {"type": "string", "note": "Keeps the characters' attributes."},
+        "summary": "Returns the leftmost length characters of a string (all of it if shorter), keeping their attributes."
+      },
+      {
+        "keyword": "RIGHT$", "kind": "function",
+        "syntax": "RIGHT$(string, length)",
+        "arguments": [
+          {"name": "string", "type": "string"},
+          {"name": "length", "type": "number", "min": 0, "max": 255, "note": "0 gives an empty string; a length past the end returns the whole string."}
+        ],
+        "returns": {"type": "string", "note": "Keeps the characters' attributes."},
+        "summary": "Returns the rightmost length characters of a string (all of it if shorter), keeping their attributes."
+      },
+      {
+        "keyword": "MID$", "kind": "function",
+        "syntax": "MID$(string, start[, length])",
+        "arguments": [
+          {"name": "string", "type": "string"},
+          {"name": "start", "type": "number", "min": 1, "max": 255, "note": "1-based; past the end gives an empty string."},
+          {"name": "length", "type": "number", "optional": true, "min": 0, "max": 255, "note": "Omitted: the rest of the string."}
+        ],
+        "returns": {"type": "string", "note": "Keeps the characters' attributes."},
+        "summary": "Returns length characters of a string starting at position start (1-based), or the rest of the string when length is omitted."
+      },
+      {
+        "keyword": "GO", "kind": "statement",
+        "syntax": "GO TO line",
+        "arguments": [
+          {"name": "line", "type": "line-number", "min": 0, "max": 63999}
+        ],
+        "summary": "Two-word form of GOTO, written GO TO line; GO SUB is not supported."
+      },
+      {
+        "keyword": "MON", "kind": "statement",
+        "syntax": "MON",
+        "arguments": [],
+        "summary": "Enters the WozMon machine-code monitor; typing Q there returns to BASIC's READY prompt with the program and variables kept."
+      },
+      {
+        "keyword": "BCOLOR", "kind": "statement",
+        "syntax": "BCOLOR bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15, "note": "Palette bank whose ink color becomes the screen backdrop; 6 restores the default blue."}
+        ],
+        "summary": "Sets the screen backdrop to the ink color of a palette bank, the same color COLOR gives text."
+      },
+      {
+        "keyword": "SNDON", "kind": "statement",
+        "syntax": "SNDON",
+        "arguments": [],
+        "summary": "Starts the MIA sound generator (audio starts stopped); set voices up first, then SNDON once."
+      },
+      {
+        "keyword": "SNDOFF", "kind": "statement",
+        "syntax": "SNDOFF",
+        "arguments": [],
+        "summary": "Stops the sound generator; voice registers are kept."
+      },
+      {
+        "keyword": "SNDCLR", "kind": "statement",
+        "syntax": "SNDCLR",
+        "arguments": [],
+        "summary": "Stops the sound generator, clears every voice and restores the audio defaults."
+      },
+      {
+        "keyword": "VOL", "kind": "statement",
+        "syntax": "VOL level | voice,level",
+        "arguments": [
+          {"name": "voice", "type": "number", "optional": true, "min": 0, "max": 3, "note": "Given, the statement sets that voice's volume trim instead of the master volume."},
+          {"name": "level", "type": "number", "min": 0, "max": 255, "note": "Master volume 0-15 (0 mutes, 16 and up give ILLEGAL QUANTITY), or a voice trim 0-255 where 255 is unity."}
+        ],
+        "summary": "Sets the master volume (0-15), or with a voice number sets that voice's volume trim (0-255, 255 = unity)."
+      },
+      {
+        "keyword": "WAVE", "kind": "statement",
+        "syntax": "WAVE voice,waveform",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "waveform", "type": "number", "min": 0, "max": 4, "note": "0 sine, 1 pulse, 2 saw, 3 triangle, 4 noise."}
+        ],
+        "summary": "Selects a voice's waveform: 0 sine, 1 pulse, 2 saw, 3 triangle or 4 noise."
+      },
+      {
+        "keyword": "NOTE", "kind": "statement",
+        "syntax": "NOTE voice,note",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "note", "type": "number", "min": 0, "max": 95, "note": "Semitone: octave*12 + step, so 48 is middle C (C4) and 57 is A4 at 440 Hz. The envelope restarts from its attack."}
+        ],
+        "summary": "Plays a semitone (0-95) on a voice, starting a new note with its envelope and waveform restarted."
+      },
+      {
+        "keyword": "FREQ", "kind": "statement",
+        "syntax": "FREQ voice,hz",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "hz", "type": "number", "min": 0, "max": 4095, "note": "Whole hertz; the pitch changes without a new attack."}
+        ],
+        "summary": "Sets a voice's pitch in whole hertz (0-4095) without restarting the note."
+      },
+      {
+        "keyword": "GATE", "kind": "statement",
+        "syntax": "GATE voice,enabled",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "enabled", "type": "number", "min": 0, "max": 255, "note": "0 releases the note; any other value gates it on without retriggering."}
+        ],
+        "summary": "Gates a voice's note on without retriggering (non-zero) or releases it so it fades out (0)."
+      },
+      {
+        "keyword": "ADSR", "kind": "statement",
+        "syntax": "ADSR voice,attack,decay,sustain,release",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "attack", "type": "number", "min": 0, "max": 15, "note": "Attack rate; lower is faster."},
+          {"name": "decay", "type": "number", "min": 0, "max": 15, "note": "Decay rate; lower is faster."},
+          {"name": "sustain", "type": "number", "min": 0, "max": 15, "note": "Sustain level, not a rate: 0 silent, 15 full."},
+          {"name": "release", "type": "number", "min": 0, "max": 15, "note": "Release rate; lower is faster."}
+        ],
+        "summary": "Sets a voice's envelope: attack, decay and release rates and the sustain level, each 0-15."
+      },
+      {
+        "keyword": "PULSE", "kind": "statement",
+        "syntax": "PULSE voice,width",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "width", "type": "number", "min": 0, "max": 255, "note": "Duty cycle, 128 being about square; only the pulse waveform uses it."}
+        ],
+        "summary": "Sets a voice's pulse duty cycle (0-255, 128 about square); only affects the pulse waveform."
+      },
+      {
+        "keyword": "PAN", "kind": "statement",
+        "syntax": "PAN voice,position",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "position", "type": "number", "min": -64, "max": 63, "note": "-64 hard left, 0 centre, 63 hard right."}
+        ],
+        "summary": "Sets a voice's stereo position from -64 (hard left) through 0 (centre) to 63 (hard right)."
+      },
+      {
+        "keyword": "BGON", "kind": "statement",
+        "syntax": "BGON",
+        "arguments": [],
+        "summary": "Turns the background (playfield) layer on."
+      },
+      {
+        "keyword": "BGOFF", "kind": "statement",
+        "syntax": "BGOFF",
+        "arguments": [],
+        "summary": "Turns the background (playfield) layer off."
+      },
+      {
+        "keyword": "BGMODE", "kind": "statement",
+        "syntax": "BGMODE mode",
+        "arguments": [
+          {"name": "mode", "type": "number", "min": 0, "max": 5, "note": "Virtual map size in cells: 0 = 40x25 (no scroll headroom), 1 = 80x25, 2 = 40x50, 3 = 160x25, 4 = 40x100, 5 = 80x50. The display stays 320x200."}
+        ],
+        "summary": "Selects how the background's raw 40x25 tables tile into one scrollable map (modes 0-5)."
+      },
+      {
+        "keyword": "BGSET", "kind": "statement",
+        "syntax": "BGSET set",
+        "arguments": [
+          {"name": "set", "type": "number", "min": 0, "max": 1, "note": "0 draws from tables 0-3, 1 from tables 4-7."}
+        ],
+        "summary": "Selects which of the two background table sets (0 or 1) the current BGMODE arrangement is drawn from."
+      },
+      {
+        "keyword": "SCROLL", "kind": "statement",
+        "syntax": "SCROLL x,y",
+        "arguments": [
+          {"name": "x", "type": "number", "min": 0, "max": 65535, "note": "Pixels; wraps at the width of the current BGMODE map."},
+          {"name": "y", "type": "number", "min": 0, "max": 65535, "note": "Pixels; wraps at the height of the current BGMODE map."}
+        ],
+        "summary": "Pans the 320x200 view across the background map by x,y pixels, wrapping at the map's edges."
+      },
+      {
+        "keyword": "BGBANK", "kind": "statement",
+        "syntax": "BGBANK bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7}
+        ],
+        "summary": "Selects the CHR bank (0-7) the background layer normally draws its tiles from."
+      },
+      {
+        "keyword": "BGALT", "kind": "statement",
+        "syntax": "BGALT bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7}
+        ],
+        "summary": "Selects the CHR bank (0-7) used for background cells whose attribute has the CHR_ALT bit set."
+      },
+      {
+        "keyword": "SPRON", "kind": "statement",
+        "syntax": "SPRON",
+        "arguments": [],
+        "summary": "Turns the whole sprite layer on."
+      },
+      {
+        "keyword": "SPROFF", "kind": "statement",
+        "syntax": "SPROFF",
+        "arguments": [],
+        "summary": "Turns the whole sprite layer off."
+      },
+      {
+        "keyword": "SPRCOUNT", "kind": "statement",
+        "syntax": "SPRCOUNT lastIndex",
+        "arguments": [
+          {"name": "lastIndex", "type": "number", "min": 0, "max": 255}
+        ],
+        "summary": "Sets the highest sprite (OAM) index, 0-255, that the renderer scans each frame."
+      },
+      {
+        "keyword": "SPRBANK", "kind": "statement",
+        "syntax": "SPRBANK bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7}
+        ],
+        "summary": "Selects the CHR bank (0-7) that sprites draw their tiles from."
+      },
+      {
+        "keyword": "CHRMODE", "kind": "statement",
+        "syntax": "CHRMODE bank,is1bpp",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7},
+          {"name": "is1bpp", "type": "number", "min": 0, "max": 255, "note": "0 = 3bpp (8 colors), any non-zero value = 1bpp (2 colors, plane chosen by CHRPLANE)."}
+        ],
+        "summary": "Marks a CHR bank (0-7) as 1bpp two-color graphics (non-zero) or 3bpp eight-color graphics (0)."
+      },
+      {
+        "keyword": "CHRPLANE", "kind": "statement",
+        "syntax": "CHRPLANE background,sprites,overlay",
+        "arguments": [
+          {"name": "background", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank the background decodes."},
+          {"name": "sprites", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank sprites decode."},
+          {"name": "overlay", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank the overlay (text) layer decodes."}
+        ],
+        "summary": "Chooses which plane of a 1bpp CHR bank the background, sprite and overlay layers each decode (0-3)."
+      },
+      {
+        "keyword": "PALETTE", "kind": "statement",
+        "syntax": "PALETTE bank,index,red,green,blue",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15},
+          {"name": "index", "type": "number", "min": 0, "max": 7, "note": "Color within the bank."},
+          {"name": "red", "type": "number", "min": 0, "max": 31, "note": "5-bit red."},
+          {"name": "green", "type": "number", "min": 0, "max": 63, "note": "6-bit green."},
+          {"name": "blue", "type": "number", "min": 0, "max": 31, "note": "5-bit blue."}
+        ],
+        "summary": "Writes one palette color: bank 0-15, color index 0-7, as RGB565 with red 0-31, green 0-63 and blue 0-31."
+      },
+      {
+        "keyword": "VIDON", "kind": "statement",
+        "syntax": "VIDON",
+        "arguments": [],
+        "summary": "Turns the whole video output on."
+      },
+      {
+        "keyword": "VIDOFF", "kind": "statement",
+        "syntax": "VIDOFF",
+        "arguments": [],
+        "summary": "Turns the whole video output off."
+      },
+      {
+        "keyword": "BGCHAR", "kind": "statement",
+        "syntax": "BGCHAR column,row,tile,attribute",
+        "arguments": [
+          {"name": "column", "type": "number", "min": 0, "max": 159, "note": "Map-relative column for the current BGMODE; must be below the map width: 40 (modes 0, 2, 4), 80 (modes 1, 5) or 160 (mode 3). 159 is the limit in mode 3 only."},
+          {"name": "row", "type": "number", "min": 0, "max": 99, "note": "Map-relative row for the current BGMODE; must be below the map height: 25 (modes 0, 1, 3), 50 (modes 2, 5) or 100 (mode 4). 99 is the limit in mode 4 only."},
+          {"name": "tile", "type": "number", "min": 0, "max": 255, "note": "Nametable tile code."},
+          {"name": "attribute", "type": "number", "min": 0, "max": 255, "note": "Attribute byte: bits 0-3 palette, bit 4 flip X, bit 5 flip Y, bit 6 priority, bit 7 CHR_ALT."}
+        ],
+        "summary": "Writes one background cell (tile and attribute) at a map position for the current BGMODE, finding the right raw table."
+      },
+      {
+        "keyword": "CHRLOAD", "kind": "statement",
+        "syntax": "CHRLOAD bank,offset,count,path",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7},
+          {"name": "offset", "type": "number", "min": 0, "max": 6143, "note": "Byte offset into the 6144-byte bank."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the bank, so a long file continues into the next banks."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Loads up to count bytes from an SD card file into a CHR bank, starting offset bytes into it."
+      },
+      {
+        "keyword": "PALLOAD", "kind": "statement",
+        "syntax": "PALLOAD bank,offset,count,path",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15},
+          {"name": "offset", "type": "number", "min": 0, "max": 15, "note": "Byte offset into the 16-byte bank (8 colors of 2 bytes)."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "Maximum bytes, not colors; 0 loads to the end of the file. Not checked against the bank, so a long file continues into the next banks."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Loads up to count palette bytes from an SD card file into a palette bank, starting offset bytes into it."
+      },
+      {
+        "keyword": "OAMLOAD", "kind": "statement",
+        "syntax": "OAMLOAD index,count,path",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255, "note": "First sprite."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "Number of 5-byte sprite records; 0 loads to the end of the file. Not checked against the 256 sprites."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Loads count sprites' 5-byte OAM records from an SD card file, starting at sprite index."
+      },
+      {
+        "keyword": "SPRITE", "kind": "statement",
+        "syntax": "SPRITE index,tile,x,y,palette,flags",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255, "note": "Sprite (OAM entry)."},
+          {"name": "tile", "type": "number", "min": 0, "max": 255},
+          {"name": "x", "type": "number", "min": -512, "max": 511, "note": "Signed screen X."},
+          {"name": "y", "type": "number", "min": -256, "max": 255, "note": "Signed screen Y."},
+          {"name": "palette", "type": "number", "min": 0, "max": 15},
+          {"name": "flags", "type": "number", "min": 0, "max": 255, "note": "Bit 0 disable (hide), bit 1 priority, bit 2 flip X, bit 3 flip Y; bits 4-7 are ignored."}
+        ],
+        "summary": "Sets up one sprite completely: tile, signed x and y position, palette and flag bits (hide, priority, flips)."
+      },
+      {
+        "keyword": "SPRTILE", "kind": "statement",
+        "syntax": "SPRTILE index,tile",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "tile", "type": "number", "min": 0, "max": 255}
+        ],
+        "summary": "Changes only one sprite's tile (animation frame), leaving its other settings alone."
+      },
+      {
+        "keyword": "SPRX", "kind": "statement",
+        "syntax": "SPRX index,x",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "x", "type": "number", "min": -512, "max": 511, "note": "Same signed encoding as SPRITE's x."}
+        ],
+        "summary": "Changes only one sprite's X position (-512 to 511), leaving its other settings alone."
+      },
+      {
+        "keyword": "SPRY", "kind": "statement",
+        "syntax": "SPRY index,y",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "y", "type": "number", "min": -256, "max": 255, "note": "Same signed encoding as SPRITE's y."}
+        ],
+        "summary": "Changes only one sprite's Y position (-256 to 255), leaving its other settings alone."
+      },
+      {
+        "keyword": "SPRCOLOR", "kind": "statement",
+        "syntax": "SPRCOLOR index,palette",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "palette", "type": "number", "min": 0, "max": 15}
+        ],
+        "summary": "Changes only one sprite's palette (0-15), leaving its priority and flip bits alone."
+      },
+      {
+        "keyword": "SPRFLIP", "kind": "statement",
+        "syntax": "SPRFLIP index,flipX,flipY",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "flipX", "type": "number", "min": 0, "max": 255, "note": "0 normal, any other value mirrored horizontally."},
+          {"name": "flipY", "type": "number", "min": 0, "max": 255, "note": "0 normal, any other value mirrored vertically."}
+        ],
+        "summary": "Changes only one sprite's horizontal and vertical flip (each 0 or non-zero), leaving its other bits alone."
+      },
+      {
+        "keyword": "SPRPRI", "kind": "statement",
+        "syntax": "SPRPRI index,priority",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255},
+          {"name": "priority", "type": "number", "min": 0, "max": 255, "note": "0 clears the priority bit, any other value sets it."}
+        ],
+        "summary": "Changes only one sprite's priority bit (0 or non-zero), leaving its palette and flips alone."
+      },
+      {
+        "keyword": "OPEN", "kind": "statement",
+        "syntax": "OPEN path FOR mode AS #handle",
+        "arguments": [
+          {"name": "path", "type": "path", "note": "A missing file opened for INPUT, or a handle already open, gives FILE I/O ERROR."},
+          {"name": "mode", "type": "keyword", "note": "INPUT reads, OUTPUT creates or truncates, APPEND writes at the end, UPDATE reads and writes from the start without truncating."},
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written as #n."}
+        ],
+        "summary": "Opens an SD card file as file number 1-16 for INPUT, OUTPUT, APPEND or UPDATE."
+      },
+      {
+        "keyword": "CLOSE", "kind": "statement",
+        "syntax": "CLOSE #handle",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written as #n, one handle per statement. Closing a handle that is not open gives no error."}
+        ],
+        "summary": "Closes file number 1-16, flushing anything written to it."
+      },
+      {
+        "keyword": "BGET#", "kind": "statement",
+        "syntax": "BGET# handle,variable",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written straight after the keyword, as BGET#n, with no space before the #."},
+          {"name": "variable", "type": "numeric-variable", "note": "Numeric variable or array element. Reading past the end of the file gives no error; check EOF first."}
+        ],
+        "summary": "Reads one byte (0-255) from an open file into a numeric variable."
+      },
+      {
+        "keyword": "BPUT#", "kind": "statement",
+        "syntax": "BPUT# handle,value",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written straight after the keyword, as BPUT#n, with no space before the #."},
+          {"name": "value", "type": "number", "min": 0, "max": 255, "note": "Byte to write."}
+        ],
+        "summary": "Writes one byte (0-255) to an open file."
+      },
+      {
+        "keyword": "NTREAD", "kind": "statement",
+        "syntax": "NTREAD table,cell,count",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "DATA items (tile bytes) copied; not checked against the table. Uses variable Z9 as scratch and restores it."}
+        ],
+        "summary": "Copies count tile bytes from the current DATA position into a background nametable, starting at cell."
+      },
+      {
+        "keyword": "NTLOAD", "kind": "statement",
+        "syntax": "NTLOAD table,cell,count,path",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the table."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Loads up to count bytes from a file into a background nametable, starting at cell."
+      },
+      {
+        "keyword": "NTSAVE", "kind": "statement",
+        "syntax": "NTSAVE table,cell,count,path",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Bytes written; not checked against the table."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Saves count bytes of a background nametable, starting at cell, to a file, creating or truncating it."
+      },
+      {
+        "keyword": "ATRREAD", "kind": "statement",
+        "syntax": "ATRREAD table,cell,count",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "DATA items (attribute bytes) copied; not checked against the table. Uses variable Z9 as scratch and restores it."}
+        ],
+        "summary": "Copies count attribute bytes from the current DATA position into a background table's attribute plane, starting at cell."
+      },
+      {
+        "keyword": "ATRLOAD", "kind": "statement",
+        "syntax": "ATRLOAD table,cell,count,path",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the table."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Loads up to count bytes from a file into a background table's attribute plane, starting at cell."
+      },
+      {
+        "keyword": "ATRSAVE", "kind": "statement",
+        "syntax": "ATRSAVE table,cell,count,path",
+        "arguments": [
+          {"name": "table", "type": "number", "min": 0, "max": 7, "note": "Raw background table."},
+          {"name": "cell", "type": "number", "min": 0, "max": 999, "note": "Cell offset within the 1000-cell table."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Bytes written; not checked against the table."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Saves count bytes of a background table's attribute plane, starting at cell, to a file."
+      },
+      {
+        "keyword": "CHRREAD", "kind": "statement",
+        "syntax": "CHRREAD bank,offset,count",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7, "note": "CHR bank."},
+          {"name": "offset", "type": "number", "min": 0, "max": 6143, "note": "Byte offset within the 6144-byte bank."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "DATA items (bytes) copied; not checked against the bank. Uses variable Z9 as scratch and restores it."}
+        ],
+        "summary": "Copies count graphics bytes from the current DATA position into a CHR bank, starting at byte offset."
+      },
+      {
+        "keyword": "CHRSAVE", "kind": "statement",
+        "syntax": "CHRSAVE bank,offset,count,path",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7, "note": "CHR bank."},
+          {"name": "offset", "type": "number", "min": 0, "max": 6143, "note": "Byte offset within the 6144-byte bank."},
+          {"name": "count", "type": "number", "min": 0, "max": 65535, "note": "Bytes written; not checked against the bank."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Saves count bytes of a CHR bank, starting at byte offset, to a file."
+      },
+      {
+        "keyword": "PALREAD", "kind": "statement",
+        "syntax": "PALREAD bank,offset,count",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15, "note": "Palette bank of 8 RGB565 colors."},
+          {"name": "offset", "type": "number", "min": 0, "max": 15, "note": "Byte offset within the 16-byte bank."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "DATA items (RGB565 bytes, low byte first) copied; not checked against the bank. Uses variable Z9 as scratch and restores it."}
+        ],
+        "summary": "Copies count raw RGB565 palette bytes from the current DATA position into a palette bank, starting at offset."
+      },
+      {
+        "keyword": "PALSAVE", "kind": "statement",
+        "syntax": "PALSAVE bank,offset,count,path",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 15, "note": "Palette bank of 8 RGB565 colors."},
+          {"name": "offset", "type": "number", "min": 0, "max": 15, "note": "Byte offset within the 16-byte bank."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "Bytes written; not checked against the bank."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Saves count raw palette bytes of a palette bank, starting at offset, to a file."
+      },
+      {
+        "keyword": "OAMREAD", "kind": "statement",
+        "syntax": "OAMREAD index,count",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255, "note": "First sprite."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "Sprites copied, five DATA items each (tile, X low, Y low, attribute, extension); not checked against the 256 sprites. Uses Z9 as scratch."}
+        ],
+        "summary": "Copies count 5-byte sprite records from the current DATA position into OAM starting at sprite index."
+      },
+      {
+        "keyword": "OAMSAVE", "kind": "statement",
+        "syntax": "OAMSAVE index,count,path",
+        "arguments": [
+          {"name": "index", "type": "number", "min": 0, "max": 255, "note": "First sprite."},
+          {"name": "count", "type": "number", "min": 0, "max": 255, "note": "Number of 5-byte sprite records written."},
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Saves count 5-byte sprite records, starting at OAM index, to a file."
+      },
+      {
+        "keyword": "MIALOAD", "kind": "statement",
+        "syntax": "MIALOAD path,address[,length[,offset[,rows,fileStride,ramStride]]]",
+        "arguments": [
+          {"name": "path", "type": "path"},
+          {"name": "address", "type": "number", "min": 0, "max": 16777215, "note": "MIA RAM destination. BASIC accepts 24 bits and leaves addresses past MIA RAM to the firmware."},
+          {"name": "length", "type": "number", "optional": true, "min": 0, "max": 16777215, "note": "Omitted or 0 loads to the end of the file. In the rectangle form, the bytes in each row."},
+          {"name": "offset", "type": "number", "optional": true, "min": 0, "max": 4294967295, "note": "Byte offset into the file to start from."},
+          {"name": "rows", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Rectangle form: the number of rows; fileStride and ramStride must follow."},
+          {"name": "fileStride", "type": "number", "optional": true, "min": 0, "max": 4294967295, "note": "Bytes between row starts in the file."},
+          {"name": "ramStride", "type": "number", "optional": true, "min": 0, "max": 16777215, "note": "Bytes between row starts in MIA RAM."}
+        ],
+        "summary": "Loads a file, part of a file, or a rectangle of rows straight into MIA RAM at a raw address."
+      },
+      {
+        "keyword": "MIASAVE", "kind": "statement",
+        "syntax": "MIASAVE path,address,length",
+        "arguments": [
+          {"name": "path", "type": "path"},
+          {"name": "address", "type": "number", "min": 0, "max": 16777215, "note": "MIA RAM source. BASIC accepts 24 bits and leaves addresses past MIA RAM to the firmware."},
+          {"name": "length", "type": "number", "min": 0, "max": 65535, "note": "Bytes saved; 16 bits, unlike MIALOAD."}
+        ],
+        "summary": "Saves length bytes of MIA RAM starting at a raw address to a file."
+      },
+      {
+        "keyword": "SEEK#", "kind": "statement",
+        "syntax": "SEEK# handle,position",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written straight after the keyword, as SEEK#n, with no space before the #."},
+          {"name": "position", "type": "number", "min": 0, "max": 4294967295, "note": "Byte offset from the start of the file."}
+        ],
+        "summary": "Sets the read and write position of an open file to a byte offset."
+      },
+      {
+        "keyword": "KILL", "kind": "statement",
+        "syntax": "KILL path",
+        "arguments": [
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Deletes a file, or an empty directory, on the SD card."
+      },
+      {
+        "keyword": "RMDIR", "kind": "statement",
+        "syntax": "RMDIR path",
+        "arguments": [
+          {"name": "path", "type": "path"}
+        ],
+        "summary": "Removes an empty directory on the SD card; it shares KILL's routine, so it also deletes a file."
+      },
+      {
+        "keyword": "MKDIR", "kind": "statement",
+        "syntax": "MKDIR path",
+        "arguments": [
+          {"name": "path", "type": "path", "note": "Its parent directory must already exist."}
+        ],
+        "summary": "Creates one directory; its parent must already exist."
+      },
+      {
+        "keyword": "NAME", "kind": "statement",
+        "syntax": "NAME oldPath AS newPath",
+        "arguments": [
+          {"name": "oldPath", "type": "path"},
+          {"name": "newPath", "type": "path"}
+        ],
+        "summary": "Renames or moves a file or directory."
+      },
+      {
+        "keyword": "CD", "kind": "statement",
+        "syntax": "CD path",
+        "arguments": [
+          {"name": "path", "type": "path", "note": "Must name an existing directory."}
+        ],
+        "summary": "Changes the current directory used to resolve relative paths."
+      },
+      {
+        "keyword": "DIR", "kind": "statement",
+        "syntax": "DIR [path]",
+        "arguments": [
+          {"name": "path", "type": "path", "optional": true, "note": "Omitted: the current directory. Directories print with a trailing /."}
+        ],
+        "summary": "Lists the current directory, or the given directory, one name per line with a trailing slash on directories."
+      },
+      {
+        "keyword": "INPUTMODE", "kind": "statement",
+        "syntax": "INPUTMODE mode",
+        "arguments": [
+          {"name": "mode", "type": "number", "min": 0, "max": 2, "note": "0 console, 1 Wi-Fi, 2 USB keyboard. A source MIA does not report as available gives ILLEGAL QUANTITY."}
+        ],
+        "summary": "Selects the input source (console, Wi-Fi or USB keyboard), if MIA reports it available."
+      },
+      {
+        "keyword": "KEYCLEAR", "kind": "statement",
+        "syntax": "KEYCLEAR",
+        "arguments": [],
+        "summary": "Discards the text bytes currently queued in the input FIFO, leaving held-key state alone."
+      },
+      {
+        "keyword": "KEYREPEAT", "kind": "statement",
+        "syntax": "KEYREPEAT delay,interval | 0",
+        "arguments": [
+          {"name": "delay", "type": "number", "min": 0, "max": 65535, "note": "Milliseconds before repeat starts. 0 turns MIA key repeat off and takes no interval."},
+          {"name": "interval", "type": "number", "optional": true, "min": 1, "max": 65535, "note": "Milliseconds between repeats; required when delay is not 0."}
+        ],
+        "summary": "Sets MIA key-repeat delay and interval in milliseconds, or disables repeat with 0."
+      },
+      {
+        "keyword": "KEYRPT", "kind": "statement",
+        "syntax": "KEYRPT code,enabled",
+        "arguments": [
+          {"name": "code", "type": "number", "min": 0, "max": 255, "note": "Keyboard HID usage code."},
+          {"name": "enabled", "type": "number", "min": 0, "max": 1, "note": "1 lets the key repeat, 0 does not."}
+        ],
+        "summary": "Enables or disables key repeat for one keyboard HID usage code."
+      },
+      {
+        "keyword": "MOUSE", "kind": "statement",
+        "syntax": "MOUSE deltaX,deltaY,buttons,wheel,pan",
+        "arguments": [
+          {"name": "deltaX", "type": "numeric-variable", "note": "Signed X motion since the previous MOUSE, -128 to 127; 0 on the first read."},
+          {"name": "deltaY", "type": "numeric-variable", "note": "Signed Y motion since the previous MOUSE, -128 to 127; 0 on the first read."},
+          {"name": "buttons", "type": "numeric-variable", "note": "Left 1, right 2, middle 4, back 8, forward 16."},
+          {"name": "wheel", "type": "numeric-variable", "note": "Signed wheel motion since the previous MOUSE, -128 to 127."},
+          {"name": "pan", "type": "numeric-variable", "note": "Signed horizontal pan since the previous MOUSE, -128 to 127."}
+        ],
+        "summary": "Reads relative mouse motion, buttons, wheel and pan into five numeric variables."
+      },
+      {
+        "keyword": "PADREAD", "kind": "statement",
+        "syntax": "PADREAD pad",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot; the PAD functions read this sample."}
+        ],
+        "summary": "Samples a gamepad slot into BASIC's cache for the PAD functions."
+      },
+      {
+        "keyword": "OVLON", "kind": "statement",
+        "syntax": "OVLON",
+        "arguments": [],
+        "summary": "Shows the overlay (text console) layer."
+      },
+      {
+        "keyword": "OVLOFF", "kind": "statement",
+        "syntax": "OVLOFF",
+        "arguments": [],
+        "summary": "Hides the overlay (text console) layer without clearing it."
+      },
+      {
+        "keyword": "OVLBANK", "kind": "statement",
+        "syntax": "OVLBANK bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7, "note": "Boot default 0."}
+        ],
+        "summary": "Selects the primary CHR bank the overlay layer draws from."
+      },
+      {
+        "keyword": "OVLALT", "kind": "statement",
+        "syntax": "OVLALT bank",
+        "arguments": [
+          {"name": "bank", "type": "number", "min": 0, "max": 7, "note": "CHR bank for overlay cells whose ALT attribute bit is set; boot default 1."}
+        ],
+        "summary": "Selects the alternate CHR bank used by overlay cells with the ALT attribute bit."
+      },
+      {
+        "keyword": "DELAY", "kind": "statement",
+        "syntax": "DELAY milliseconds",
+        "arguments": [
+          {"name": "milliseconds", "type": "number", "min": 0, "max": 65535, "note": "0 returns at once; Ctrl-C interrupts the wait."}
+        ],
+        "summary": "Waits the given number of milliseconds using MIA's wall clock; Ctrl-C can interrupt."
+      },
+      {
+        "keyword": "MPOKE", "kind": "statement",
+        "syntax": "MPOKE address,value",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 262143, "note": "MIA RAM address, not a CPU address."},
+          {"name": "value", "type": "number", "min": 0, "max": 255}
+        ],
+        "summary": "Writes one byte to a MIA RAM address."
+      },
+      {
+        "keyword": "MCOPY", "kind": "statement",
+        "syntax": "MCOPY source,destination,length[,rows,sourceStride,destinationStride]",
+        "arguments": [
+          {"name": "source", "type": "number", "min": 0, "max": 262143, "note": "MIA RAM address."},
+          {"name": "destination", "type": "number", "min": 0, "max": 262143, "note": "MIA RAM address."},
+          {"name": "length", "type": "number", "min": 0, "max": 262144, "note": "Block form: bytes to copy, overlap allowed; the block must end within MIA RAM. Rectangle form: bytes in each row."},
+          {"name": "rows", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Selects the rectangle form; both strides must follow. The two rectangles must not overlap."},
+          {"name": "sourceStride", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Bytes between source row starts."},
+          {"name": "destinationStride", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Bytes between destination row starts."}
+        ],
+        "summary": "Copies a block, or a rectangle of rows, within MIA RAM."
+      },
+      {
+        "keyword": "MFILL", "kind": "statement",
+        "syntax": "MFILL address,length,value[,rows,stride]",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 262143, "note": "MIA RAM address."},
+          {"name": "length", "type": "number", "min": 0, "max": 262144, "note": "Block form: bytes to fill; the block must end within MIA RAM. Rectangle form: bytes in each row."},
+          {"name": "value", "type": "number", "min": 0, "max": 255},
+          {"name": "rows", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Selects the rectangle form; stride must follow."},
+          {"name": "stride", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "Bytes between row starts."}
+        ],
+        "summary": "Fills a block, or a rectangle of rows, of MIA RAM with one byte value."
+      },
+      {
+        "keyword": "FLUSH", "kind": "statement",
+        "syntax": "FLUSH #handle",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written as #n."}
+        ],
+        "summary": "Flushes an open file's pending data and metadata to the SD card without closing it."
+      },
+      {
+        "keyword": "FSTAT", "kind": "statement",
+        "syntax": "FSTAT path,size,attributes,date,time",
+        "arguments": [
+          {"name": "path", "type": "path"},
+          {"name": "size", "type": "numeric-variable", "note": "Bytes; 0 for a directory."},
+          {"name": "attributes", "type": "numeric-variable", "note": "FAT attribute byte: read-only 1, hidden 2, system 4, volume label 8, directory 16, archive 32."},
+          {"name": "date", "type": "numeric-variable", "note": "Packed (year-1980)*512 + month*32 + day."},
+          {"name": "time", "type": "numeric-variable", "note": "Packed hour*2048 + minute*32 + second/2. An integer (%) variable gives ILLEGAL QUANTITY for values above 32767."}
+        ],
+        "summary": "Reads a file's size, FAT attributes, packed date and packed time into four numeric variables."
+      },
+      {
+        "keyword": "BLOAD", "kind": "statement",
+        "syntax": "BLOAD path[,run[,address]]",
+        "arguments": [
+          {"name": "path", "type": "path", "note": "A PRG-style file: a 2-byte load address, plus a bank byte 0-31 when it is in $8000-$BFFF."},
+          {"name": "run", "type": "number", "optional": true, "min": 0, "max": 65535, "note": "0 or omitted returns to BASIC; any other address is jumped to after loading, and BASIC does not return."},
+          {"name": "address", "type": "number", "optional": true, "min": 0, "max": 49151, "note": "Load address override; give run 0 to load without running. $8000-$BFFF loads into the bank mapped now; $C000 and up gives FILE I/O ERROR."}
+        ],
+        "summary": "Loads a PRG-style file into CPU RAM at its header address or an override, optionally jumping to a run address."
+      },
+      {
+        "keyword": "BSAVE", "kind": "statement",
+        "syntax": "BSAVE path,address,length[,bank]",
+        "arguments": [
+          {"name": "path", "type": "path"},
+          {"name": "address", "type": "number", "min": 0, "max": 65535, "note": "CPU start address."},
+          {"name": "length", "type": "number", "min": 0, "max": 65535, "note": "Bytes saved after the header; a save past $BFFF continues at $8000 of the next bank."},
+          {"name": "bank", "type": "number", "optional": true, "min": 0, "max": 31, "note": "Only for addresses $8000 and up: the bank to save from, recorded in the header. Omitted: the bank mapped now."}
+        ],
+        "summary": "Saves length bytes of CPU RAM from address to a file in BLOAD's format, adding a bank byte at $8000 and up."
+      },
+      {
+        "keyword": "SYS", "kind": "statement",
+        "syntax": "SYS address",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 65535, "note": "Called with JSR; the routine returns with RTS."}
+        ],
+        "summary": "Calls a machine-code subroutine at a CPU address with JSR and continues after it returns."
+      },
+      {
+        "keyword": "TRACK", "kind": "statement",
+        "syntax": "TRACK voice,music[,address]",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3},
+          {"name": "music", "type": "string", "note": "Music string, compiled at once: notes A-G with # + - and lengths, R rest, O octave, < >, L length, T tempo, W waveform, & tie, | loop point."},
+          {"name": "address", "type": "number", "optional": true, "min": 0, "max": 16777215, "note": "MIA RAM address for the compiled track. Omitted: $14000 + voice*$1000."}
+        ],
+        "summary": "Compiles a music string into a voice's background sequencer track in MIA RAM."
+      },
+      {
+        "keyword": "BAND", "kind": "statement",
+        "syntax": "BAND enabled | voice,enabled",
+        "arguments": [
+          {"name": "voice", "type": "number", "optional": true, "min": 0, "max": 3, "note": "With two numbers, the first is the voice."},
+          {"name": "enabled", "type": "number", "min": 0, "max": 255, "note": "0 stops playback and silences the voice; any other value starts it. Without a voice it applies to all four."}
+        ],
+        "summary": "Starts or stops background sequencer playback for all voices or for one voice."
+      },
+      {
+        "keyword": "VTAKE", "kind": "statement",
+        "syntax": "VTAKE voice",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3}
+        ],
+        "summary": "Freezes a voice's background track without silencing it so the program can drive the voice directly."
+      },
+      {
+        "keyword": "VGIVE", "kind": "statement",
+        "syntax": "VGIVE voice",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3}
+        ],
+        "summary": "Returns a voice taken with VTAKE to its background track, catching up to the shared clock."
+      },
+      {
+        "keyword": "PLAYING", "kind": "function",
+        "syntax": "PLAYING(voice)",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1},
+        "summary": "Returns 1 while a voice's background sequencer track is running, else 0."
+      },
+      {
+        "keyword": "EOF", "kind": "function",
+        "syntax": "EOF(handle)",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written without #. A handle that is not open gives no error."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1, "note": "1 once a read has passed the last byte."},
+        "summary": "Returns 1 when an open file is at its end, else 0."
+      },
+      {
+        "keyword": "KEYDOWN", "kind": "function",
+        "syntax": "KEYDOWN(code)",
+        "arguments": [
+          {"name": "code", "type": "number", "min": 0, "max": 255, "note": "Keyboard HID usage code."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1},
+        "summary": "Returns 1 if the keyboard HID usage code is currently held, else 0."
+      },
+      {
+        "keyword": "CONSDOWN", "kind": "function",
+        "syntax": "CONSDOWN(code)",
+        "arguments": [
+          {"name": "code", "type": "number", "min": 0, "max": 255, "note": "Consumer-page HID usage code."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1},
+        "summary": "Returns 1 if the consumer-page HID usage code is currently held, else 0."
+      },
+      {
+        "keyword": "INPUTDEV", "kind": "function",
+        "syntax": "INPUTDEV(dummy)",
+        "arguments": [
+          {"name": "dummy", "type": "number", "min": 0, "max": 0, "note": "Must be 0."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255, "note": "Bit mask: keyboard 1, consumer 2, mouse 4, and gamepads 0-3 in bits 3-6."},
+        "summary": "Returns MIA's live input capability bit mask (keyboard, consumer, mouse, gamepads)."
+      },
+      {
+        "keyword": "PADON", "kind": "function",
+        "syntax": "PADON(pad)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1},
+        "summary": "Returns 1 if the last PADREAD sample shows the gamepad connected, else 0."
+      },
+      {
+        "keyword": "PADDIR", "kind": "function",
+        "syntax": "PADDIR(pad)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 15, "note": "Up 1, down 2, left 4, right 8."},
+        "summary": "Returns the D-pad direction bits from the last PADREAD sample of a gamepad."
+      },
+      {
+        "keyword": "PADSTICK", "kind": "function",
+        "syntax": "PADSTICK(pad)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255, "note": "Left stick up, down, left, right in bits 0-3; right stick in bits 4-7."},
+        "summary": "Returns the digital stick direction bits from the last PADREAD sample of a gamepad."
+      },
+      {
+        "keyword": "PADBTN", "kind": "function",
+        "syntax": "PADBTN(pad, button)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."},
+          {"name": "button", "type": "number", "min": 0, "max": 15, "note": "0 A/Cross, 1 B/Circle, 2 C/right paddle, 3 X/Square, 4 Y/Triangle, 5 Z/left paddle, 6 L1, 7 R1, 8 L2, 9 R2, 10 Select/Back, 11 Start/Menu, 12 Home, 13 L3, 14 R3, 15 reserved."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 1},
+        "summary": "Returns 1 if a button is pressed in the last PADREAD sample of a gamepad, else 0."
+      },
+      {
+        "keyword": "PADAXIS", "kind": "function",
+        "syntax": "PADAXIS(pad, axis)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."},
+          {"name": "axis", "type": "number", "min": 0, "max": 3, "note": "0 left X, 1 left Y, 2 right X, 3 right Y."}
+        ],
+        "returns": {"type": "number", "min": -128, "max": 127, "note": "Negative X is left, negative Y is up."},
+        "summary": "Returns an analog axis value, -128 to 127, from the last PADREAD sample of a gamepad."
+      },
+      {
+        "keyword": "PADTRIG", "kind": "function",
+        "syntax": "PADTRIG(pad, trigger)",
+        "arguments": [
+          {"name": "pad", "type": "number", "min": 0, "max": 3, "note": "Gamepad slot, as sampled by the last PADREAD."},
+          {"name": "trigger", "type": "number", "min": 0, "max": 1, "note": "0 left, 1 right."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255},
+        "summary": "Returns an analog trigger value, 0 to 255, from the last PADREAD sample of a gamepad."
+      },
+      {
+        "keyword": "TICKS", "kind": "function",
+        "syntax": "TICKS(dummy)",
+        "arguments": [
+          {"name": "dummy", "type": "number", "min": 0, "max": 0, "note": "Must be 0."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 4294967295, "note": "Wraps after about 49.7 days."},
+        "summary": "Returns milliseconds since MIA's last runtime reset, modulo 2^32."
+      },
+      {
+        "keyword": "MPEEK", "kind": "function",
+        "syntax": "MPEEK(address)",
+        "arguments": [
+          {"name": "address", "type": "number", "min": 0, "max": 262143, "note": "MIA RAM address, not a CPU address."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 255},
+        "summary": "Returns the byte at a MIA RAM address."
+      },
+      {
+        "keyword": "FPOS", "kind": "function",
+        "syntax": "FPOS(handle)",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written without #."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 4294967295},
+        "summary": "Returns the current byte position in an open file."
+      },
+      {
+        "keyword": "FSIZE", "kind": "function",
+        "syntax": "FSIZE(handle)",
+        "arguments": [
+          {"name": "handle", "type": "handle", "min": 1, "max": 16, "note": "Written without #."}
+        ],
+        "returns": {"type": "number", "min": 0, "max": 4294967295},
+        "summary": "Returns the size in bytes of an open file."
+      },
+      {
+        "keyword": "DISKFREE", "kind": "function",
+        "syntax": "DISKFREE(volume)",
+        "arguments": [
+          {"name": "volume", "type": "number", "min": 0, "max": 0, "note": "Must be 0, the current SD volume."}
+        ],
+        "returns": {"type": "number"},
+        "summary": "Returns the free bytes on the current SD volume."
+      },
+      {
+        "keyword": "CUE", "kind": "function",
+        "syntax": "CUE(voice)",
+        "arguments": [
+          {"name": "voice", "type": "number", "min": 0, "max": 3}
+        ],
+        "returns": {"type": "number", "min": 0, "note": "1-based index of the note or rest playing now; 0 before the track starts."},
+        "summary": "Returns the index of the note or rest a voice's background track is playing (0 before it starts)."
+      }
+    ]
   }
 }
