@@ -18,6 +18,7 @@ import {
   type CodeAction,
   type Hover,
   type InitializeResult,
+  type ParameterInformation,
   type SignatureHelp,
   type Range,
 } from 'vscode-languageserver/node.js';
@@ -25,6 +26,7 @@ import {TextDocument} from 'vscode-languageserver-textdocument';
 import {errorMessage} from '@clementina/core';
 import {
   analyzeDiagnostics,
+  basicKeywordByName,
   completionsAt,
   definitionAt,
   documentSymbols,
@@ -93,7 +95,10 @@ connection.onHover((params): Hover | undefined => {
   if (!document) return undefined;
   const info = hoverAt(document.getText(), params.position.line + 1, params.position.character);
   if (!info) return undefined;
-  return {contents: {kind: MarkupKind.Markdown, value: `**${info.keyword}** — ${info.category} token \`${info.token}\``}};
+  const entry = basicKeywordByName.get(info.keyword);
+  const lines = [`**${info.keyword}** — ${info.category} token \`${info.token}\``];
+  if (entry) lines.push(`\`${entry.syntax}\``, entry.summary);
+  return {contents: {kind: MarkupKind.Markdown, value: lines.join('\n\n')}};
 });
 
 connection.onCompletion((params): CompletionItem[] => {
@@ -167,11 +172,29 @@ connection.onSignatureHelp((params): SignatureHelp | undefined => {
   const info = signatureHelpAt(document.getText(), params.position.line + 1, params.position.character);
   if (!info) return undefined;
   return {
-    signatures: [{label: info.label, parameters: info.parameters.map(label => ({label}))}],
+    signatures: [{label: info.label, parameters: parameterRanges(info.label, info.parameters)}],
     activeSignature: 0,
     activeParameter: info.activeParameter,
   };
 });
+
+/**
+ * Point each parameter at its name in the label, searching left to right, so a
+ * client highlights `x` in `SPRITE index,tile,x,...` rather than the x in `index`.
+ * Names are lowercase-first, so `name` still matches inside `FNname`.
+ */
+function parameterRanges(label: string, parameters: readonly string[]): ParameterInformation[] {
+  let from = 0;
+  return parameters.map(parameter => {
+    const name = parameter.replace(/(?:\.\.\.)?\??$/u, '');
+    const escaped = name.replace(/[.*+?^$()[\]{}|\\/]/gu, '\\$&');
+    const match = new RegExp(`(?<![a-z0-9])${escaped}(?![A-Za-z0-9])`, 'u').exec(label.slice(from));
+    if (!match) return {label: parameter};
+    const start = from + match.index;
+    from = start + name.length;
+    return {label: [start, from]};
+  });
+}
 
 /** Cover the entire current text, including its final line ending. */
 function wholeDocumentRange(document: TextDocument): Range {

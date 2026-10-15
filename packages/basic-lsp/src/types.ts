@@ -69,3 +69,43 @@ export interface BasicTextEdit extends BasicSourceLocation {
 export interface BasicSemanticSpan extends BasicSourceLocation {
   type: 'keyword' | 'number' | 'string' | 'comment' | 'variable' | 'operator';
 }
+
+/** How a ROM keyword is used: a statement, a function, an operator, or a word inside another statement. */
+export type BasicKeywordKind = 'statement' | 'function' | 'operator' | 'keyword';
+
+/** What an argument accepts; specs/basic.json describes each type under `keywords.argumentTypes`. */
+export type BasicArgumentType =
+  | 'number' | 'string' | 'expression' | 'path' | 'handle' | 'line-number' | 'condition'
+  | 'variable' | 'numeric-variable' | 'array' | 'name' | 'statement' | 'text' | 'keyword';
+
+/** One argument of a ROM keyword, with the range the ROM accepts when it checks one. */
+export interface BasicKeywordArgument {
+  name: string;
+  type: BasicArgumentType;
+  optional?: boolean;
+  repeats?: boolean;
+  /** Smallest value the ROM accepts; smaller values raise an error. */
+  min?: number;
+  /** Largest value the ROM accepts; larger values raise an error. */
+  max?: number;
+  note?: string;
+}
+
+/** Value a ROM function or operator produces. */
+export interface BasicKeywordResult {
+  /** `expression` when the result takes the operands' type, as with `+`. */
+  type: 'number' | 'string' | 'expression';
+  min?: number;
+  max?: number;
+  note?: string;
+}
+
+/** Syntax, arguments, and a one-line summary for one ROM keyword, from specs/basic.json. */
+export interface BasicKeywordEntry {
+  keyword: string;
+  kind: BasicKeywordKind;
+  syntax: string;
+  arguments: readonly BasicKeywordArgument[];
+  returns?: BasicKeywordResult;
+  summary: string;
+}

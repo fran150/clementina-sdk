@@ -1,12 +1,9 @@
 import {tokenizeBasicLineWithSpans} from '@clementina/basic';
-import {basicFunctionKeywords, basicSignatureByKeyword, basicStatementKeywords} from './catalog.js';
+import {basicExpressionKeywords, basicFunctionKeywords, basicOperatorKeywords, basicSignatureByKeyword, basicStatementKeywords} from './catalog.js';
 import {functionCallOpen} from './calls.js';
 import {completionsFor} from './keywords.js';
 import {analyzeProgramLines, assertSourcePosition, parsedPhysicalLine, splitPhysicalLines, variableOccurrences} from './source.js';
 import type {BasicCompletionItem, BasicSemanticSpan, BasicSignatureHelp} from './types.js';
-
-const EXPRESSION_KEYWORDS = new Set(['AND', 'OR', 'NOT', 'TO', 'STEP', 'THEN']);
-const OPERATOR_KEYWORDS = new Set(['+', '-', '*', '/', '^', 'AND', 'OR', '>', '=', '<', 'NOT']);
 
 /** Complete statements or expressions at a one-based line and zero-based column. */
 export function completionsAt(text: string, line: number, character: number): BasicCompletionItem[] {
@@ -19,7 +16,7 @@ export function completionsAt(text: string, line: number, character: number): Ba
   const statementPosition = /^\s*[A-Za-z]*$/u.test(segment);
   const keywords = completionsFor(prefix).filter(item => statementPosition
     ? basicStatementKeywords.has(item.keyword)
-    : basicFunctionKeywords.has(item.keyword) || EXPRESSION_KEYWORDS.has(item.keyword));
+    : basicFunctionKeywords.has(item.keyword) || basicExpressionKeywords.has(item.keyword));
   if (statementPosition) return keywords;
   const variables = [...new Set(variableOccurrences(text).map(item => item.key))]
     .filter(name => name.startsWith(prefix.toUpperCase()))
@@ -38,7 +35,7 @@ export function semanticSpans(text: string): BasicSemanticSpan[] {
     const {lexemes} = tokenizeBasicLineWithSpans(line.body);
     for (const lexeme of lexemes) {
       const location = {line: line.physicalLine, startCharacter: line.bodyStart + lexeme.start, endCharacter: line.bodyStart + lexeme.end};
-      if (lexeme.keyword) spans.push({...location, type: OPERATOR_KEYWORDS.has(lexeme.keyword) ? 'operator' : 'keyword'});
+      if (lexeme.keyword) spans.push({...location, type: basicOperatorKeywords.has(lexeme.keyword) ? 'operator' : 'keyword'});
       else if (lexeme.kind === 'literal' || lexeme.kind === 'data') spans.push({...location, type: 'string'});
       else if (lexeme.kind === 'remark') spans.push({...location, type: 'comment'});
     }

@@ -1,3 +1,8 @@
+import {basicKeywordEntries} from './keyword-data.js';
+import type {BasicKeywordArgument, BasicKeywordEntry} from './types.js';
+
+export {basicKeywordEntries};
+
 /** Whether a token is used as an expression function or a statement. */
 export type BasicSignatureKind = 'function' | 'statement';
 
@@ -9,192 +14,17 @@ export interface BasicSignature {
   parameters: string[];
 }
 
-/** Describe a ROM function using its token name and ordered arguments. */
-const functionSignature = (keyword: string, parameters: string[]): BasicSignature => ({
-  keyword, kind: 'function', label: `${keyword.replace(/\($/u, '')}(${parameters.join(', ')})`, parameters,
-});
-/** Describe a ROM statement with display syntax and ordered arguments. */
-const statementSignature = (keyword: string, syntax: string, parameters: string[]): BasicSignature => ({
-  keyword, kind: 'statement', label: `${keyword}${syntax ? ` ${syntax}` : ''}`, parameters,
-});
+/** Name an argument for the editor: repeating ones end in `...`, optional ones in `?`. */
+const parameterName = (argument: BasicKeywordArgument): string =>
+  `${argument.name}${argument.repeats ? '...' : ''}${argument.optional ? '?' : ''}`;
 
-/** Editor-facing signatures for ROM tokens. Optional arguments use a trailing `?`. */
-export const basicSignatures: readonly BasicSignature[] = [
-  // Function tokens and FN calls.
-  functionSignature('TAB(', ['column']),
-  functionSignature('SPC(', ['count']),
-  functionSignature('SGN', ['number']),
-  functionSignature('INT', ['number']),
-  functionSignature('ABS', ['number']),
-  {keyword: 'FN', kind: 'function', label: 'FNname(argument)', parameters: ['argument']},
-  functionSignature('USR', ['address']),
-  functionSignature('FRE', ['value']),
-  functionSignature('POS', ['value']),
-  functionSignature('SQR', ['number']),
-  functionSignature('RND', ['number']),
-  functionSignature('LOG', ['number']),
-  functionSignature('EXP', ['number']),
-  functionSignature('COS', ['number']),
-  functionSignature('SIN', ['number']),
-  functionSignature('TAN', ['number']),
-  functionSignature('ATN', ['number']),
-  functionSignature('PEEK', ['address']),
-  functionSignature('LEN', ['string']),
-  functionSignature('STR$', ['number']),
-  functionSignature('VAL', ['string']),
-  functionSignature('ASC', ['string']),
-  functionSignature('CHR$', ['code']),
-  functionSignature('LEFT$', ['string', 'length']),
-  functionSignature('RIGHT$', ['string', 'length']),
-  functionSignature('MID$', ['string', 'start', 'length?']),
-  functionSignature('PLAYING', ['voice']),
-  functionSignature('EOF', ['handle']),
-  functionSignature('KEYDOWN', ['code']),
-  functionSignature('CONSDOWN', ['code']),
-  functionSignature('INPUTDEV', ['0']),
-  functionSignature('PADON', ['pad']),
-  functionSignature('PADDIR', ['pad']),
-  functionSignature('PADSTICK', ['pad']),
-  functionSignature('PADBTN', ['pad', 'button']),
-  functionSignature('PADAXIS', ['pad', 'axis']),
-  functionSignature('PADTRIG', ['pad', 'trigger']),
-  functionSignature('TICKS', ['0']),
-  functionSignature('MPEEK', ['address']),
-  functionSignature('FPOS', ['handle']),
-  functionSignature('FSIZE', ['handle']),
-  functionSignature('DISKFREE', ['0']),
-  functionSignature('CUE', ['voice']),
+/** Keyword entries by uppercase ROM token name. */
+export const basicKeywordByName: ReadonlyMap<string, BasicKeywordEntry> = new Map(basicKeywordEntries.map(entry => [entry.keyword, entry]));
 
-  // Core statements and MON.
-  statementSignature('END', '', []),
-  statementSignature('FOR', 'variable=start TO end [STEP step]', ['variable', 'start', 'end', 'step?']),
-  statementSignature('NEXT', '[variable]', ['variable?']),
-  statementSignature('DATA', 'value[,value...]', ['value...']),
-  statementSignature('INPUT', '[prompt;] variable[,variable...]', ['prompt?', 'variable...']),
-  statementSignature('DIM', 'array(dimensions)[,array...]', ['array...']),
-  statementSignature('READ', 'variable[,variable...]', ['variable...']),
-  statementSignature('LET', 'variable=expression', ['variable', 'expression']),
-  statementSignature('GOTO', 'line', ['line']),
-  statementSignature('GO', 'TO line', ['line']),
-  statementSignature('RUN', '[line]', ['line?']),
-  statementSignature('IF', 'condition THEN line|statement', ['condition', 'line-or-statement']),
-  statementSignature('RESTORE', '', []),
-  statementSignature('GOSUB', 'line', ['line']),
-  statementSignature('RETURN', '', []),
-  statementSignature('REM', 'text', ['text']),
-  statementSignature('STOP', '', []),
-  statementSignature('ON', 'expression GOTO|GOSUB line[,line...]', ['expression', 'line...']),
-  statementSignature('WAIT', 'address,mask[,invert]', ['address', 'mask', 'invert?']),
-  statementSignature('LOAD', 'path', ['path']),
-  statementSignature('SAVE', 'path', ['path']),
-  statementSignature('DEF', 'FNname(variable)=expression', ['function', 'variable', 'expression']),
-  statementSignature('POKE', 'address,value', ['address', 'value']),
-  statementSignature('COLOR', 'bank', ['bank']),
-  statementSignature('FLIPX', 'enabled', ['enabled']),
-  statementSignature('FLIPY', 'enabled', ['enabled']),
-  statementSignature('ALT', 'enabled', ['enabled']),
-  statementSignature('STYLE', 'mask', ['mask']),
-  statementSignature('CRSR', 'column,row', ['column', 'row']),
-  statementSignature('CLS', '', []),
-  statementSignature('PRINT', '[expression][,|;expression...]', ['expression...']),
-  statementSignature('CONT', '', []),
-  statementSignature('LIST', '[start][-end]', ['start?', 'end?']),
-  statementSignature('CLEAR', '', []),
-  statementSignature('GET', 'variable', ['variable']),
-  statementSignature('NEW', '', []),
-  statementSignature('MON', '', []),
-
-  // First extension table.
-  statementSignature('BCOLOR', 'bank', ['bank']),
-  statementSignature('SNDON', '', []),
-  statementSignature('SNDOFF', '', []),
-  statementSignature('SNDCLR', '', []),
-  statementSignature('VOL', 'level | voice,level', ['voice?', 'level']),
-  statementSignature('WAVE', 'voice,waveform', ['voice', 'waveform']),
-  statementSignature('NOTE', 'voice,note', ['voice', 'note']),
-  statementSignature('FREQ', 'voice,hz', ['voice', 'hz']),
-  statementSignature('GATE', 'voice,enabled', ['voice', 'enabled']),
-  statementSignature('ADSR', 'voice,attack,decay,sustain,release', ['voice', 'attack', 'decay', 'sustain', 'release']),
-  statementSignature('PULSE', 'voice,width', ['voice', 'width']),
-  statementSignature('PAN', 'voice,position', ['voice', 'position']),
-  statementSignature('BGON', '', []),
-  statementSignature('BGOFF', '', []),
-  statementSignature('BGMODE', 'mode', ['mode']),
-  statementSignature('BGSET', 'set', ['set']),
-  statementSignature('SCROLL', 'x,y', ['x', 'y']),
-  statementSignature('BGBANK', 'bank', ['bank']),
-  statementSignature('BGALT', 'bank', ['bank']),
-  statementSignature('SPRON', '', []),
-  statementSignature('SPROFF', '', []),
-  statementSignature('SPRCOUNT', 'lastIndex', ['lastIndex']),
-  statementSignature('SPRBANK', 'bank', ['bank']),
-  statementSignature('CHRMODE', 'bank,is1bpp', ['bank', 'is1bpp']),
-  statementSignature('CHRPLANE', 'background,sprites,overlay', ['background', 'sprites', 'overlay']),
-  statementSignature('PALETTE', 'bank,index,red,green,blue', ['bank', 'index', 'red', 'green', 'blue']),
-  statementSignature('VIDON', '', []),
-  statementSignature('VIDOFF', '', []),
-  statementSignature('BGCHAR', 'column,row,tile,attribute', ['column', 'row', 'tile', 'attribute']),
-  statementSignature('CHRLOAD', 'bank,offset,count,path', ['bank', 'offset', 'count', 'path']),
-  statementSignature('PALLOAD', 'bank,offset,count,path', ['bank', 'offset', 'count', 'path']),
-  statementSignature('OAMLOAD', 'index,count,path', ['index', 'count', 'path']),
-  statementSignature('SPRITE', 'index,tile,x,y,palette,flags', ['index', 'tile', 'x', 'y', 'palette', 'flags']),
-  statementSignature('SPRTILE', 'index,tile', ['index', 'tile']),
-  statementSignature('SPRX', 'index,x', ['index', 'x']),
-  statementSignature('SPRY', 'index,y', ['index', 'y']),
-  statementSignature('SPRCOLOR', 'index,palette', ['index', 'palette']),
-  statementSignature('SPRFLIP', 'index,flipX,flipY', ['index', 'flipX', 'flipY']),
-  statementSignature('SPRPRI', 'index,priority', ['index', 'priority']),
-  statementSignature('OPEN', 'path FOR mode AS #handle', ['path', 'mode', 'handle']),
-  statementSignature('CLOSE', '#handle', ['handle']),
-  statementSignature('BGET#', 'handle,variable', ['handle', 'variable']),
-  statementSignature('BPUT#', 'handle,value', ['handle', 'value']),
-
-  // Second extension table.
-  statementSignature('NTREAD', 'table,cell,count', ['table', 'cell', 'count']),
-  statementSignature('NTLOAD', 'table,cell,count,path', ['table', 'cell', 'count', 'path']),
-  statementSignature('NTSAVE', 'table,cell,count,path', ['table', 'cell', 'count', 'path']),
-  statementSignature('ATRREAD', 'table,cell,count', ['table', 'cell', 'count']),
-  statementSignature('ATRLOAD', 'table,cell,count,path', ['table', 'cell', 'count', 'path']),
-  statementSignature('ATRSAVE', 'table,cell,count,path', ['table', 'cell', 'count', 'path']),
-  statementSignature('CHRREAD', 'bank,offset,count', ['bank', 'offset', 'count']),
-  statementSignature('CHRSAVE', 'bank,offset,count,path', ['bank', 'offset', 'count', 'path']),
-  statementSignature('PALREAD', 'bank,offset,count', ['bank', 'offset', 'count']),
-  statementSignature('PALSAVE', 'bank,offset,count,path', ['bank', 'offset', 'count', 'path']),
-  statementSignature('OAMREAD', 'index,count', ['index', 'count']),
-  statementSignature('OAMSAVE', 'index,count,path', ['index', 'count', 'path']),
-  statementSignature('MIALOAD', 'path,address[,length[,offset[,rows,fileStride,ramStride]]]', ['path', 'address', 'length?', 'offset?', 'rows?', 'fileStride?', 'ramStride?']),
-  statementSignature('MIASAVE', 'path,address,length', ['path', 'address', 'length']),
-  statementSignature('SEEK#', 'handle,position', ['handle', 'position']),
-  statementSignature('KILL', 'path', ['path']),
-  statementSignature('RMDIR', 'path', ['path']),
-  statementSignature('MKDIR', 'path', ['path']),
-  statementSignature('NAME', 'oldPath AS newPath', ['oldPath', 'newPath']),
-  statementSignature('CD', 'path', ['path']),
-  statementSignature('DIR', '[path]', ['path?']),
-  statementSignature('INPUTMODE', 'mode', ['mode']),
-  statementSignature('KEYCLEAR', '', []),
-  statementSignature('KEYREPEAT', 'delay[,interval]', ['delay', 'interval?']),
-  statementSignature('KEYRPT', 'code,enabled', ['code', 'enabled']),
-  statementSignature('MOUSE', 'deltaX,deltaY,buttons,wheel,pan', ['deltaX', 'deltaY', 'buttons', 'wheel', 'pan']),
-  statementSignature('PADREAD', 'pad', ['pad']),
-  statementSignature('OVLON', '', []),
-  statementSignature('OVLOFF', '', []),
-  statementSignature('OVLBANK', 'bank', ['bank']),
-  statementSignature('OVLALT', 'bank', ['bank']),
-  statementSignature('DELAY', 'milliseconds', ['milliseconds']),
-  statementSignature('MPOKE', 'address,value', ['address', 'value']),
-  statementSignature('MCOPY', 'source,destination,length[,rows,sourceStride,destinationStride]', ['source', 'destination', 'length', 'rows?', 'sourceStride?', 'destinationStride?']),
-  statementSignature('MFILL', 'address,length,value[,rows,stride]', ['address', 'length', 'value', 'rows?', 'stride?']),
-  statementSignature('FLUSH', '#handle', ['handle']),
-  statementSignature('FSTAT', 'path,size,attributes,date,time', ['path', 'size', 'attributes', 'date', 'time']),
-  statementSignature('BLOAD', 'path[,run][,address]', ['path', 'run?', 'address?']),
-  statementSignature('BSAVE', 'path,address,length[,bank]', ['path', 'address', 'length', 'bank?']),
-  statementSignature('SYS', 'address', ['address']),
-  statementSignature('TRACK', 'voice,music[,address]', ['voice', 'music', 'address?']),
-  statementSignature('BAND', 'enabled | voice,enabled', ['voice?', 'enabled']),
-  statementSignature('VTAKE', 'voice', ['voice']),
-  statementSignature('VGIVE', 'voice', ['voice']),
-];
+/** Editor-facing signatures for ROM statements and functions. Optional arguments use a trailing `?`. */
+export const basicSignatures: readonly BasicSignature[] = basicKeywordEntries
+  .filter((entry): entry is BasicKeywordEntry & {kind: BasicSignatureKind} => entry.kind === 'statement' || entry.kind === 'function')
+  .map(entry => ({keyword: entry.keyword, kind: entry.kind, label: entry.syntax, parameters: entry.arguments.map(parameterName)}));
 
 /** Signature lookup by uppercase ROM token name. */
 export const basicSignatureByKeyword = new Map(basicSignatures.map(signature => [signature.keyword, signature]));
@@ -202,3 +32,9 @@ export const basicSignatureByKeyword = new Map(basicSignatures.map(signature => 
 export const basicStatementKeywords = new Set(basicSignatures.filter(signature => signature.kind === 'statement').map(signature => signature.keyword));
 /** Function token names from the signature catalog. */
 export const basicFunctionKeywords = new Set(basicSignatures.filter(signature => signature.kind === 'function').map(signature => signature.keyword));
+/** Operator token names, symbols and words alike. */
+export const basicOperatorKeywords = new Set(basicKeywordEntries.filter(entry => entry.kind === 'operator').map(entry => entry.keyword));
+/** Words that only appear inside another statement or expression (`TO`, `THEN`, `STEP`, `AND`...). */
+export const basicExpressionKeywords = new Set(basicKeywordEntries
+  .filter(entry => entry.kind === 'keyword' || (entry.kind === 'operator' && /^[A-Z]/u.test(entry.keyword)))
+  .map(entry => entry.keyword));

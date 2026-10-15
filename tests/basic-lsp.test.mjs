@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
+import {readFile} from 'node:fs/promises';
 import {
   analyzeDiagnostics,
+  basicKeywordByName,
+  basicKeywordEntries,
   completionsFor,
   completionsAt,
   definitionAt,
@@ -75,7 +78,7 @@ test('signatureHelpAt reports canonical function signatures and nested active pa
     label: 'PADBTN(pad, button)', parameters: ['pad', 'button'], activeParameter: 1,
   });
   assert.deepEqual(signatureHelpAt('10 X=LEFT$("ABC",MID$("12",1,1))', 1, 30), {
-    label: 'MID$(string, start, length?)', parameters: ['string', 'start', 'length?'], activeParameter: 2,
+    label: 'MID$(string, start[, length])', parameters: ['string', 'start', 'length?'], activeParameter: 2,
   });
   assert.equal(signatureHelpAt('10 PRINT "PADBTN(0,1)"', 1, 20), undefined);
   assert.deepEqual(signatureHelpAt('10 SPRITE 0,1,2,3,4,5', 1, 18), {
@@ -86,6 +89,15 @@ test('signatureHelpAt reports canonical function signatures and nested active pa
   assert.deepEqual(signatureHelpAt('10 X=FNA(1)', 1, 10), {
     label: 'FNname(argument)', parameters: ['argument'], activeParameter: 0,
   });
+});
+
+test('keyword entries are the ones in specs/basic.json and drive the signatures', async () => {
+  const spec = JSON.parse(await readFile(new URL('../specs/basic.json', import.meta.url), 'utf8'));
+  assert.deepEqual(basicKeywordEntries, spec.keywords.entries);
+  for (const [keyword, signature] of basicSignatureByKeyword) assert.equal(signature.label, basicKeywordByName.get(keyword).syntax);
+  assert.deepEqual(basicSignatureByKeyword.get('BLOAD').parameters, ['path', 'run?', 'address?']);
+  assert.deepEqual(basicSignatureByKeyword.get('NEXT').parameters, ['variable...?']);
+  assert.equal(basicSignatureByKeyword.has('TO'), false);
 });
 
 test('signature catalog covers every Clementina extension token', () => {
@@ -286,6 +298,7 @@ test('the stdio LSP server publishes diagnostics for a real document', async () 
     const hoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 4}});
     const hover = await waitFor(m => m.id === hoverId);
     assert.match(hover.result.contents.value, /\*\*PRINT\*\*/);
+    assert.ok(hover.result.contents.value.includes(basicKeywordByName.get('PRINT').summary));
 
     const completionId = request('textDocument/completion', {textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 6}});
     const completion = await waitFor(m => m.id === completionId);
@@ -302,6 +315,7 @@ test('the stdio LSP server publishes diagnostics for a real document', async () 
     const signatureId = request('textDocument/signatureHelp', {textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 14}});
     const signature = await waitFor(m => m.id === signatureId);
     assert.equal(signature.result.signatures[0].label, 'PADBTN(pad, button)');
+    assert.deepEqual(signature.result.signatures[0].parameters, [{label: [7, 10]}, {label: [12, 18]}]);
     assert.equal(signature.result.activeParameter, 1);
 
     const referencesId = request('textDocument/references', {

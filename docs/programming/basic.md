@@ -3,7 +3,10 @@
 Clementina ROM is a fork of Microsoft BASIC for 6502.
 
 The ROM remains the detailed language authority. The SDK captures subsystem-facing
-contracts needed by tools.
+contracts needed by tools. The `keywords` section of `specs/basic.json` lists every
+keyword with its kind, syntax line, arguments, the ranges the ROM accepts, and a
+one-line summary; arguments outside a listed range raise `ILLEGAL QUANTITY`
+unless the entry says otherwise.
 
 The SDK tokenizer and binary `SAVE`/`LOAD` file APIs are documented in
 [BASIC tooling](../basic-tooling.md).
