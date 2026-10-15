@@ -1,0 +1,1537 @@
+{
+  "format": "clementina-cpu-memory-map",
+  "version": 1,
+  "size": 65536,
+  "notes": [
+    "Sources: clementina-rom docs/memory-map.md, src/kernel/kernel.inc and BASIC's src/basic/zeropage.s, checked against the build's kernel.lbl.",
+    "Fixed addresses only. What moves with each ROM build (DIR_NAME_BUF, the end of the kernel, the start of BASIC's heap) is named in image.buildSymbols; kernel.lbl gives its value.",
+    "In pages, blocks tile each page; a block marked mapped has every byte named in locations. Locations overlap only where overlaps says so. unused marks bytes nothing reads or writes; reserved marks bytes kept for the system's growth.",
+    "Location and VIA names are the ROM's symbols; aliases are other symbols for addresses inside a location. The kernel does not define VIA_T2CL, VIA_T2CH, VIA_SR, VIA_PCR or VIA_ORA_NH; those follow the 65C22 data sheet."
+  ],
+  "regions": [
+    {
+      "name": "BASE_RAM",
+      "owner": "ram",
+      "start": 0,
+      "endExclusive": 32768,
+      "size": 32768,
+      "range": "$00-$7FFF",
+      "description": "32 KiB of RAM, always present: zero page, stack, system pages, the kernel image and the start of BASIC's workspace."
+    },
+    {
+      "name": "EXTENDED_RAM_WINDOW",
+      "owner": "ram",
+      "start": 32768,
+      "endExclusive": 49152,
+      "size": 16384,
+      "range": "$8000-$BFFF",
+      "description": "16 KiB window into 512 KiB of banked RAM; VIA Port A PA0-PA4 select one of 32 banks."
+    },
+    {
+      "name": "IO",
+      "owner": "io",
+      "start": 49152,
+      "endExclusive": 57344,
+      "size": 8192,
+      "range": "$C000-$DFFF",
+      "description": "Eight 1 KiB device slots."
+    },
+    {
+      "name": "MIA",
+      "owner": "mia",
+      "start": 57344,
+      "endExclusive": 65536,
+      "size": 8192,
+      "range": "$E000-$FFFF",
+      "mirrorPeriod": 32,
+      "registers": {
+        "start": 65504,
+        "size": 32,
+        "spec": "mia-registers.json"
+      },
+      "description": "MIA is selected for the whole region but sees only A0-A4: its 32 registers at $FFE0-$FFFF repeat every 32 bytes below. A mirror is the same register, side effects included; programs use $FFE0-$FFFF only."
+    }
+  ],
+  "baseRam": [
+    {
+      "name": "ZERO_PAGE",
+      "owner": "system",
+      "start": 0,
+      "endExclusive": 256,
+      "size": 256,
+      "range": "$00-$FF",
+      "description": "Zero page; see pages."
+    },
+    {
+      "name": "STACK",
+      "owner": "cpu",
+      "start": 256,
+      "endExclusive": 512,
+      "size": 256,
+      "range": "$0100-$01FF",
+      "description": "6502 stack; see pages."
+    },
+    {
+      "name": "INPUT_PAGE",
+      "owner": "system",
+      "start": 512,
+      "endExclusive": 768,
+      "size": 256,
+      "range": "$0200-$02FF",
+      "description": "Line input buffer, bytes free for programs and the clock snapshot; see pages."
+    },
+    {
+      "name": "KERNEL_VARIABLES",
+      "owner": "system",
+      "start": 768,
+      "endExclusive": 1024,
+      "size": 256,
+      "range": "$0300-$03FF",
+      "description": "Kernel, editor and BASIC variables; see pages."
+    },
+    {
+      "name": "IMAGE_AND_HEAP",
+      "owner": "system",
+      "start": 1024,
+      "endExclusive": 32768,
+      "size": 31744,
+      "range": "$0400-$7FFF",
+      "description": "The loaded image (jump table, DIR_NAME_BUF, kernel, WozMon, BASIC), then BASIC's heap, which continues into extended RAM bank 0 up to $BFFF; see image."
+    }
+  ],
+  "image": {
+    "start": 1024,
+    "kernelRegionEndExclusive": 5632,
+    "heapEndExclusive": 49152,
+    "jumpTableSpec": "kernel-abi.json",
+    "layout": [
+      "kernel jump table",
+      "DIR_NAME_BUF",
+      "kernel",
+      "WozMon",
+      "BASIC",
+      "BASIC heap"
+    ],
+    "buildSymbols": {
+      "dirNameBuffer": "DIR_NAME_BUF",
+      "kernelEndExclusive": "__KERNEL_LAST__",
+      "heapStart": "__BASICMEM_LAST__"
+    },
+    "description": "The image starts at $0400 and grows up: kernel and WozMon stay below $1600 however they grow, BASIC follows them directly, and BASIC's heap runs from the end of the image (TXTTAB) to MEMSIZ. Addresses after the jump table move with each ROM build; the build's kernel.lbl gives them."
+  },
+  "extendedRam": {
+    "windowStart": 32768,
+    "windowSize": 16384,
+    "banks": 32,
+    "backingSize": 524288,
+    "bankSelect": {
+      "register": "VIA_ORA",
+      "bits": "PA0-PA4"
+    },
+    "basicBank": 0,
+    "description": "Bank 0 holds the top of BASIC's heap while BASIC runs; banks 1-31 are free for bank-aware programs, which select bank 0 again before returning to BASIC."
+  },
+  "io": {
+    "slotSize": 1024,
+    "slots": [
+      {
+        "slot": 0,
+        "start": 49152,
+        "endExclusive": 50176,
+        "size": 1024,
+        "range": "$C000-$C3FF",
+        "select": "IOCS0",
+        "device": "65C22 VIA",
+        "description": "Port A drives extended RAM banking; Port B, CA1/CA2 and CB1/CB2 go to the user port header. Registers repeat every 16 bytes."
+      },
+      {
+        "slot": 1,
+        "start": 50176,
+        "endExclusive": 51200,
+        "size": 1024,
+        "range": "$C400-$C7FF",
+        "select": "IOCS1",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 2,
+        "start": 51200,
+        "endExclusive": 52224,
+        "size": 1024,
+        "range": "$C800-$CBFF",
+        "select": "IOCS2",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 3,
+        "start": 52224,
+        "endExclusive": 53248,
+        "size": 1024,
+        "range": "$CC00-$CFFF",
+        "select": "IOCS3",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 4,
+        "start": 53248,
+        "endExclusive": 54272,
+        "size": 1024,
+        "range": "$D000-$D3FF",
+        "select": "IOCS4",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 5,
+        "start": 54272,
+        "endExclusive": 55296,
+        "size": 1024,
+        "range": "$D400-$D7FF",
+        "select": "IOCS5",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 6,
+        "start": 55296,
+        "endExclusive": 56320,
+        "size": 1024,
+        "range": "$D800-$DBFF",
+        "select": "IOCS6",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      },
+      {
+        "slot": 7,
+        "start": 56320,
+        "endExclusive": 57344,
+        "size": 1024,
+        "range": "$DC00-$DFFF",
+        "select": "IOCS7",
+        "description": "Free slot on the expansion headers; a card claims it by jumpering this select line."
+      }
+    ]
+  },
+  "via": {
+    "slot": 0,
+    "base": 49152,
+    "mirrorPeriod": 16,
+    "registers": [
+      {
+        "offset": 0,
+        "address": 49152,
+        "hex": "$C000",
+        "name": "VIA_ORB",
+        "description": "Port B data. Free: Port B goes to the user port header."
+      },
+      {
+        "offset": 1,
+        "address": 49153,
+        "hex": "$C001",
+        "name": "VIA_ORA",
+        "description": "Port A data. PA0-PA4 select the extended RAM bank; PA5-PA7 are unused by the system."
+      },
+      {
+        "offset": 2,
+        "address": 49154,
+        "hex": "$C002",
+        "name": "VIA_DDRB",
+        "description": "Port B direction. Free."
+      },
+      {
+        "offset": 3,
+        "address": 49155,
+        "hex": "$C003",
+        "name": "VIA_DDRA",
+        "description": "Port A direction. The kernel sets PA0-PA4 as outputs."
+      },
+      {
+        "offset": 4,
+        "address": 49156,
+        "hex": "$C004",
+        "name": "VIA_T1CL",
+        "description": "Timer 1 counter low. The kernel's: reading it clears Timer 1's interrupt."
+      },
+      {
+        "offset": 5,
+        "address": 49157,
+        "hex": "$C005",
+        "name": "VIA_T1CH",
+        "description": "Timer 1 counter high. The kernel's: writing it starts the timer."
+      },
+      {
+        "offset": 6,
+        "address": 49158,
+        "hex": "$C006",
+        "name": "VIA_T1LL",
+        "description": "Timer 1 latch low. The kernel loads 6250 (VIA_T1_RELOAD)."
+      },
+      {
+        "offset": 7,
+        "address": 49159,
+        "hex": "$C007",
+        "name": "VIA_T1LH",
+        "description": "Timer 1 latch high. The kernel's."
+      },
+      {
+        "offset": 8,
+        "address": 49160,
+        "hex": "$C008",
+        "name": "VIA_T2CL",
+        "description": "Timer 2 counter low. Free."
+      },
+      {
+        "offset": 9,
+        "address": 49161,
+        "hex": "$C009",
+        "name": "VIA_T2CH",
+        "description": "Timer 2 counter high. Free."
+      },
+      {
+        "offset": 10,
+        "address": 49162,
+        "hex": "$C00A",
+        "name": "VIA_SR",
+        "description": "Shift register. Free."
+      },
+      {
+        "offset": 11,
+        "address": 49163,
+        "hex": "$C00B",
+        "name": "VIA_ACR",
+        "description": "Auxiliary control. The kernel owns bits 7-6 (Timer 1 free-running, PB7 output off) and keeps bits 5-0 as it finds them."
+      },
+      {
+        "offset": 12,
+        "address": 49164,
+        "hex": "$C00C",
+        "name": "VIA_PCR",
+        "description": "Peripheral control (CA1/CA2, CB1/CB2). Free."
+      },
+      {
+        "offset": 13,
+        "address": 49165,
+        "hex": "$C00D",
+        "name": "VIA_IFR",
+        "description": "Interrupt flags. The kernel's IRQ handler checks bit 6 (Timer 1); other sources are free."
+      },
+      {
+        "offset": 14,
+        "address": 49166,
+        "hex": "$C00E",
+        "name": "VIA_IER",
+        "description": "Interrupt enable. The kernel enables only Timer 1."
+      },
+      {
+        "offset": 15,
+        "address": 49167,
+        "hex": "$C00F",
+        "name": "VIA_ORA_NH",
+        "description": "Port A data without handshake. Same pins as ORA, so PA0-PA4 still select the bank."
+      }
+    ]
+  },
+  "pages": [
+    {
+      "name": "ZERO_PAGE",
+      "start": 0,
+      "size": 256,
+      "blocks": [
+        {
+          "name": "BASIC",
+          "owner": "basic",
+          "start": 0,
+          "endExclusive": 152,
+          "size": 152,
+          "range": "$00-$97",
+          "mapped": true,
+          "description": "BASIC's variables and its CHRGET routine. A program that replaces BASIC may use them."
+        },
+        {
+          "name": "PROGRAMS",
+          "owner": "programs",
+          "start": 152,
+          "endExclusive": 224,
+          "size": 72,
+          "range": "$98-$DF",
+          "symbols": [
+            "ZP_FREE_START",
+            "ZP_FREE_END"
+          ],
+          "description": "Free for programs (72 bytes). BASIC, WozMon and the kernel never touch them, so code called with SYS or USR can keep state here."
+        },
+        {
+          "name": "SYSTEM_SPARE",
+          "owner": "system",
+          "start": 224,
+          "endExclusive": 232,
+          "size": 8,
+          "range": "$E0-$E7",
+          "description": "Spare for the system, next to the programs' block so it can be handed to programs later."
+        },
+        {
+          "name": "WOZMON",
+          "owner": "wozmon",
+          "start": 232,
+          "endExclusive": 240,
+          "size": 8,
+          "range": "$E8-$EF",
+          "mapped": true,
+          "description": "WozMon's variables, used only while it runs. Outside BASIC's block, so MON keeps the program."
+        },
+        {
+          "name": "KERNEL",
+          "owner": "kernel",
+          "start": 240,
+          "endExclusive": 256,
+          "size": 16,
+          "range": "$F0-$FF",
+          "mapped": true,
+          "description": "Kernel variables. Programs that replace BASIC still leave them alone: the IRQ updates KJIFFY and KERN_LOAD takes its parameters in KPTR/KTMP."
+        }
+      ],
+      "locations": [
+        {
+          "address": 0,
+          "hex": "$00",
+          "size": 3,
+          "name": "GORESTART",
+          "owner": "basic",
+          "description": "JMP to BASIC's warm restart (RESTART), written at cold start."
+        },
+        {
+          "address": 3,
+          "hex": "$03",
+          "size": 3,
+          "name": "GOSTROUT",
+          "owner": "basic",
+          "description": "JMP to STROUT, which prints the string at A/Y."
+        },
+        {
+          "address": 6,
+          "hex": "$06",
+          "size": 2,
+          "name": "GOAYINT",
+          "owner": "basic",
+          "description": "Address of AYINT (FAC to a 16-bit integer), for machine code called through USR."
+        },
+        {
+          "address": 8,
+          "hex": "$08",
+          "size": 2,
+          "name": "GOGIVEAYF",
+          "owner": "basic",
+          "description": "Address of GIVAYF (the 16-bit integer in A/Y to FAC), for machine code called through USR."
+        },
+        {
+          "address": 10,
+          "hex": "$0A",
+          "size": 3,
+          "name": "USR",
+          "owner": "basic",
+          "description": "JMP to the routine USR() calls. Cold start points it at the ILLEGAL QUANTITY error; POKE a routine's address into $0B-$0C."
+        },
+        {
+          "address": 13,
+          "hex": "$0D",
+          "size": 1,
+          "name": "Z15",
+          "owner": "basic",
+          "description": "msbasic's NULL count. This build has no NULL command, so nothing reads or writes it.",
+          "unused": true
+        },
+        {
+          "address": 14,
+          "hex": "$0E",
+          "size": 1,
+          "name": "POSX",
+          "owner": "basic",
+          "description": "Output column BASIC tracks for TAB, SPC, POS and comma zones."
+        },
+        {
+          "address": 15,
+          "hex": "$0F",
+          "size": 1,
+          "name": "Z17",
+          "owner": "basic",
+          "description": "Line width, set to 40 at cold start. Only the CR-at-width code reads it, and this build leaves that code out (CONFIG_NO_CR).",
+          "unused": true
+        },
+        {
+          "address": 16,
+          "hex": "$10",
+          "size": 1,
+          "name": "Z18",
+          "owner": "basic",
+          "description": "Last column where a comma starts a new print zone, set to 14 at cold start. Unused for the same reason as Z17.",
+          "unused": true
+        },
+        {
+          "address": 17,
+          "hex": "$11",
+          "size": 2,
+          "name": "LINNUM",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "TXPSV",
+              "address": 17,
+              "hex": "$11"
+            }
+          ],
+          "description": "16-bit integer result: a line number, or the address PEEK, POKE and SYS take."
+        },
+        {
+          "address": 19,
+          "hex": "$13",
+          "size": 1,
+          "name": "CHARAC",
+          "owner": "basic",
+          "description": "Delimiter the scanner stops at (string literals, DATA items)."
+        },
+        {
+          "address": 20,
+          "hex": "$14",
+          "size": 1,
+          "name": "ENDCHR",
+          "owner": "basic",
+          "description": "Second delimiter for the same scans."
+        },
+        {
+          "address": 21,
+          "hex": "$15",
+          "size": 1,
+          "name": "EOLPNTR",
+          "owner": "basic",
+          "description": "Index into the input buffer while tokenizing; subscript count while building an array."
+        },
+        {
+          "address": 22,
+          "hex": "$16",
+          "size": 1,
+          "name": "DIMFLG",
+          "owner": "basic",
+          "description": "Nonzero while DIM creates an array."
+        },
+        {
+          "address": 23,
+          "hex": "$17",
+          "size": 2,
+          "name": "VALTYP",
+          "owner": "basic",
+          "description": "Type of the last expression: byte 0 is $FF for a string, $00 for a number; byte 1 is $80 for an integer."
+        },
+        {
+          "address": 25,
+          "hex": "$19",
+          "size": 1,
+          "name": "DATAFLG",
+          "owner": "basic",
+          "description": "Tokenizer flag set after DATA, so the rest of the statement is not crunched. LIST uses it for its quote state."
+        },
+        {
+          "address": 26,
+          "hex": "$1A",
+          "size": 1,
+          "name": "SUBFLG",
+          "owner": "basic",
+          "description": "Flag that forbids subscripts or integers (FN parameters, FOR variables)."
+        },
+        {
+          "address": 27,
+          "hex": "$1B",
+          "size": 1,
+          "name": "INPUTFLG",
+          "owner": "basic",
+          "description": "Which statement is reading values: INPUT, GET or READ."
+        },
+        {
+          "address": 28,
+          "hex": "$1C",
+          "size": 1,
+          "name": "CPRMASK",
+          "owner": "basic",
+          "description": "Relational operator mask a comparison tests its result against. SIN and TAN reuse it as a sign flag."
+        },
+        {
+          "address": 29,
+          "hex": "$1D",
+          "size": 1,
+          "name": "Z14",
+          "owner": "basic",
+          "description": "Output-suppress flag (CTRL-O). Kept just below TEMPPT; see defines_clementina.s."
+        },
+        {
+          "address": 30,
+          "hex": "$1E",
+          "size": 1,
+          "name": "TEMPPT",
+          "owner": "basic",
+          "description": "Zero page address of the next free descriptor in TEMPST."
+        },
+        {
+          "address": 31,
+          "hex": "$1F",
+          "size": 2,
+          "name": "LASTPT",
+          "owner": "basic",
+          "description": "Pointer to the last temporary string descriptor used."
+        },
+        {
+          "address": 33,
+          "hex": "$21",
+          "size": 9,
+          "name": "TEMPST",
+          "owner": "basic",
+          "description": "Temporary string descriptor stack: three 3-byte descriptors."
+        },
+        {
+          "address": 42,
+          "hex": "$2A",
+          "size": 2,
+          "name": "INDEX",
+          "owner": "basic",
+          "description": "General pointer (string moves, variable search, memory moves)."
+        },
+        {
+          "address": 44,
+          "hex": "$2C",
+          "size": 2,
+          "name": "DEST",
+          "owner": "basic",
+          "description": "Second general pointer, mostly a move destination."
+        },
+        {
+          "address": 46,
+          "hex": "$2E",
+          "size": 5,
+          "name": "RESULT",
+          "owner": "basic",
+          "description": "Work area for floating-point multiply and divide."
+        },
+        {
+          "address": 51,
+          "hex": "$33",
+          "size": 2,
+          "name": "TXTTAB",
+          "owner": "basic",
+          "description": "Start of the BASIC program text."
+        },
+        {
+          "address": 53,
+          "hex": "$35",
+          "size": 2,
+          "name": "VARTAB",
+          "owner": "basic",
+          "description": "Start of simple variables, right after the program."
+        },
+        {
+          "address": 55,
+          "hex": "$37",
+          "size": 2,
+          "name": "ARYTAB",
+          "owner": "basic",
+          "description": "Start of arrays."
+        },
+        {
+          "address": 57,
+          "hex": "$39",
+          "size": 2,
+          "name": "STREND",
+          "owner": "basic",
+          "description": "End of arrays plus one, the bottom of free memory."
+        },
+        {
+          "address": 59,
+          "hex": "$3B",
+          "size": 2,
+          "name": "FRETOP",
+          "owner": "basic",
+          "description": "Bottom of string storage, which grows down from MEMSIZ."
+        },
+        {
+          "address": 61,
+          "hex": "$3D",
+          "size": 2,
+          "name": "FRESPC",
+          "owner": "basic",
+          "description": "Pointer to the string most recently allocated."
+        },
+        {
+          "address": 63,
+          "hex": "$3F",
+          "size": 2,
+          "name": "MEMSIZ",
+          "owner": "basic",
+          "description": "Top of BASIC memory plus one ($C000 at cold start). Lower it with POKE 63/64 and CLEAR to reserve RAM."
+        },
+        {
+          "address": 65,
+          "hex": "$41",
+          "size": 2,
+          "name": "CURLIN",
+          "owner": "basic",
+          "description": "Line number being run; high byte $FF in direct mode."
+        },
+        {
+          "address": 67,
+          "hex": "$43",
+          "size": 2,
+          "name": "OLDLIN",
+          "owner": "basic",
+          "description": "Line number where the program stopped, for CONT."
+        },
+        {
+          "address": 69,
+          "hex": "$45",
+          "size": 2,
+          "name": "OLDTEXT",
+          "owner": "basic",
+          "description": "Text pointer where the program stopped, for CONT."
+        },
+        {
+          "address": 71,
+          "hex": "$47",
+          "size": 2,
+          "name": "Z8C",
+          "owner": "basic",
+          "description": "Line number of the DATA statement being read, for READ's errors."
+        },
+        {
+          "address": 73,
+          "hex": "$49",
+          "size": 2,
+          "name": "DATPTR",
+          "owner": "basic",
+          "description": "Address of the next DATA item READ takes."
+        },
+        {
+          "address": 75,
+          "hex": "$4B",
+          "size": 2,
+          "name": "INPTR",
+          "owner": "basic",
+          "description": "Where INPUT, GET and READ are reading from."
+        },
+        {
+          "address": 77,
+          "hex": "$4D",
+          "size": 2,
+          "name": "VARNAM",
+          "owner": "basic",
+          "description": "Name of the variable being looked up (two characters, type in bit 7)."
+        },
+        {
+          "address": 79,
+          "hex": "$4F",
+          "size": 2,
+          "name": "VARPNT",
+          "owner": "basic",
+          "description": "Address of that variable's value."
+        },
+        {
+          "address": 81,
+          "hex": "$51",
+          "size": 2,
+          "name": "FORPNT",
+          "owner": "basic",
+          "description": "Pointer to the variable a FOR, LET or INPUT assigns."
+        },
+        {
+          "address": 83,
+          "hex": "$53",
+          "size": 2,
+          "name": "LASTOP",
+          "owner": "basic",
+          "description": "Operator table offset of the operator pending during expression evaluation."
+        },
+        {
+          "address": 85,
+          "hex": "$55",
+          "size": 1,
+          "name": "CPRTYP",
+          "owner": "basic",
+          "description": "Relational operators (<, =, >) collected while a comparison is parsed."
+        },
+        {
+          "address": 86,
+          "hex": "$56",
+          "size": 2,
+          "name": "TEMP3",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "FNCNAM",
+              "address": 86,
+              "hex": "$56"
+            }
+          ],
+          "description": "Pointer to the current FN definition; also scratch."
+        },
+        {
+          "address": 88,
+          "hex": "$58",
+          "size": 3,
+          "name": "DSCPTR",
+          "owner": "basic",
+          "description": "Pointer to the current string descriptor."
+        },
+        {
+          "address": 91,
+          "hex": "$5B",
+          "size": 2,
+          "name": "DSCLEN",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "JMPADRS",
+              "address": 92,
+              "hex": "$5C"
+            }
+          ],
+          "description": "Descriptor step during garbage collection (3 at cold start). Its second byte starts JMPADRS."
+        },
+        {
+          "address": 93,
+          "hex": "$5D",
+          "size": 1,
+          "name": "Z52",
+          "owner": "basic",
+          "description": "Garbage collection: copy of DSCLEN, the step between the descriptors being scanned. Also the low byte of JMPADRS's target."
+        },
+        {
+          "address": 94,
+          "hex": "$5E",
+          "size": 1,
+          "name": "ARGEXTENSION",
+          "owner": "basic",
+          "description": "Extra low mantissa byte of ARG. Also the high byte of JMPADRS's target."
+        },
+        {
+          "address": 95,
+          "hex": "$5F",
+          "size": 1,
+          "name": "TEMP1",
+          "owner": "basic",
+          "description": "Floating-point scratch."
+        },
+        {
+          "address": 96,
+          "hex": "$60",
+          "size": 2,
+          "name": "HIGHDS",
+          "owner": "basic",
+          "description": "Block move: end of the destination."
+        },
+        {
+          "address": 98,
+          "hex": "$62",
+          "size": 2,
+          "name": "HIGHTR",
+          "owner": "basic",
+          "description": "Block move: end of the source."
+        },
+        {
+          "address": 100,
+          "hex": "$64",
+          "size": 1,
+          "name": "TEMP2",
+          "owner": "basic",
+          "description": "Floating-point scratch."
+        },
+        {
+          "address": 101,
+          "hex": "$65",
+          "size": 1,
+          "name": "INDX",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "TMPEXP",
+              "address": 101,
+              "hex": "$65"
+            }
+          ],
+          "description": "Floating-point scratch: an index or a temporary exponent."
+        },
+        {
+          "address": 102,
+          "hex": "$66",
+          "size": 1,
+          "name": "EXPON",
+          "owner": "basic",
+          "description": "Decimal exponent while a number is parsed."
+        },
+        {
+          "address": 103,
+          "hex": "$67",
+          "size": 1,
+          "name": "LOWTR",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "LOWTRX",
+              "address": 103,
+              "hex": "$67"
+            }
+          ],
+          "description": "Low byte of a pointer used by line search and block moves; EXPSGN is its high byte."
+        },
+        {
+          "address": 104,
+          "hex": "$68",
+          "size": 1,
+          "name": "EXPSGN",
+          "owner": "basic",
+          "description": "Sign of the decimal exponent while a number is parsed."
+        },
+        {
+          "address": 105,
+          "hex": "$69",
+          "size": 5,
+          "name": "FAC",
+          "owner": "basic",
+          "description": "Floating-point accumulator: exponent, then four mantissa bytes."
+        },
+        {
+          "address": 110,
+          "hex": "$6E",
+          "size": 1,
+          "name": "FACSIGN",
+          "owner": "basic",
+          "description": "Sign of FAC."
+        },
+        {
+          "address": 111,
+          "hex": "$6F",
+          "size": 1,
+          "name": "SERLEN",
+          "owner": "basic",
+          "description": "Number of terms left while a polynomial series is evaluated."
+        },
+        {
+          "address": 112,
+          "hex": "$70",
+          "size": 1,
+          "name": "SHIFTSIGNEXT",
+          "owner": "basic",
+          "description": "Sign extension while mantissas are shifted; zero after cold start."
+        },
+        {
+          "address": 113,
+          "hex": "$71",
+          "size": 5,
+          "name": "ARG",
+          "owner": "basic",
+          "description": "Second floating-point accumulator, same layout as FAC."
+        },
+        {
+          "address": 118,
+          "hex": "$76",
+          "size": 1,
+          "name": "ARGSIGN",
+          "owner": "basic",
+          "description": "Sign of ARG."
+        },
+        {
+          "address": 119,
+          "hex": "$77",
+          "size": 2,
+          "name": "STRNG1",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "SGNCPR",
+              "address": 119,
+              "hex": "$77"
+            },
+            {
+              "name": "FACEXTENSION",
+              "address": 120,
+              "hex": "$78"
+            }
+          ],
+          "description": "String pointer. Its first byte is SGNCPR (FAC and ARG signs compared), its second FACEXTENSION (FAC's rounding byte)."
+        },
+        {
+          "address": 121,
+          "hex": "$79",
+          "size": 2,
+          "name": "STRNG2",
+          "owner": "basic",
+          "description": "Second string pointer."
+        },
+        {
+          "address": 123,
+          "hex": "$7B",
+          "size": 24,
+          "name": "CHRGET",
+          "owner": "basic",
+          "aliases": [
+            {
+              "name": "CHRGOT",
+              "address": 129,
+              "hex": "$81"
+            },
+            {
+              "name": "TXTPTR",
+              "address": 130,
+              "hex": "$82"
+            },
+            {
+              "name": "CHRGOT2",
+              "address": 136,
+              "hex": "$88"
+            }
+          ],
+          "description": "Routine cold start copies here: steps TXTPTR and returns the next non-space character. CHRGOT ($81) rereads the current one."
+        },
+        {
+          "address": 147,
+          "hex": "$93",
+          "size": 5,
+          "name": "RNDSEED",
+          "owner": "basic",
+          "description": "Seed RND works from, in FAC layout. Cold start copies only its first four bytes (an msbasic quirk noted in init.s)."
+        },
+        {
+          "address": 232,
+          "hex": "$E8",
+          "size": 1,
+          "name": "XAML",
+          "owner": "wozmon",
+          "description": "Low byte of the last opened address."
+        },
+        {
+          "address": 233,
+          "hex": "$E9",
+          "size": 1,
+          "name": "XAMH",
+          "owner": "wozmon",
+          "description": "High byte of the last opened address."
+        },
+        {
+          "address": 234,
+          "hex": "$EA",
+          "size": 1,
+          "name": "STL",
+          "owner": "wozmon",
+          "description": "Low byte of the store address."
+        },
+        {
+          "address": 235,
+          "hex": "$EB",
+          "size": 1,
+          "name": "STH",
+          "owner": "wozmon",
+          "description": "High byte of the store address."
+        },
+        {
+          "address": 236,
+          "hex": "$EC",
+          "size": 1,
+          "name": "L",
+          "owner": "wozmon",
+          "description": "Low byte of the hex value being parsed."
+        },
+        {
+          "address": 237,
+          "hex": "$ED",
+          "size": 1,
+          "name": "H",
+          "owner": "wozmon",
+          "description": "High byte of the hex value being parsed."
+        },
+        {
+          "address": 238,
+          "hex": "$EE",
+          "size": 1,
+          "name": "YSAV",
+          "owner": "wozmon",
+          "description": "Saved input index, to see whether a hex value was typed."
+        },
+        {
+          "address": 239,
+          "hex": "$EF",
+          "size": 1,
+          "name": "MODE",
+          "owner": "wozmon",
+          "description": "Command mode: $00 examine, $7F store, $AE block examine."
+        },
+        {
+          "address": 240,
+          "hex": "$F0",
+          "size": 2,
+          "name": "KPTR",
+          "owner": "kernel",
+          "description": "General 16-bit pointer: PRSTR's string source, KERN_LOAD's destination override. CHROUT leaves it alone."
+        },
+        {
+          "address": 242,
+          "hex": "$F2",
+          "size": 2,
+          "name": "KTMP",
+          "owner": "kernel",
+          "description": "Scratch: the overlay offset and address CHROUT computes. KERN_LOAD takes its run address here."
+        },
+        {
+          "address": 244,
+          "hex": "$F4",
+          "size": 2,
+          "name": "KCNT",
+          "owner": "kernel",
+          "description": "16-bit loop counter for screen fills."
+        },
+        {
+          "address": 246,
+          "hex": "$F6",
+          "size": 1,
+          "name": "KCHR",
+          "owner": "kernel",
+          "description": "CHROUT's copy of the byte being printed."
+        },
+        {
+          "address": 247,
+          "hex": "$F7",
+          "size": 2,
+          "name": "KJIFFY",
+          "owner": "kernel",
+          "description": "Free-running tick counter, +1 per VIA Timer 1 IRQ (PHI2 / 6250, 192 Hz at 1.2 MHz). Measures CPU work, not wall time. Read-only for programs."
+        },
+        {
+          "address": 249,
+          "hex": "$F9",
+          "size": 1,
+          "name": "KLOAD_BANK",
+          "owner": "kernel",
+          "description": "KERN_LOAD: destination bank, 0 when unbanked."
+        },
+        {
+          "address": 250,
+          "hex": "$FA",
+          "size": 1,
+          "name": "KLOAD_CHUNKLEN",
+          "owner": "kernel",
+          "description": "KERN_LOAD: bytes read this round."
+        },
+        {
+          "address": 251,
+          "hex": "$FB",
+          "size": 1,
+          "name": "KLOAD_SCRATCH",
+          "owner": "kernel",
+          "description": "KERN_LOAD: header and boundary scratch."
+        },
+        {
+          "address": 252,
+          "hex": "$FC",
+          "size": 4,
+          "owner": "kernel",
+          "reserved": true,
+          "description": "Spare. The kernel grows into these first, then into $E0-$E7."
+        }
+      ]
+    },
+    {
+      "name": "STACK",
+      "start": 256,
+      "size": 256,
+      "blocks": [
+        {
+          "name": "CPU_STACK",
+          "owner": "cpu",
+          "start": 256,
+          "endExclusive": 508,
+          "size": 252,
+          "range": "$0100-$01FB",
+          "description": "6502 hardware stack. Cold start sets S to $FF; while BASIC runs S stays at or below $FC, so pushes reach $01FC at most."
+        },
+        {
+          "name": "BASIC_LINE_STAGING",
+          "owner": "basic",
+          "start": 508,
+          "endExclusive": 512,
+          "size": 4,
+          "range": "$01FC-$01FF",
+          "mapped": true,
+          "description": "BASIC stages a numbered line's link and line number here, just below its input buffer."
+        }
+      ],
+      "locations": [
+        {
+          "address": 508,
+          "hex": "$01FC",
+          "size": 2,
+          "owner": "basic",
+          "description": "Staged link of a numbered line (INPUTBUFFER-4). The high byte is set to $01 before the copy; the low byte is a don't-care, and BASIC's deepest push lands on it."
+        },
+        {
+          "address": 510,
+          "hex": "$01FE",
+          "size": 2,
+          "owner": "basic",
+          "description": "Staged line number (INPUTBUFFER-2), copied from LINNUM. INPUT stores its leading comma at $01FF."
+        }
+      ]
+    },
+    {
+      "name": "INPUT_PAGE",
+      "start": 512,
+      "size": 256,
+      "blocks": [
+        {
+          "name": "LINE_INPUT",
+          "owner": [
+            "basic",
+            "wozmon"
+          ],
+          "start": 512,
+          "endExclusive": 640,
+          "size": 128,
+          "range": "$0200-$027F",
+          "description": "Line input buffer, shared by BASIC and WozMon, which never run at the same time."
+        },
+        {
+          "name": "PROGRAMS",
+          "owner": "programs",
+          "start": 640,
+          "endExclusive": 760,
+          "size": 120,
+          "range": "$0280-$02F7",
+          "description": "Free for programs (120 bytes). Nothing in the system writes here."
+        },
+        {
+          "name": "CLOCK_SNAPSHOT",
+          "owner": "kernel",
+          "start": 760,
+          "endExclusive": 768,
+          "size": 8,
+          "range": "$02F8-$02FF",
+          "mapped": true,
+          "symbols": [
+            "CLOCK_SNAPSHOT"
+          ],
+          "description": "Copy of MIA's clock written by KERN_RDTIM, in the layout MIA latches at $11078. BASIC's TI, TICKS and DELAY overwrite it too."
+        }
+      ],
+      "locations": [
+        {
+          "address": 512,
+          "hex": "$0200",
+          "size": 83,
+          "name": "INPUTBUFFER",
+          "owner": "basic",
+          "overlaps": [
+            "IN"
+          ],
+          "description": "Typed line, up to 80 characters (INLIN_MAX), crunched in place; $00 terminator at $0250 and the tokenizer's end-of-program $00 at most at $0252. GET uses $0200-$0201."
+        },
+        {
+          "address": 512,
+          "hex": "$0200",
+          "size": 128,
+          "name": "IN",
+          "owner": "wozmon",
+          "overlaps": [
+            "INPUTBUFFER"
+          ],
+          "description": "WozMon's line buffer."
+        },
+        {
+          "address": 760,
+          "hex": "$02F8",
+          "size": 4,
+          "name": "CLOCK_MS",
+          "owner": "kernel",
+          "description": "Milliseconds since MIA reset, little-endian, wraps at 2^32 (about 49.7 days)."
+        },
+        {
+          "address": 764,
+          "hex": "$02FC",
+          "size": 3,
+          "name": "CLOCK_60HZ",
+          "owner": "kernel",
+          "description": "MIA's 60 Hz count, little-endian, wraps at 5,184,000 (24 hours). BASIC's TI reads it; KERN_SETTIM sets it."
+        },
+        {
+          "address": 767,
+          "hex": "$02FF",
+          "size": 1,
+          "name": "CLOCK_VERSION",
+          "owner": "kernel",
+          "description": "1 when MIA filled the snapshot."
+        }
+      ]
+    },
+    {
+      "name": "KERNEL_VARIABLES",
+      "start": 768,
+      "size": 256,
+      "blocks": [
+        {
+          "name": "KERNEL_VARIABLES",
+          "owner": [
+            "kernel",
+            "basic"
+          ],
+          "start": 768,
+          "endExclusive": 1024,
+          "size": 256,
+          "range": "$0300-$03FF",
+          "mapped": true,
+          "symbols": [
+            "KVARS"
+          ],
+          "description": "Kernel and screen-editor variables, plus BASIC's style scratch (KVARS in kernel.inc)."
+        }
+      ],
+      "locations": [
+        {
+          "address": 768,
+          "hex": "$0300",
+          "size": 1,
+          "name": "CURSOR_X",
+          "owner": "kernel",
+          "description": "Text cursor column, 0-39."
+        },
+        {
+          "address": 769,
+          "hex": "$0301",
+          "size": 1,
+          "name": "CURSOR_Y",
+          "owner": "kernel",
+          "description": "Text cursor row, 0-24."
+        },
+        {
+          "address": 770,
+          "hex": "$0302",
+          "size": 1,
+          "name": "TEXT_ATTR",
+          "owner": "kernel",
+          "description": "Overlay attribute for new console cells; bits 0-3 select the palette bank."
+        },
+        {
+          "address": 771,
+          "hex": "$0303",
+          "size": 1,
+          "name": "LAST_KEY",
+          "owner": "kernel",
+          "description": "Debug: last byte CHRIN returned."
+        },
+        {
+          "address": 772,
+          "hex": "$0304",
+          "size": 1,
+          "name": "EDITOR_PEN",
+          "owner": "kernel",
+          "description": "The screen editor's pen, set by ESC commands and copied into TEXT_ATTR at each line edit."
+        },
+        {
+          "address": 773,
+          "hex": "$0305",
+          "size": 1,
+          "name": "KLOAD_SAVED_BANK",
+          "owner": "kernel",
+          "description": "KERN_LOAD: the bank mapped when it started, selected again when it returns or fails."
+        },
+        {
+          "address": 774,
+          "hex": "$0306",
+          "size": 3,
+          "owner": "kernel",
+          "unused": true,
+          "description": "Unused since the CINV/COUTV stubs were removed (2026-10-11); the variables after them kept their addresses."
+        },
+        {
+          "address": 777,
+          "hex": "$0309",
+          "size": 1,
+          "name": "CURSOR_VISIBLE",
+          "owner": "kernel",
+          "description": "Nonzero while the software cursor is drawn."
+        },
+        {
+          "address": 778,
+          "hex": "$030A",
+          "size": 1,
+          "name": "CURSOR_SAVE_CHR",
+          "owner": "kernel",
+          "description": "Tile under the visible cursor."
+        },
+        {
+          "address": 779,
+          "hex": "$030B",
+          "size": 1,
+          "name": "CURSOR_SAVE_ATTR",
+          "owner": "kernel",
+          "description": "Attribute under the visible cursor."
+        },
+        {
+          "address": 780,
+          "hex": "$030C",
+          "size": 25,
+          "name": "LINE_LINK",
+          "owner": "kernel",
+          "description": "One byte per screen row: bit 7 set when the row starts a logical line, clear when it continues the row above."
+        },
+        {
+          "address": 805,
+          "hex": "$0325",
+          "size": 80,
+          "name": "EDIT_BUF",
+          "owner": "kernel",
+          "description": "The logical line the screen editor harvested on RETURN, handed to BASIC by KERN_EDITKEY."
+        },
+        {
+          "address": 885,
+          "hex": "$0375",
+          "size": 1,
+          "name": "EDIT_LEN",
+          "owner": "kernel",
+          "description": "Harvested length, trailing spaces trimmed."
+        },
+        {
+          "address": 886,
+          "hex": "$0376",
+          "size": 1,
+          "name": "EDIT_IDX",
+          "owner": "kernel",
+          "description": "Read index into EDIT_BUF."
+        },
+        {
+          "address": 887,
+          "hex": "$0377",
+          "size": 1,
+          "name": "EDIT_STATE",
+          "owner": "kernel",
+          "description": "Nonzero while the editor is handing out a harvested line."
+        },
+        {
+          "address": 888,
+          "hex": "$0378",
+          "size": 1,
+          "name": "EDIT_START_X",
+          "owner": "kernel",
+          "description": "Cursor column where the current input began, past any prompt."
+        },
+        {
+          "address": 889,
+          "hex": "$0379",
+          "size": 1,
+          "name": "EDIT_START_Y",
+          "owner": "kernel",
+          "description": "Cursor row where the current input began."
+        },
+        {
+          "address": 890,
+          "hex": "$037A",
+          "size": 1,
+          "name": "EDIT_RS",
+          "owner": "kernel",
+          "description": "Editor scratch: logical-line start row."
+        },
+        {
+          "address": 891,
+          "hex": "$037B",
+          "size": 1,
+          "name": "EDIT_RE",
+          "owner": "kernel",
+          "description": "Editor scratch: logical-line end row."
+        },
+        {
+          "address": 892,
+          "hex": "$037C",
+          "size": 1,
+          "name": "EDIT_CP",
+          "owner": "kernel",
+          "description": "Insert/delete scratch: cursor position in the logical line."
+        },
+        {
+          "address": 893,
+          "hex": "$037D",
+          "size": 1,
+          "name": "EDIT_LL",
+          "owner": "kernel",
+          "description": "Insert/delete scratch: logical-line cell count."
+        },
+        {
+          "address": 894,
+          "hex": "$037E",
+          "size": 1,
+          "name": "CURSOR_BLINK_ACTIVE",
+          "owner": "kernel",
+          "description": "Nonzero while CHRIN polls, so the Timer 1 IRQ may blink the cursor."
+        },
+        {
+          "address": 895,
+          "hex": "$037F",
+          "size": 1,
+          "name": "CURSOR_BLINK_COUNT",
+          "owner": "kernel",
+          "description": "Timer 1 ticks left before the next cursor toggle."
+        },
+        {
+          "address": 896,
+          "hex": "$0380",
+          "size": 80,
+          "name": "EDIT_ATTR_BUF",
+          "owner": "kernel",
+          "description": "Attributes of the harvested line, parallel to EDIT_BUF; BASIC copies them into styled strings."
+        },
+        {
+          "address": 976,
+          "hex": "$03D0",
+          "size": 1,
+          "name": "EDIT_MODE",
+          "owner": "kernel",
+          "description": "Glyph mode 0-2 the editor uses to map typed characters to alternate tiles."
+        },
+        {
+          "address": 977,
+          "hex": "$03D1",
+          "size": 1,
+          "name": "EDIT_PAINT",
+          "owner": "kernel",
+          "description": "Nonzero while Paint mode is on."
+        },
+        {
+          "address": 978,
+          "hex": "$03D2",
+          "size": 1,
+          "name": "EDIT_CMD_PENDING",
+          "owner": "kernel",
+          "description": "Nonzero between ESC and its command key."
+        },
+        {
+          "address": 979,
+          "hex": "$03D3",
+          "size": 42,
+          "name": "STYLE_SIDE_BUF",
+          "owner": "basic",
+          "description": "BASIC tokenizer scratch for styled literals; TRACK, BAND, VTAKE, VGIVE and LIST reuse parts of it."
+        },
+        {
+          "address": 1021,
+          "hex": "$03FD",
+          "size": 1,
+          "name": "BASIC_DEFAULT_ATTR",
+          "owner": "basic",
+          "description": "Default output attribute set by COLOR, FLIPX, FLIPY and ALT."
+        },
+        {
+          "address": 1022,
+          "hex": "$03FE",
+          "size": 1,
+          "name": "BASIC_STYLE_MASK",
+          "owner": "basic",
+          "description": "Style override mask set by STYLE n, in overlay-attribute bit form."
+        },
+        {
+          "address": 1023,
+          "hex": "$03FF",
+          "size": 1,
+          "name": "STYLE_BASE_LEN",
+          "owner": "basic",
+          "description": "Tokenizer scratch: the line's length before its style sidecar."
+        }
+      ]
+    }
+  ]
+}

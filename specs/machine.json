@@ -3,17 +3,7 @@
   "format": "clementina-machine",
   "version": 1,
   "cpu": {"model":"W65C02S","addressBits":16,"cpuAddressSpaceBytes":65536},
-  "memory": {
-    "baseRam":{"start":0,"end":32767,"size":32768},
-    "extendedRamWindow":{"start":32768,"end":49151,"windowSize":16384,"backingSize":524288,"banks":32,"bankSelect":"65C22 VIA Port A PA0-PA4","basicReservedBank":0},
-    "io":{"start":49152,"end":57343,"slotSize":1024,"slots":8},
-    "via":{"start":49152,"end":50175,"registerMirrorPeriod":16},
-    "miaRegion":{"start":57344,"end":65535,"registerMirrorPeriod":32},
-    "miaRegisters":{"start":65504,"end":65535,"size":32},
-    "zeroPage":{"basic":{"start":0,"end":151},"programs":{"start":152,"end":223},"systemSpare":{"start":224,"end":231},"wozmon":{"start":232,"end":239},"kernel":{"start":240,"end":255}}
-  },
   "miaRam":{"addressBits":18,"start":0,"end":262143,"size":262144,"firmware":{"start":0,"end":81919},"programs":{"start":81920,"end":262143}},
-  "kernel":{"intendedLoadBase":1024,"jumpTable":{"start":1024,"end":1077,"entrySize":3},"clockSnapshot":{"start":760,"end":767}},
   "timing":{"defaultPhi2Hz":1200000,"requestedPhi2MinHz":1,"requestedPhi2MaxHz":8000000,"wallTimeRecommendedForGameplay":true},
   "knownIssues":"known-issues.json"
 }
