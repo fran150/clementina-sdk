@@ -2,11 +2,6 @@
   "format": "clementina-storage",
   "version": 1,
   "protocolVersion": 7,
-  "region": {
-    "start": 77824,
-    "endExclusive": 80896,
-    "size": 3072
-  },
   "regions": [
     {
       "name": "CONTROL",
@@ -43,14 +38,6 @@
   "maxFileHandles": 16,
   "directoryCursors": 1,
   "sectorBytes": 512,
-  "indexes": {
-    "control": "$E0",
-    "sector": "$E1",
-    "path": "$E2",
-    "dir": "$E3",
-    "transfer": "$E4",
-    "path2": "$E5"
-  },
   "filesystem": "FAT via FatFs",
   "fileInfoCommand": "$89",
   "loadPartCommand": {

@@ -1,11 +1,6 @@
 {
   "format": "clementina-audio",
   "version": 1,
-  "region": {
-    "start": 73728,
-    "endExclusive": 73808,
-    "size": 80
-  },
   "layoutVersion": 2,
   "voices": 4,
   "sampleRateHz": 48000,
@@ -20,7 +15,6 @@
   "pan": {"min":-64,"max":63,"default":0},
   "voiceRecordBytes": 16,
   "voiceOffsets": {"FREQ_L":0,"FREQ_H":1,"PULSE_WIDTH":2,"ATTACK_DECAY":3,"SUSTAIN_RELEASE":4,"WAVEFORM":5,"PAN":6,"CONTROL":7,"VOLUME":8,"SEQ_NOTE_INDEX_L":9,"SEQ_NOTE_INDEX_H":10,"SEQ_STATUS":11},
-  "indexes": {"all":"$E6","voice0":"$E7","voice1":"$E8","voice2":"$E9","voice3":"$EA","header":"$EB","sequencerStatus0":"$EC","sequencerStatus1":"$ED","sequencerStatus2":"$EE","sequencerStatus3":"$EF"},
   "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67","sequencerSetBase0":"$68","sequencerSetBase1":"$69","sequencerSetBase2":"$6A","sequencerSetBase3":"$6B"},
   "sequencer": {
     "trackFormat": "undeclared-length opcode stream at a per-voice track_base, decoded live until END, an unrecognized opcode byte, or a cursor past the top of MIA RAM",

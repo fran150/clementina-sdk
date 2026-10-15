@@ -12,6 +12,8 @@ import {loadProject, resolveProjectPath} from '@clementina/project/node';
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const templates = {basic: join(sdkRoot, 'templates/basic-game'), assembly: join(sdkRoot, 'templates/asm-game')};
 const videoSpec = JSON.parse(await readFile(join(sdkRoot, 'specs/video.json'), 'utf8'));
+const videoBytes = JSON.parse(await readFile(join(sdkRoot, 'specs/mia-ram-map.json'), 'utf8'))
+  .blocks.find(block => block.name === 'VIDEO').size;
 const overlay = videoSpec.regions.find(region => region.name === 'OV_NT');
 const usage = `Usage:
   node agents/workflows/create-game.mjs init <new-directory> [--name <name>] [--kind basic|assembly]
@@ -56,7 +58,7 @@ function requireResult(result, phase) {
 
 function overlayRows(video) {
   const {columns, rows} = videoSpec.overlay;
-  if (video.length !== videoSpec.videoRegion.size || overlay.size !== columns * rows) throw new Error('Invalid video snapshot or specification');
+  if (video.length !== videoBytes || overlay.size !== columns * rows) throw new Error('Invalid video snapshot or specification');
   return Array.from({length: rows}, (_, row) => video
     .slice(overlay.start + row * columns, overlay.start + (row + 1) * columns)
     .map(byte => byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : ' ')

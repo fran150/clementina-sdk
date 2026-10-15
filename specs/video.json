@@ -9,13 +9,10 @@
     "columns": 40,
     "rows": 25
   },
-  "videoRegion": {
-    "start": 0,
-    "endExclusive": 68944,
-    "size": 68944,
-    "pageSize": 32,
-    "pages": 2155,
-    "syncablePages": 2154
+  "pages": {
+    "size": 32,
+    "count": 2155,
+    "syncable": 2154
   },
   "regions": [
     {
@@ -204,10 +201,5 @@
     "udpPort": 6502,
     "clientPaced": true,
     "defaultClientFps": 25
-  },
-  "directOamIndexes": {
-    "start": "$C0",
-    "end": "$DF",
-    "records": 32
   }
 }

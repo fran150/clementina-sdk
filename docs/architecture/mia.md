@@ -5,8 +5,8 @@ MIA has a 32-byte CPU register window at `$FFE0-$FFFF` plus 256 KiB of separate 
 ## RAM map
 
 MIA RAM is split at `$14000`. The firmware owns `$00000-$13FFF` and programs
-own `$14000-$3FFFF` (176 KiB); `specs/machine.json` `miaRam` records both
-blocks.
+own `$14000-$3FFFF` (176 KiB); `specs/machine.json` `miaRam` records the split
+and `specs/mia-ram-map.json` records every block and gap.
 
 | Range | Owner |
 | --- | --- |
@@ -32,6 +32,20 @@ There are 256 descriptors and two active windows, A and B. Each descriptor has:
 
 Window A: `$FFE0/$FFE1`. Window B: `$FFE4/$FFE5`.
 Configuration: `$FFE2/$FFE3`. Field ids: `specs/mia-config.json`.
+
+| Ids | Owner |
+| --- | --- |
+| `$00-$4F` | Programs (the SDK runtime takes `$40-$41`) |
+| `$50-$6F` | MIA input |
+| `$70-$DF` | MIA video |
+| `$E0-$E5` | MIA SD/FS |
+| `$E6-$EF` | MIA audio |
+| `$F0-$FF` | ROM kernel; never change them |
+
+MIA configures its own ids at reset; every other id resets to zeros. The kernel
+re-seeks the MIA ids before each use. Every id, its owner, name and reset
+default: `specs/mia-indexes.json`. Source: "Who owns which id" in
+`clementina-rom` `docs/memory-map.md`.
 
 ## Commands
 

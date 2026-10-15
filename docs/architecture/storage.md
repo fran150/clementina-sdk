@@ -13,7 +13,8 @@ MIA RAM `$13000-$13BFF` contains:
 Protocol version: 7.
 
 There are 16 file-handle slots and one directory cursor.
-Indexes `$E0-$E5` expose control/sector/path/directory/transfer/path2.
+Indexes `$E0-$E5` expose control/sector/path/directory/transfer/path2
+(`specs/mia-indexes.json`).
 
 Filesystem commands run asynchronously at MIA level. Poll busy or use IRQ bits
 11 (done), 12 (error), 13 (filesystem event).
