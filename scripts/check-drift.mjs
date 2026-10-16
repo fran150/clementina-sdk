@@ -337,7 +337,7 @@ export function checkMia(report, specs, mia, rom) {
   const same = (spec, label, expected, macro) => report.same(spec, label, expected, () => v(macro), `${macro} in ${where(macro)}`);
 
   table(report, 'mia-commands.json', specs['mia-commands.json'].commands, e => `MIA_CMD_${e.name}`, e => e.id, mia.names(/^MIA_CMD_/), v);
-  for (const e of specs['mia-commands.json'].commands) romCopies(report, 'mia-commands.json', rom, `CMD_${e.name}`, e.id);
+  for (const e of specs['mia-commands.json'].commands) for (const name of [`CMD_${e.name}`, `MIA_CMD_${e.name}`]) romCopies(report, 'mia-commands.json', rom, name, e.id);
 
   table(report, 'mia-errors.json', specs['mia-errors.json'].errors, e => e.name, e => e.code, mia.names(/^ERROR_(?!DEFER_)/, /etc\/err\.h$/), v, 'src/mia/etc/err.h');
   for (const e of specs['mia-errors.json'].errors) romCopies(report, 'mia-errors.json', rom, e.name, e.code);
@@ -355,6 +355,7 @@ export function checkMia(report, specs, mia, rom) {
   const firmwareIds = indexes.ids.filter(e => /^MIA_/.test(e.name ?? ''));
   table(report, 'mia-indexes.json', firmwareIds, e => e.name, e => e.id, mia.names(/^MIA_(INPUT|VIDEO|AUDIO|SD|FS)_INDEX_/), v);
   table(report, 'mia-indexes.json', indexes.flagBits, e => `IDX_FLAG_${e.name}`, e => e.bit, mia.names(/^IDX_FLAG_/, /mem\/indexes\.h$/), v, 'src/mia/mem/indexes.h');
+  for (const e of firmwareIds) romCopies(report, 'mia-indexes.json', rom, e.name, e.id);
   for (const e of indexes.ids.filter(e => e.docName)) romCopies(report, 'mia-indexes.json', rom, e.docName, e.id);
   const defaults = new Map();
   for (const rel of [...walk(path.join(mia.dir, 'src', 'mia'), '.c')].map(f => path.relative(mia.dir, f).split(path.sep).join('/'))) {
@@ -423,6 +424,7 @@ export function checkMia(report, specs, mia, rom) {
     same('audio.json', `commands.${name}`, hex(id), `MIA_CMD_AUDIO_${audioCommands[name]}`);
   }
   table(report, 'audio.json', audio.sequencer.opcodes, e => `MIA_SEQ_OP_${e.name}`, e => e.id, mia.names(/^MIA_SEQ_OP_/), v);
+  for (const e of audio.sequencer.opcodes) romCopies(report, 'audio.json', rom, `MIA_SEQ_OP_${e.name}`, e.id);
   same('audio.json', 'sequencer.decodeBudgetOpcodes', audio.sequencer.decodeBudgetOpcodes, 'MIA_SEQ_DECODE_BUDGET');
   same('audio.json', 'sequencer.catchupBudgetEvents', audio.sequencer.catchupBudgetEvents, 'MIA_SEQ_CATCHUP_BUDGET');
   same('audio.json', 'sequencer.status.runningBit', bit(audio.sequencer.status.runningBit), 'MIA_AUDIO_SEQ_STATUS_RUNNING');
