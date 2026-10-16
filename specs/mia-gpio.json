@@ -1,0 +1,39 @@
+{
+  "format": "clementina-mia-gpio",
+  "version": 1,
+  "source": "clementina-mia src/mia/hardware/gpio_mapping.h (6502 bus, reset, IRQ, audio) and src/mia/sd/sd.c (microSD)",
+  "notes": [
+    "The GPIO pins of the Raspberry Pi Pico 2 W that runs MIA, as wired on the rev 1 board. Every GPIO on the Pico header is listed; GPIO 23-25 and 29 belong to the Pico's Wi-Fi chip.",
+    "define names the firmware macro; offset is the pin's position after a base macro. The SD and audio pins are build-time defaults that the board is wired to.",
+    "function is the RP2350 peripheral that drives the pin: PIO for the 6502 bus, SPI0, PWM, or SIO for plain software control.",
+    "Connector pinouts, power and parts are in the clementina-hardware README; the address decode is in cpu-memory-map.json."
+  ],
+  "pins": [
+    {"gpio": 0, "signal": "SD_MISO", "define": "MIA_SD_MISO_PIN", "direction": "input", "function": "SPI0", "description": "microSD data from the card."},
+    {"gpio": 1, "signal": "SD_CS", "define": "MIA_SD_CS_PIN", "direction": "output", "function": "SIO", "description": "microSD chip select, active low."},
+    {"gpio": 2, "signal": "SD_SCK", "define": "MIA_SD_SCK_PIN", "direction": "output", "function": "SPI0", "description": "microSD clock: 400 kHz to initialise, then 12 MHz."},
+    {"gpio": 3, "signal": "SD_MOSI", "define": "MIA_SD_MOSI_PIN", "direction": "output", "function": "SPI0", "description": "microSD data to the card."},
+    {"gpio": 4, "signal": "AUDIO_L", "define": "MIA_AUDIO_L_PIN", "direction": "output", "function": "PWM", "description": "Left audio channel, through the audio output stage to the jack."},
+    {"gpio": 5, "signal": "AUDIO_R", "define": "MIA_AUDIO_R_PIN", "direction": "output", "function": "PWM", "description": "Right audio channel, through the audio output stage to the jack."},
+    {"gpio": 6, "signal": "MIA_CS", "define": "MIA_CS_PIN", "direction": "input", "function": "PIO", "description": "Chip select from the address decode, low for $E000-$FFFF."},
+    {"gpio": 7, "signal": "MIA_RWB", "define": "MIA_RWB_PIN", "direction": "input", "function": "PIO", "description": "6502 R/W line: high for a read, low for a write."},
+    {"gpio": 8, "signal": "D0", "define": "MIA_DATA_PIN_BASE", "offset": 0, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 0; MIA drives it only during its own read cycles."},
+    {"gpio": 9, "signal": "D1", "define": "MIA_DATA_PIN_BASE", "offset": 1, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 1; MIA drives it only during its own read cycles."},
+    {"gpio": 10, "signal": "D2", "define": "MIA_DATA_PIN_BASE", "offset": 2, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 2; MIA drives it only during its own read cycles."},
+    {"gpio": 11, "signal": "D3", "define": "MIA_DATA_PIN_BASE", "offset": 3, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 3; MIA drives it only during its own read cycles."},
+    {"gpio": 12, "signal": "D4", "define": "MIA_DATA_PIN_BASE", "offset": 4, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 4; MIA drives it only during its own read cycles."},
+    {"gpio": 13, "signal": "D5", "define": "MIA_DATA_PIN_BASE", "offset": 5, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 5; MIA drives it only during its own read cycles."},
+    {"gpio": 14, "signal": "D6", "define": "MIA_DATA_PIN_BASE", "offset": 6, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 6; MIA drives it only during its own read cycles."},
+    {"gpio": 15, "signal": "D7", "define": "MIA_DATA_PIN_BASE", "offset": 7, "direction": "bidirectional", "function": "PIO", "description": "6502 data bus bit 7; MIA drives it only during its own read cycles."},
+    {"gpio": 16, "signal": "A0", "define": "MIA_ADDR_PIN_BASE", "offset": 0, "direction": "input", "function": "PIO", "description": "6502 address bit 0; A0-A4 select one of the 32 MIA registers."},
+    {"gpio": 17, "signal": "A1", "define": "MIA_ADDR_PIN_BASE", "offset": 1, "direction": "input", "function": "PIO", "description": "6502 address bit 1; A0-A4 select one of the 32 MIA registers."},
+    {"gpio": 18, "signal": "A2", "define": "MIA_ADDR_PIN_BASE", "offset": 2, "direction": "input", "function": "PIO", "description": "6502 address bit 2; A0-A4 select one of the 32 MIA registers."},
+    {"gpio": 19, "signal": "A3", "define": "MIA_ADDR_PIN_BASE", "offset": 3, "direction": "input", "function": "PIO", "description": "6502 address bit 3; A0-A4 select one of the 32 MIA registers."},
+    {"gpio": 20, "signal": "A4", "define": "MIA_ADDR_PIN_BASE", "offset": 4, "direction": "input", "function": "PIO", "description": "6502 address bit 4; A0-A4 select one of the 32 MIA registers."},
+    {"gpio": 21, "signal": "CPU_PHI2", "define": "CPU_PHI2_PIN", "direction": "output", "function": "PIO", "description": "6502 clock, generated by MIA."},
+    {"gpio": 22, "signal": "CPU_IRQB", "define": "CPU_IRQB_PIN", "direction": "output", "function": "SIO", "description": "Interrupt request to the 6502, active low; MIA and the VIA each pull IRQB low through a Schottky diode."},
+    {"gpio": 26, "signal": "CPU_RESB", "define": "CPU_RESB_PIN", "direction": "output", "function": "SIO", "description": "Reset for the 6502 and the VIA, active low; MIA holds it low from power-up and while RESET is pressed, then 4 more PHI2 cycles."},
+    {"gpio": 27, "signal": "MIA_RESETB", "define": "MIA_RESETB_PIN", "direction": "input", "function": "SIO", "description": "Reset request from the RESET button, active low with the internal pull-up."},
+    {"gpio": 28, "signal": "AUDIO_IRQ_TIMER", "define": "MIA_AUDIO_IRQ_PIN", "direction": "none", "function": "PWM", "description": "Not connected on the board. Its PWM slice times the 48 kHz audio sample interrupt; the pin is never driven."}
+  ]
+}
