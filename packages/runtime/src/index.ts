@@ -15,8 +15,10 @@ export const runtimeSources = [
   'zp.s', 'core.s', 'mia-index.s', 'location.s', 'load.s', 'sd-load.s', 'items.s', 'relocate.s', 'palette.s', 'tileset.s', 'overlay.s',
   'bg_draw.s', 'bg_load.s', 'sprite_load.s', 'sprite_draw.s', 'animation.s', 'audio.s', 'song.s', 'sound.s', 'video.s',
 ] as const;
-/** Public game macros and the private ca65 definitions copied by the builder. */
-export const runtimeIncludes = ['runtime.inc', 'rt_internal.inc'] as const;
+/** Machine definitions generated from specs/: KERN_*, VIA and zero-page bounds, plus MIA's registers, ids and RAM layout. */
+export const systemIncludes = ['clementina.inc', 'mia.inc'] as const;
+/** Public game macros, the private ca65 definitions, and the machine definitions they use, copied by the builder. */
+export const runtimeIncludes = ['runtime.inc', 'rt_internal.inc', ...systemIncludes] as const;
 
 /** Asset type values stored at descriptor byte zero. */
 export const RUNTIME_ASSET_TYPE = {paletteConfig: 1, tileset: 2, background: 3, overlay: 4, sprites: 5, song: 6, sound: 7} as const;

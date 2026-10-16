@@ -134,7 +134,7 @@ rt_load_busy:
         lda job_desc+1
         beq @idle
         lda STATUS_H
-        and #STH_SD_BUSY
+        and #>MIA_STAT_SD_BUSY
 @idle:  rts
 
 ; LoadWait: waits for the load LoadStart began and returns its result;

@@ -76,6 +76,125 @@
       "syncable": true
     }
   ],
+  "renderControl": {
+    "source": "clementina-mia docs/video-output.md, Render Control Page. The video client renders from this page; MIA only stores it.",
+    "fields": [
+      {
+        "name": "VIDEO_MODE",
+        "address": 32,
+        "size": 1,
+        "description": "Video enable and renderer mode bits (MIA_VIDEO_MODE_*)."
+      },
+      {
+        "name": "LAYER_ENABLE",
+        "address": 33,
+        "size": 1,
+        "description": "Background, overlay and sprite enables (MIA_VIDEO_LAYER_*)."
+      },
+      {
+        "name": "BG_VIEWPORT_MODE",
+        "address": 34,
+        "size": 1,
+        "description": "Viewport mapping within the active background set, 0-5."
+      },
+      {
+        "name": "BG_ACTIVE_SET",
+        "address": 35,
+        "size": 1,
+        "description": "Background table set, 0 or 1."
+      },
+      {
+        "name": "SCROLL_X",
+        "address": 36,
+        "size": 2,
+        "description": "Viewport X position in the active background plane, pixels, little-endian."
+      },
+      {
+        "name": "SCROLL_Y",
+        "address": 38,
+        "size": 2,
+        "description": "Viewport Y position in the active background plane, pixels, little-endian."
+      },
+      {
+        "name": "BG_CHR_BANK",
+        "address": 40,
+        "size": 1,
+        "description": "Primary background CHR bank, 0-7."
+      },
+      {
+        "name": "BG_ALT_CHR_BANK",
+        "address": 41,
+        "size": 1,
+        "description": "Alternate background CHR bank, 0-7, for cells with CHR_ALT set."
+      },
+      {
+        "name": "OVERLAY_CHR_BANK",
+        "address": 42,
+        "size": 1,
+        "description": "Primary overlay CHR bank, 0-7."
+      },
+      {
+        "name": "OVERLAY_ALT_CHR_BANK",
+        "address": 43,
+        "size": 1,
+        "description": "Alternate overlay CHR bank, 0-7, for cells with CHR_ALT set."
+      },
+      {
+        "name": "SPRITE_CHR_BANK",
+        "address": 44,
+        "size": 1,
+        "description": "Sprite CHR bank, 0-7."
+      },
+      {
+        "name": "CHR_1BPP_MASK",
+        "address": 45,
+        "size": 1,
+        "description": "Bit n set decodes CHR bank n as 1bpp instead of 3bpp."
+      },
+      {
+        "name": "CHR_1BPP_PLANES",
+        "address": 46,
+        "size": 1,
+        "description": "1bpp plane selectors, 0-2 each: background bits 0-1, sprites bits 2-3, overlay bits 4-5."
+      },
+      {
+        "name": "BACKDROP_COLOR",
+        "address": 47,
+        "size": 1,
+        "description": "Backdrop color: color index in bits 0-2, palette bank in bits 3-6."
+      },
+      {
+        "name": "OAM_LAST_INDEX",
+        "address": 48,
+        "size": 1,
+        "description": "Last OAM record the renderer evaluates while sprites are enabled."
+      }
+    ],
+    "modeBits": [
+      {
+        "bit": 0,
+        "name": "ENABLE",
+        "description": "Video service enabled."
+      }
+    ],
+    "layerBits": [
+      {
+        "bit": 0,
+        "name": "BACKGROUND",
+        "description": "Background layer enabled."
+      },
+      {
+        "bit": 1,
+        "name": "OVERLAY",
+        "description": "Overlay layer enabled."
+      },
+      {
+        "bit": 2,
+        "name": "SPRITES",
+        "description": "Sprite layer enabled."
+      }
+    ]
+  },
   "palettes": {
     "banks": 16,
     "colorsPerBank": 8,

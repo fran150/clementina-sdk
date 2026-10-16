@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Generate `clementina.inc` and `mia.inc` from `specs/` (`npm run generate:includes`) and put them on every assembly build's include path; the asset runtime uses MIA's names from them.
 - Add automated package-content checks and CI for supported Node versions.
 - Make the SDK npm packages publishable under GPL-3.0-only.
 - Check assembler and emulator availability through `clementina doctor`.

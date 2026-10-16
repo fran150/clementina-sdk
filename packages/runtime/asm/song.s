@@ -52,7 +52,7 @@ rt_play_song:
         pha
         tax
         clc
-        adc #CMD_SEQ_SET_BASE0
+        adc #MIA_CMD_AUDIO_SEQ_SET_BASE0
         sta CMD_TRIGGER
         lda #1                      ; and its bit in the mask
 :       dex
@@ -66,9 +66,9 @@ rt_play_song:
         cpx #4
         bne @voice
         jsr rt_audio_on
-        lda #CMD_SEQ_LOAD
+        lda #MIA_CMD_AUDIO_SEQ_LOAD
         jsr mask_command
-        lda #CMD_SEQ_START
+        lda #MIA_CMD_AUDIO_SEQ_START
         jsr mask_command
         clc
 @fail:  rts
@@ -92,7 +92,7 @@ rt_stop_song:
 :       rol rt_t0                   ; voice 3 first: it ends in bit 3
         dex
         bpl @voice
-        lda #CMD_SEQ_STOP
+        lda #MIA_CMD_AUDIO_SEQ_STOP
         jsr mask_command
         clc
         rts
@@ -105,14 +105,14 @@ rt_song_position:
         asl a
         asl a
         clc
-        adc #<(AUDIO_VOICE0 + VOICE_SEQ)
+        adc #<(MIA_AUDIO_VOICES_OFFSET + MIA_AUDIO_VOICE_SEQ_NOTE_INDEX_L)
         sta rt_loc
-        lda #>(AUDIO_VOICE0 + VOICE_SEQ)
+        lda #>(MIA_AUDIO_VOICES_OFFSET + MIA_AUDIO_VOICE_SEQ_NOTE_INDEX_L)
         sta rt_loc+1
-        lda #^(AUDIO_VOICE0 + VOICE_SEQ)
+        lda #^(MIA_AUDIO_VOICES_OFFSET + MIA_AUDIO_VOICE_SEQ_NOTE_INDEX_L)
         sta rt_loc+2
         ldx #rt_loc
-        lda #IXF_READ
+        lda #(1 << IDX_FLAG_R_STP_ENA)
         jsr rt_seek_a
         lda IDXA_PORT
         pha

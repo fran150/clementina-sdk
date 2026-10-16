@@ -26,7 +26,7 @@ rt_use_tileset:
         sta rt_len+1
         stz rt_len+2
         jsr rt_copy
-@mode:  lda #<RC_1BPP_MASK
+@mode:  lda #<MIA_VIDEO_CHR_1BPP_MASK_OFFSET
         sta rt_loc
         stz rt_loc+1
         stz rt_loc+2
@@ -51,7 +51,7 @@ rt_use_tileset:
         pla
         and rt_t0
 @set:   pha
-        lda #<RC_1BPP_MASK
+        lda #<MIA_VIDEO_CHR_1BPP_MASK_OFFSET
         sta rt_to
         stz rt_to+1
         stz rt_to+2
@@ -60,7 +60,7 @@ rt_use_tileset:
         clc
 @fail:  rts
 
-; rt_to = MIA_CHR + rt_a0 * 6144
+; rt_to = MIA_VIDEO_CHR_OFFSET + rt_a0 * 6144
 bank_address:
         lda #<6144
         sta rt_mul
@@ -71,12 +71,12 @@ bank_address:
         jsr rt_mul16
         clc
         lda rt_prod
-        adc #<MIA_CHR
+        adc #<MIA_VIDEO_CHR_OFFSET
         sta rt_to
         lda rt_prod+1
-        adc #>MIA_CHR
+        adc #>MIA_VIDEO_CHR_OFFSET
         sta rt_to+1
         lda rt_prod+2
-        adc #^MIA_CHR
+        adc #^MIA_VIDEO_CHR_OFFSET
         sta rt_to+2
         rts

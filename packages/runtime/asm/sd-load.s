@@ -34,7 +34,7 @@ rt_mia_part:
         jsr mount_card
         jcs @fail
         jsr write_asset_path
-        lda #SD_DEST
+        lda #MIA_SD_CONTROL_DEST_ADDR_L
         jsr select_write_field
         ldx #0
 :       lda rt_sd_dest,x
@@ -42,7 +42,7 @@ rt_mia_part:
         inx
         cpx #3
         bne :-
-        lda #SD_TRANSFER_LEN
+        lda #MIA_SD_CONTROL_TRANSFER_LEN0
         jsr select_write_field
         lda rt_sd_rowlen
         sta IDXB_PORT
@@ -51,7 +51,7 @@ rt_mia_part:
         lda rt_sd_rowlen+2
         sta IDXB_PORT
         stz IDXB_PORT
-        lda #SD_PART                ; offset, rows, file stride, RAM stride
+        lda #MIA_SD_CONTROL_PART_OFFSET0                ; offset, rows, file stride, RAM stride
         jsr select_write_field
         lda rt_sd_off
         sta IDXB_PORT
@@ -77,7 +77,7 @@ rt_mia_part:
         sta IDXB_PORT
         lda rt_sd_dstride+2
         sta IDXB_PORT
-        lda #CMD_FS_LOAD_PART
+        lda #MIA_CMD_FS_LOAD_PART
         jsr send_card_command
         clc
 @fail:  rts
@@ -109,7 +109,7 @@ rt_check_part:
         pha
         dex
         bpl :-
-        lda #SD_FILE_POS
+        lda #MIA_SD_CONTROL_FILE_POS0
         jsr select_read_field
         ldx #0
 :       pla
@@ -137,18 +137,18 @@ fail_file:
 rt_bank_part:
         jsr mount_card
         jcs @fail
-        lda #SD_HANDLE
+        lda #MIA_SD_CONTROL_HANDLE_SELECT
         jsr select_write_field
         lda #RT_FS_HANDLE
         sta IDXB_PORT
-        lda #CMD_FS_CLOSE           ; in case a failed load left it open
+        lda #MIA_CMD_FS_CLOSE           ; in case a failed load left it open
         jsr send_card_command
         jsr wait_card_job
         jsr write_asset_path
-        lda #SD_OPEN_MODE
+        lda #MIA_SD_CONTROL_OPEN_MODE
         jsr select_write_field
         stz IDXB_PORT               ; read
-        lda #CMD_FS_OPEN
+        lda #MIA_CMD_FS_OPEN
         jsr send_card_command
         jsr wait_card_job
         bne fail_file
@@ -156,7 +156,7 @@ rt_bank_part:
         sta row
         lda rt_sd_rows+1
         sta row+1
-@row:   lda #SD_FILE_POS
+@row:   lda #MIA_SD_CONTROL_FILE_POS0
         jsr select_write_field
         lda rt_sd_off
         sta IDXB_PORT
@@ -165,7 +165,7 @@ rt_bank_part:
         lda rt_sd_off+2
         sta IDXB_PORT
         stz IDXB_PORT
-        lda #CMD_FS_SEEK
+        lda #MIA_CMD_FS_SEEK
         jsr send_card_command
         jsr wait_card_job
         jne @error
@@ -179,30 +179,30 @@ rt_bank_part:
 @chunk: lda left+2                  ; ask for min(left, 1984)
         bne @full
         lda left+1
-        cmp #>SD_TRANSFER_SIZE
+        cmp #>MIA_FS_TRANSFER_SIZE
         bcc @part
         bne @full
         lda left
-        cmp #<SD_TRANSFER_SIZE
+        cmp #<MIA_FS_TRANSFER_SIZE
         bcc @part
-@full:  lda #<SD_TRANSFER_SIZE
-        ldx #>SD_TRANSFER_SIZE
+@full:  lda #<MIA_FS_TRANSFER_SIZE
+        ldx #>MIA_FS_TRANSFER_SIZE
         bra @ask
 @part:  lda left
         ldx left+1
 @ask:   pha
         phx
-        lda #SD_REQUEST_LEN
+        lda #MIA_SD_CONTROL_REQUEST_LEN_L
         jsr select_write_field
         plx
         pla
         sta IDXB_PORT
         stx IDXB_PORT
-        lda #CMD_FS_READ
+        lda #MIA_CMD_FS_READ
         jsr send_card_command
         jsr wait_card_job
         jne @error
-        lda #SD_RESULT_LEN
+        lda #MIA_SD_CONTROL_RESULT_LEN_L
         jsr select_read_field
         lda IDXA_PORT
         sta chunk
@@ -210,11 +210,11 @@ rt_bank_part:
         sta chunk+1
         ora chunk
         jeq @error                  ; the file ended early
-        lda #<SD_TRANSFER
+        lda #<MIA_FS_TRANSFER_OFFSET
         sta rt_loc
-        lda #>SD_TRANSFER
+        lda #>MIA_FS_TRANSFER_OFFSET
         sta rt_loc+1
-        lda #^SD_TRANSFER
+        lda #^MIA_FS_TRANSFER_OFFSET
         sta rt_loc+2
         lda chunk
         sta rt_len
@@ -278,7 +278,7 @@ rt_bank_part:
         jmp fail_file
 @fail:  rts
 
-close_card_file:  lda #CMD_FS_CLOSE
+close_card_file:  lda #MIA_CMD_FS_CLOSE
         jsr send_card_command
         jmp wait_card_job
 
@@ -288,9 +288,9 @@ close_card_file:  lda #CMD_FS_CLOSE
 
 ; Mounts the volume unless it already is. Carry set on failure.
 mount_card:  lda STATUS_H
-        and #STH_MOUNTED
+        and #>MIA_STAT_FS_MOUNTED
         bne @ok
-        lda #CMD_FS_MOUNT
+        lda #MIA_CMD_FS_MOUNT
         jsr send_card_command
         jsr wait_card_job
         jne fail_file
@@ -309,42 +309,42 @@ send_card_command:
 ; Waits for the SD job; A = its error, Z set when there is none.
 wait_card_job:
         lda STATUS_H
-        and #STH_SD_BUSY
+        and #>MIA_STAT_SD_BUSY
         bne wait_card_job
-        lda #SD_LAST_ERROR
+        lda #MIA_SD_CONTROL_LAST_ERROR
         jsr select_read_field
         lda IDXA_PORT
         rts
 
 ; A = control block offset: window B writes from there, window A reads.
 select_write_field:  sta rt_prod
-        lda #>SD_BLOCK
+        lda #>MIA_SD_CONTROL_OFFSET
         sta rt_prod+1
-        lda #^SD_BLOCK
+        lda #^MIA_SD_CONTROL_OFFSET
         sta rt_prod+2
         ldx #rt_prod
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jmp rt_seek_b
 select_read_field:
         sta rt_prod
-        lda #>SD_BLOCK
+        lda #>MIA_SD_CONTROL_OFFSET
         sta rt_prod+1
-        lda #^SD_BLOCK
+        lda #^MIA_SD_CONTROL_OFFSET
         sta rt_prod+2
         ldx #rt_prod
-        lda #IXF_READ
+        lda #(1 << IDX_FLAG_R_STP_ENA)
         jmp rt_seek_a
 
 ; The asset's path, zero-terminated, into the path buffer.
 write_asset_path:
-        lda #<SD_PATH
+        lda #<MIA_FS_PATH_OFFSET
         sta rt_prod
-        lda #>SD_PATH
+        lda #>MIA_FS_PATH_OFFSET
         sta rt_prod+1
-        lda #^SD_PATH
+        lda #^MIA_FS_PATH_OFFSET
         sta rt_prod+2
         ldx #rt_prod
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jsr rt_seek_b
         ldy #RT_D_PATH
         lda (rt_desc),y

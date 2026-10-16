@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync, mkdirSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {loadSpecs, renderMiaInc} from '../scripts/generate-includes.mjs';
 import {
   Report,
   cDefines,
+  checkRomInclude,
   cEnums,
   cReturnFunctions,
   evaluate,
@@ -101,4 +106,15 @@ test('drift report names the first value that differs', () => {
     'basic.json: tokens.primary[1] is "FOR" in the spec but "FUR" in the ROM build',
     'kernel-abi.json: KERN_PLOT is not defined in kernel (kernel.inc)',
   ]);
+});
+
+test('drift check requires the ROM copy of mia.inc to match the specs', () => {
+  const specs = loadSpecs(), rom = mkdtempSync(join(tmpdir(), 'clementina-rom-'));
+  const run = () => { const report = new Report(); checkRomInclude(report, specs, rom); return report.problems; };
+  assert.match(run()[0], /src\/include\/mia\.inc: is missing/);
+  mkdirSync(join(rom, 'src', 'include'), {recursive: true});
+  writeFileSync(join(rom, 'src', 'include', 'mia.inc'), renderMiaInc(specs).replace('MIA_CTX ', 'MIA_CTX_OLD '));
+  assert.match(run()[0], /differs from what the specs generate/);
+  writeFileSync(join(rom, 'src', 'include', 'mia.inc'), renderMiaInc(specs));
+  assert.deepEqual(run(), []);
 });

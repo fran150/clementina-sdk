@@ -147,7 +147,9 @@ selected asset placements, and writes a validated load plan. With
 `build.assets`, it also writes asset files, generated includes and descriptors,
 a memory report, an SD card folder, and `runtime.lib`. Its result
 is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates
-to `@clementina/assembler` and also writes a generated numbered BASIC bootstrap;
+to `@clementina/assembler` with `clementina.inc` and `mia.inc` on its include path
+(see [machine includes](assembly.md#machine-includes)) and also writes a generated
+numbered BASIC bootstrap;
 a BASIC project (`build.basic`) compiles `program.entry` through `@clementina/basic`
 and produces a load plan whose terminal step is the compiled program itself (no
 bootstrap file, since the emulator client launches it with direct ROM commands —

@@ -6,20 +6,20 @@
 
 ; Starts the audio interrupt (AUDIO_ENABLE) unless it runs. Uses rt_loc.
 rt_audio_on:
-        lda #<AUDIO_STATUS
+        lda #<(MIA_AUDIO_HEADER_OFFSET + MIA_AUDIO_HEADER_STATUS)
         sta rt_loc
-        lda #>AUDIO_STATUS
+        lda #>(MIA_AUDIO_HEADER_OFFSET + MIA_AUDIO_HEADER_STATUS)
         sta rt_loc+1
-        lda #^AUDIO_STATUS
+        lda #^(MIA_AUDIO_HEADER_OFFSET + MIA_AUDIO_HEADER_STATUS)
         sta rt_loc+2
         jsr rt_peek
-        and #1
+        and #MIA_AUDIO_STATUS_ACTIVE
         bne @on
         jsr rt_wait
         stz CMD_PARAM1
         stz CMD_PARAM2
         stz CMD_PARAM3
-        lda #CMD_AUDIO_ENABLE
+        lda #MIA_CMD_AUDIO_ENABLE
         sta CMD_TRIGGER
 @on:    rts
 

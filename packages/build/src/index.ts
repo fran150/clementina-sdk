@@ -10,11 +10,11 @@ import {diagnostic, errorMessage, result, type ClementinaDiagnostic, type Valida
 import type {PortableProject, ProjectAssemblyBuild} from '@clementina/project';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 import {planAssetBuild, type AssetBuildPlan} from './assets.js';
-import {buildRuntime} from './runtime-build.js';
+import {buildRuntime, writeSystemIncludes} from './runtime-build.js';
 import {cardFile, joinPortable, loadPath, type BuildPaths} from './build-paths.js';
 
 export * from './assets.js';
-export {buildRuntime, runtimeCodeSize} from './runtime-build.js';
+export {buildRuntime, runtimeCodeSize, writeSystemIncludes} from './runtime-build.js';
 
 export interface GeneratedBuildFile {
   kind: 'palette' | 'tileset' | 'basic' | 'load-plan' | 'bootstrap' | 'boot' | 'program' | 'asset' | 'asset-source' | 'memory-report';
@@ -116,7 +116,10 @@ async function updateRuntimeReport(state: BuildState): Promise<void> {
 async function buildAssemblyProject(state: BuildState, config: ProjectAssemblyBuild, runner: ProcessRunner): Promise<ValidationResult<AssemblyProjectBuildResult>> {
   const {projectRoot, project, paths, assetPlan: plan} = state;
   const sources = [project.manifest.program.entry, ...(project.manifest.program.sources ?? [])];
-  const includeDirectories = [...(config.includeDirectories ?? [])];
+  // The project's own include directories come first, so a program can override the generated ones.
+  const system = await writeSystemIncludes(projectRoot, joinPortable(paths.outputDirectory, 'include'));
+  if (!system.ok) return system as ValidationResult<AssemblyProjectBuildResult>;
+  const includeDirectories = [...(config.includeDirectories ?? []), system.value];
   const libraries: string[] = [];
   if (plan) {
     // ca65 needs generated sources and runtime files before the final output pass.
@@ -140,7 +143,7 @@ async function buildAssemblyProject(state: BuildState, config: ProjectAssemblyBu
     loadAddress: config.loadAddress,
     entrySymbol: config.entrySymbol,
     ...(config.bank === undefined ? {} : {bank: config.bank}),
-    ...(includeDirectories.length ? {includeDirectories} : {}),
+    includeDirectories,
     ...(config.defines === undefined ? {} : {defines: config.defines}),
     ...(libraries.length ? {libraries} : {}),
   }, runner);
