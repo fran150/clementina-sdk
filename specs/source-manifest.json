@@ -18,7 +18,7 @@
       "branch": "main",
       "commit": "28dbf456db0c6245cd24ee2763dc43541072e318",
       "role": "6502 kernel/BASIC/WozMon; kernel ABI and programmer-facing memory map",
-      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table, image bounds, named CPU locations, VIA registers, BASIC token tables and debugger addresses, and kernel.inc's copies of MIA registers, ids and bits"
+      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table, image bounds, named CPU locations, VIA registers, BASIC token tables and debugger addresses, and the ROM's copies of MIA registers, ids, bits and opcodes that use the spec's or MIA's names"
     }
   ],
   "sourcePrecedence": [
