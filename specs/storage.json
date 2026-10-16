@@ -35,6 +35,351 @@
       "overlays": "TRANSFER"
     }
   ],
+  "controlFields": [
+    {
+      "name": "VERSION",
+      "offset": 0,
+      "size": 1,
+      "access": "read",
+      "description": "SD/FS memory layout version (MIA_SD_VERSION)."
+    },
+    {
+      "name": "STATUS",
+      "offset": 1,
+      "size": 1,
+      "access": "read",
+      "description": "SD/FS status flags (MIA_SD_STATUS_*)."
+    },
+    {
+      "name": "LAST_ERROR",
+      "offset": 2,
+      "size": 1,
+      "access": "read",
+      "description": "Last MIA SD/FS error code, or zero."
+    },
+    {
+      "name": "CARD_TYPE",
+      "offset": 3,
+      "size": 1,
+      "access": "read",
+      "description": "Card type (MIA_SD_CARD_*)."
+    },
+    {
+      "name": "LBA",
+      "offset": 4,
+      "size": 4,
+      "access": "read/write",
+      "description": "Sector address for raw sector commands, little-endian."
+    },
+    {
+      "name": "REQUEST_LEN",
+      "offset": 8,
+      "size": 2,
+      "access": "read/write",
+      "description": "Byte count for FS_READ and FS_WRITE, or the most FS_LOAD_TO_MIA_RAM loads."
+    },
+    {
+      "name": "RESULT_LEN",
+      "offset": 10,
+      "size": 2,
+      "access": "read",
+      "description": "Bytes the last transfer produced."
+    },
+    {
+      "name": "DEST_ADDR",
+      "offset": 12,
+      "size": 3,
+      "access": "read/write",
+      "description": "MIA RAM address for FS_LOAD_TO_MIA_RAM, FS_SAVE_FROM_MIA_RAM and FS_LOAD_PART."
+    },
+    {
+      "name": "FILE_HANDLE",
+      "offset": 15,
+      "size": 1,
+      "access": "read",
+      "description": "1 when the slot HANDLE_SELECT names is open, otherwise 0."
+    },
+    {
+      "name": "OPEN_MODE",
+      "offset": 16,
+      "size": 1,
+      "access": "read/write",
+      "description": "How FS_OPEN opens the selected slot (MIA_FS_OPEN_*)."
+    },
+    {
+      "name": "EOF",
+      "offset": 17,
+      "size": 1,
+      "access": "read",
+      "description": "Nonzero when the selected slot's file is at its end; with no file open there, the last directory read or load/save job's end."
+    },
+    {
+      "name": "FATFS_RESULT",
+      "offset": 18,
+      "size": 1,
+      "access": "read",
+      "description": "FatFs's FRESULT code from the last filesystem operation."
+    },
+    {
+      "name": "FLAGS",
+      "offset": 19,
+      "size": 1,
+      "access": "reserved",
+      "description": "Write zero."
+    },
+    {
+      "name": "CARD_SECTORS",
+      "offset": 20,
+      "size": 4,
+      "access": "read",
+      "description": "Card capacity in 512-byte sectors, when known."
+    },
+    {
+      "name": "FILE_SIZE",
+      "offset": 24,
+      "size": 4,
+      "access": "read",
+      "description": "Size of the selected slot's open file."
+    },
+    {
+      "name": "FILE_POS",
+      "offset": 28,
+      "size": 4,
+      "access": "read/write",
+      "description": "Selected slot's file position; written before FS_SEEK. After FS_LOAD_TO_MIA_RAM, the bytes loaded."
+    },
+    {
+      "name": "FREE_CLUSTERS",
+      "offset": 32,
+      "size": 4,
+      "access": "read",
+      "description": "Free FAT clusters, after FS_GET_FREE."
+    },
+    {
+      "name": "TOTAL_CLUSTERS",
+      "offset": 36,
+      "size": 4,
+      "access": "read",
+      "description": "Usable FAT clusters, after FS_GET_FREE."
+    },
+    {
+      "name": "CLUSTER_SECTORS",
+      "offset": 40,
+      "size": 2,
+      "access": "read",
+      "description": "Sectors per FAT cluster, after FS_GET_FREE."
+    },
+    {
+      "name": "TRANSFER_LEN",
+      "offset": 42,
+      "size": 4,
+      "access": "read/write",
+      "description": "Byte count for FS_SAVE_FROM_MIA_RAM, and bytes per row for FS_LOAD_PART."
+    },
+    {
+      "name": "HANDLE_SELECT",
+      "offset": 46,
+      "size": 1,
+      "access": "read/write",
+      "description": "File slot, 0-15, that FS_OPEN, FS_READ, FS_WRITE, FS_SEEK, FS_SYNC and FS_CLOSE act on."
+    },
+    {
+      "name": "PART_OFFSET",
+      "offset": 48,
+      "size": 4,
+      "access": "read/write",
+      "description": "FS_LOAD_PART: file offset of the first byte."
+    },
+    {
+      "name": "PART_ROWS",
+      "offset": 52,
+      "size": 2,
+      "access": "read/write",
+      "description": "FS_LOAD_PART: number of rows; 0 loads one contiguous run."
+    },
+    {
+      "name": "PART_FILE_STRIDE",
+      "offset": 54,
+      "size": 4,
+      "access": "read/write",
+      "description": "FS_LOAD_PART: bytes from one row to the next in the file."
+    },
+    {
+      "name": "PART_RAM_STRIDE",
+      "offset": 58,
+      "size": 3,
+      "access": "read/write",
+      "description": "FS_LOAD_PART: bytes from one row to the next in MIA RAM."
+    }
+  ],
+  "statusBits": [
+    {
+      "bit": 0,
+      "name": "PRESENT",
+      "description": "A card initialized successfully."
+    },
+    {
+      "bit": 1,
+      "name": "INITIALIZED",
+      "description": "The SD block driver is initialized."
+    },
+    {
+      "bit": 2,
+      "name": "MOUNTED",
+      "description": "The FAT filesystem is mounted."
+    },
+    {
+      "bit": 3,
+      "name": "BUSY",
+      "description": "An SD/FS command is in progress."
+    },
+    {
+      "bit": 4,
+      "name": "FILE_OPEN",
+      "description": "The slot HANDLE_SELECT names is open."
+    },
+    {
+      "bit": 5,
+      "name": "DIR_OPEN",
+      "description": "The directory cursor is open."
+    },
+    {
+      "bit": 6,
+      "name": "EOF",
+      "description": "Same condition as the EOF field."
+    },
+    {
+      "bit": 7,
+      "name": "ERROR",
+      "description": "LAST_ERROR is nonzero."
+    }
+  ],
+  "cardTypes": [
+    {
+      "id": 0,
+      "name": "NONE",
+      "description": "No initialized card."
+    },
+    {
+      "id": 1,
+      "name": "SD_V1",
+      "description": "Standard-capacity SD v1 card."
+    },
+    {
+      "id": 2,
+      "name": "SD_V2",
+      "description": "Standard-capacity SD v2 card."
+    },
+    {
+      "id": 3,
+      "name": "SDHC",
+      "description": "High-capacity card (SDHC or SDXC) using block addressing."
+    }
+  ],
+  "openModes": [
+    {
+      "id": 0,
+      "name": "READ",
+      "description": "Open an existing file for reading."
+    },
+    {
+      "id": 1,
+      "name": "WRITE_CREATE",
+      "description": "Create or truncate a file for writing."
+    },
+    {
+      "id": 2,
+      "name": "WRITE_APPEND",
+      "description": "Create the file if missing and append at its end."
+    },
+    {
+      "id": 3,
+      "name": "READ_WRITE",
+      "description": "Open or create a file for updates in place."
+    }
+  ],
+  "dirEntryFields": [
+    {
+      "name": "ATTR",
+      "offset": 0,
+      "size": 1,
+      "description": "FAT attribute byte (MIA_FS_DIR_ATTR_*)."
+    },
+    {
+      "name": "NAME_LEN",
+      "offset": 1,
+      "size": 1,
+      "description": "Length of the name; 0 with EOF set means the directory is exhausted."
+    },
+    {
+      "name": "RESERVED0",
+      "offset": 2,
+      "size": 1,
+      "description": "Reserved."
+    },
+    {
+      "name": "RESERVED1",
+      "offset": 3,
+      "size": 1,
+      "description": "Reserved."
+    },
+    {
+      "name": "SIZE",
+      "offset": 4,
+      "size": 4,
+      "description": "File size, little-endian; 0 for directories."
+    },
+    {
+      "name": "DATE",
+      "offset": 8,
+      "size": 2,
+      "description": "FAT packed modification date."
+    },
+    {
+      "name": "TIME",
+      "offset": 10,
+      "size": 2,
+      "description": "FAT packed modification time."
+    },
+    {
+      "name": "NAME",
+      "offset": 12,
+      "size": 244,
+      "description": "The name, zero-terminated."
+    }
+  ],
+  "dirAttributeBits": [
+    {
+      "bit": 0,
+      "name": "READ_ONLY",
+      "description": "The entry cannot be written."
+    },
+    {
+      "bit": 1,
+      "name": "HIDDEN",
+      "description": "The entry is hidden from normal listings."
+    },
+    {
+      "bit": 2,
+      "name": "SYSTEM",
+      "description": "The entry belongs to the operating system."
+    },
+    {
+      "bit": 3,
+      "name": "VOLUME_LABEL",
+      "description": "The entry is the volume label, not a file."
+    },
+    {
+      "bit": 4,
+      "name": "DIRECTORY",
+      "description": "The entry is a directory."
+    },
+    {
+      "bit": 5,
+      "name": "ARCHIVE",
+      "description": "The entry changed since the last backup."
+    }
+  ],
   "maxFileHandles": 16,
   "directoryCursors": 1,
   "sectorBytes": 512,

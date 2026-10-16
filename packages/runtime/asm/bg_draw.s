@@ -107,13 +107,13 @@ draw:
         jsr rt_add_loc
         clc                         ; ...and in the attribute table
         lda rt_to
-        adc #<(MIA_BG_ATTR - MIA_BG_NT)
+        adc #<(MIA_VIDEO_BG_ATTR_OFFSET - MIA_VIDEO_BG_NT_OFFSET)
         sta rt_to
         lda rt_to+1
-        adc #>(MIA_BG_ATTR - MIA_BG_NT)
+        adc #>(MIA_VIDEO_BG_ATTR_OFFSET - MIA_VIDEO_BG_NT_OFFSET)
         sta rt_to+1
         lda rt_to+2
-        adc #^(MIA_BG_ATTR - MIA_BG_NT)
+        adc #^(MIA_VIDEO_BG_ATTR_OFFSET - MIA_VIDEO_BG_NT_OFFSET)
         sta rt_to+2
         jmp copy_rect
 @arg:   lda #RT_ERR_ARGUMENT
@@ -164,7 +164,7 @@ copy_rect:
         clc
         rts
 
-; rt_to = MIA_BG_NT + (table * 25 + trow) * 40 + tcol
+; rt_to = MIA_VIDEO_BG_NT_OFFSET + (table * 25 + trow) * 40 + tcol
 table_at:
         lda #25
         sta rt_mul
@@ -188,12 +188,12 @@ table_at:
         inc rt_prod+1
 :       clc
         lda rt_prod
-        adc #<MIA_BG_NT
+        adc #<MIA_VIDEO_BG_NT_OFFSET
         sta rt_to
         lda rt_prod+1
-        adc #>MIA_BG_NT
+        adc #>MIA_VIDEO_BG_NT_OFFSET
         sta rt_to+1
-        lda #^MIA_BG_NT
+        lda #^MIA_VIDEO_BG_NT_OFFSET
         adc #0
         sta rt_to+2
         rts

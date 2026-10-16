@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import {runProcess, type ProcessRunner} from '@clementina/assembler';
 import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
 import {resolveProjectPath} from '@clementina/project/node';
-import {runtimeFiles, runtimeIncludes, runtimeSources} from '@clementina/runtime';
+import {runtimeFiles, runtimeIncludes, runtimeSources, systemIncludes} from '@clementina/runtime';
 import {joinPortable} from './build-paths.js';
 
 /** Return the highest CODE offset plus emitted bytes in a ca65 listing, including continuation rows. */
@@ -17,6 +17,25 @@ export function runtimeCodeSize(listing: string): number {
     if (bytes.length) size = Math.max(size, parseInt(line.slice(0, 6), 16) + bytes.length);
   }
   return size;
+}
+
+/**
+ * Writes clementina.inc and mia.inc into the project-relative folder so every
+ * assembly program can `.include "clementina.inc"`, with or without assets.
+ *
+ * @param projectRoot - Root of the portable project.
+ * @param folder - Project-relative directory to receive the includes.
+ * @returns The project-relative folder on success.
+ */
+export async function writeSystemIncludes(projectRoot: string, folder: string): Promise<ValidationResult<string>> {
+  try {
+    const target = await resolveProjectPath(projectRoot, folder);
+    await mkdir(target, {recursive: true});
+    for (const name of systemIncludes) await writeFile(join(target, name), runtimeFiles[name]);
+    return result(folder, []);
+  } catch (error) {
+    return result(undefined, [diagnostic('build.io', '', errorMessage(error))]);
+  }
 }
 
 /**

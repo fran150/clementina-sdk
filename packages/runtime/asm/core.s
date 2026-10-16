@@ -11,7 +11,7 @@
 rt_wait:
         pha
 @busy:  lda STATUS_L
-        and #ST_CMD_DMA
+        and #(MIA_STAT_CMD_RUNNING | MIA_STAT_DMA_RUNNING)
         bne @busy
         pla
         rts
@@ -59,7 +59,7 @@ rt_copy_rows:
         sta CMD_PARAM1
         lda #RT_IDX_B
         sta CMD_PARAM2
-        lda #CMD_COPY_RECT
+        lda #MIA_CMD_COPY_RECT
         sta CMD_TRIGGER
         clc
         rts
@@ -253,7 +253,7 @@ rt_open_read:
         bmi @bank
         stz rt_mode
         ldx #rt_loc
-        lda #IXF_READ
+        lda #(1 << IDX_FLAG_R_STP_ENA)
         jmp rt_seek_a
 @bank:  sta rt_mode
         jsr rt_bank_select
@@ -268,7 +268,7 @@ rt_open_write:
         bmi @bank
         stz rt_t5
         ldx #rt_to
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jmp rt_seek_b
 @bank:  sta rt_t5
         jsr rt_bank_select

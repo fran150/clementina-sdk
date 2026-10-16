@@ -15,22 +15,22 @@ rt_seek_a:
         pha
         lda #RT_IDX_A
         sta IDXA_SELECT
-        lda #CFG_A_FLAGS
+        lda #CFG_IDXA_FLAGS
         sta CFG_SELECT
         pla
         sta CFG_PORT
         lda #1
         ldy #0
         jsr rt_step_a
-        lda #CFG_A_ADDR+2
+        lda #CFG_IDXA_ADDR_L+2
         sta CFG_SELECT
         lda 2,x
         sta CFG_PORT
-        lda #CFG_A_ADDR+1
+        lda #CFG_IDXA_ADDR_L+1
         sta CFG_SELECT
         lda 1,x
         sta CFG_PORT
-        lda #CFG_A_ADDR
+        lda #CFG_IDXA_ADDR_L
         sta CFG_SELECT
         lda 0,x
         sta CFG_PORT
@@ -41,22 +41,22 @@ rt_seek_b:
         pha
         lda #RT_IDX_B
         sta IDXB_SELECT
-        lda #CFG_B_FLAGS
+        lda #CFG_IDXB_FLAGS
         sta CFG_SELECT
         pla
         sta CFG_PORT
         lda #1
         ldy #0
         jsr rt_step_b
-        lda #CFG_B_ADDR+2
+        lda #CFG_IDXB_ADDR_L+2
         sta CFG_SELECT
         lda 2,x
         sta CFG_PORT
-        lda #CFG_B_ADDR+1
+        lda #CFG_IDXB_ADDR_L+1
         sta CFG_SELECT
         lda 1,x
         sta CFG_PORT
-        lda #CFG_B_ADDR
+        lda #CFG_IDXB_ADDR_L
         sta CFG_SELECT
         lda 0,x
         sta CFG_PORT
@@ -65,36 +65,36 @@ rt_seek_b:
 ; A = step low, Y = step high, for the index in window A or B.
 rt_step_a:
         pha
-        lda #CFG_A_STEP
+        lda #CFG_IDXA_STP_L
         sta CFG_SELECT
         pla
         sta CFG_PORT
-        lda #CFG_A_STEP+1
+        lda #CFG_IDXA_STP_L+1
         sta CFG_SELECT
         sty CFG_PORT
         rts
 rt_step_b:
         pha
-        lda #CFG_B_STEP
+        lda #CFG_IDXB_STP_L
         sta CFG_SELECT
         pla
         sta CFG_PORT
-        lda #CFG_B_STEP+1
+        lda #CFG_IDXB_STP_L+1
         sta CFG_SELECT
         sty CFG_PORT
         rts
 
 ; X = the zero-page address of window A's 3-byte limit.
 rt_limit_a:
-        lda #CFG_A_LIMIT+2
+        lda #CFG_IDXA_LIM_L+2
         sta CFG_SELECT
         lda 2,x
         sta CFG_PORT
-        lda #CFG_A_LIMIT+1
+        lda #CFG_IDXA_LIM_L+1
         sta CFG_SELECT
         lda 1,x
         sta CFG_PORT
-        lda #CFG_A_LIMIT
+        lda #CFG_IDXA_LIM_L
         sta CFG_SELECT
         lda 0,x
         sta CFG_PORT

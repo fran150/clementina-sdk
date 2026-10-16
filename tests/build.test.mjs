@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {buildProject} from '../packages/build/dist/index.js';
 import {compileBasicProgram} from '../packages/basic/dist/index.js';
+import {runtimeFiles} from '../packages/runtime/dist/index.js';
 
 const arg = (args, name) => args[args.indexOf(name) + 1];
 
@@ -64,8 +65,16 @@ test('project build emits explicit video placements, terminal PRG, load plan, an
     '      - tilesetId: tileset:main', '        bank: 3', '',
   ].join('\n'));
 
-  const built = await buildProject(root, deterministicTools);
+  const programRuns = [];
+  const built = await buildProject(root, async invocation => {
+    if (invocation.command === 'ca65' && invocation.args.some(a => a.endsWith('main.s'))) programRuns.push(invocation.args);
+    return deterministicTools(invocation);
+  });
   assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+  // Every assembly program gets clementina.inc and mia.inc on its include path.
+  assert.equal(programRuns.length, 1);
+  assert.ok(programRuns[0].some((a, i) => programRuns[0][i - 1] === '--include-dir' && a.replace(/\\/g, '/').endsWith('build/include')));
+  for (const name of ['clementina.inc', 'mia.inc']) assert.equal(await readFile(join(root, 'build', 'include', name), 'utf8'), runtimeFiles[name]);
   assert.deepEqual(built.value.loadPlan.steps, [
     {kind: 'mia', path: 'build/asset-palette.bin', address: 0x100, length: 256},
     {kind: 'mia', path: 'build/asset-chr-3.bin', address: 0x4a00, length: 6144},

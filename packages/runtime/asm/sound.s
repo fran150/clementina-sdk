@@ -43,7 +43,7 @@ rt_play_sound:
         lda (rt_desc),y
         sta left+1,x
         jsr rt_audio_on
-        lda #CMD_VOICE_TAKE
+        lda #MIA_CMD_AUDIO_VOICE_TAKE
         ldx rt_a0
         jsr rt_voice_command
         ldx rt_a0
@@ -80,7 +80,7 @@ rt_tick_sound:
         sta rt_t1                   ; pairs
         sta rt_t4                   ; (for the step to the next entry)
         beq @done
-@pair:  jsr rt_read                 ; register: AUDIO_VOICE0 + voice * 16 + it
+@pair:  jsr rt_read                 ; register: MIA_AUDIO_VOICES_OFFSET + voice * 16 + it
         sta rt_t2
         lda rt_t0
         asl a
@@ -89,11 +89,11 @@ rt_tick_sound:
         asl a
         clc
         adc rt_t2
-        adc #<AUDIO_VOICE0
+        adc #<MIA_AUDIO_VOICES_OFFSET
         sta rt_to
-        lda #>AUDIO_VOICE0
+        lda #>MIA_AUDIO_VOICES_OFFSET
         sta rt_to+1
-        lda #^AUDIO_VOICE0
+        lda #^MIA_AUDIO_VOICES_OFFSET
         sta rt_to+2
         jsr rt_read
         jsr rt_poke
@@ -140,7 +140,7 @@ rt_tick_sound:
         sta left,y
         ora left+1,y
         bne @more
-        lda #CMD_VOICE_RELEASE      ; that was the last: back to the sequencer
+        lda #MIA_CMD_AUDIO_VOICE_RELEASE      ; that was the last: back to the sequencer
         ldx rt_t0
         jsr rt_voice_command
         lda #0
@@ -168,15 +168,15 @@ rt_stop_sound:
         asl a
         asl a
         clc
-        adc #<(AUDIO_VOICE0 + 7)
+        adc #<(MIA_AUDIO_VOICES_OFFSET + MIA_AUDIO_VOICE_CONTROL)
         sta rt_to
-        lda #>AUDIO_VOICE0
+        lda #>MIA_AUDIO_VOICES_OFFSET
         sta rt_to+1
-        lda #^AUDIO_VOICE0
+        lda #^MIA_AUDIO_VOICES_OFFSET
         sta rt_to+2
         lda #0
         jsr rt_poke
-        lda #CMD_VOICE_RELEASE
+        lda #MIA_CMD_AUDIO_VOICE_RELEASE
         ldx rt_t0
         jsr rt_voice_command
 @idle:  clc

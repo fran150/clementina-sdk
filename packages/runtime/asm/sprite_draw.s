@@ -42,7 +42,7 @@ rt_draw_shape:
         jmp rt_fail
 :
 .endif
-        lda rt_a1                   ; rt_to = MIA_OAM + sprite * 5
+        lda rt_a1                   ; rt_to = MIA_VIDEO_OAM_OFFSET + sprite * 5
         sta rt_prod
         stz rt_prod+1
         asl a
@@ -56,16 +56,16 @@ rt_draw_shape:
         inc rt_prod+1
 :       clc
         lda rt_prod
-        adc #<MIA_OAM
+        adc #<MIA_VIDEO_OAM_OFFSET
         sta rt_to
         lda rt_prod+1
-        adc #>MIA_OAM
+        adc #>MIA_VIDEO_OAM_OFFSET
         sta rt_to+1
-        lda #^MIA_OAM
+        lda #^MIA_VIDEO_OAM_OFFSET
         adc #0
         sta rt_to+2
         ldx #rt_to
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jsr rt_seek_b
         lda rt_t0
         jeq @end
@@ -159,7 +159,7 @@ rt_draw_shape:
         cpx #200+7
         bcc @show
 @hide:  lda rt_t4
-        ora #OAM_DISABLE
+        ora #MIA_VIDEO_SPRITE_EXT_DISABLE
         sta rt_t4
 @show:  lda rt_t1
         sta IDXB_PORT
@@ -219,22 +219,22 @@ rt_hide_sprites:
         inc rt_prod+1
 :       clc
         lda rt_prod
-        adc #<(MIA_OAM + 4)
+        adc #<(MIA_VIDEO_OAM_OFFSET + 4)
         sta rt_to
         lda rt_prod+1
-        adc #>(MIA_OAM + 4)
+        adc #>(MIA_VIDEO_OAM_OFFSET + 4)
         sta rt_to+1
-        lda #^(MIA_OAM + 4)
+        lda #^(MIA_VIDEO_OAM_OFFSET + 4)
         adc #0
         sta rt_to+2
         ldx #rt_to
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jsr rt_seek_b
         lda #5                      ; one record to the next
         ldy #0
         jsr rt_step_b
         ldx rt_a1
-        lda #OAM_DISABLE
+        lda #MIA_VIDEO_SPRITE_EXT_DISABLE
 :       sta IDXB_PORT
         dex
         bne :-
@@ -247,7 +247,7 @@ rt_set_sprite_count:
 set_last:
         sta oam_last
         pha
-        lda #<RC_OAM_LAST
+        lda #<MIA_VIDEO_OAM_LAST_INDEX_OFFSET
         sta rt_to
         stz rt_to+1
         stz rt_to+2

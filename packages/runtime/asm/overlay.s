@@ -9,11 +9,11 @@ rt_show_overlay:
         jsr rt_set_desc
         jsr rt_desc_loc
         bcs @fail
-        lda #<MIA_OVERLAY
+        lda #<MIA_VIDEO_OVERLAY_NT_OFFSET
         sta rt_to
-        lda #>MIA_OVERLAY
+        lda #>MIA_VIDEO_OVERLAY_NT_OFFSET
         sta rt_to+1
-        lda #^MIA_OVERLAY
+        lda #^MIA_VIDEO_OVERLAY_NT_OFFSET
         sta rt_to+2
         jsr rt_loc_equals_to
         beq @done
@@ -57,7 +57,7 @@ rt_fill_placeholder:
         lda rt_ptr+1
         adc rt_prod+1
         sta rt_ptr+1
-        ldy #1                      ; rt_to = MIA_OVERLAY + row * 40 + column
+        ldy #1                      ; rt_to = MIA_VIDEO_OVERLAY_NT_OFFSET + row * 40 + column
         lda (rt_ptr),y
         sta rt_mul
         stz rt_mul+1
@@ -73,12 +73,12 @@ rt_fill_placeholder:
         inc rt_prod+1
 :       clc
         lda rt_prod
-        adc #<MIA_OVERLAY
+        adc #<MIA_VIDEO_OVERLAY_NT_OFFSET
         sta rt_to
         lda rt_prod+1
-        adc #>MIA_OVERLAY
+        adc #>MIA_VIDEO_OVERLAY_NT_OFFSET
         sta rt_to+1
-        lda #^MIA_OVERLAY
+        lda #^MIA_VIDEO_OVERLAY_NT_OFFSET
         adc #0
         sta rt_to+2
         lda rt_a1                   ; the tiles
@@ -89,7 +89,7 @@ rt_fill_placeholder:
         lda (rt_ptr),y
         sta rt_t1                   ; rows left
 @row:   ldx #rt_to
-        lda #IXF_WRITE
+        lda #(1 << IDX_FLAG_W_STP_ENA)
         jsr rt_seek_b
         ldy #2
         lda (rt_ptr),y

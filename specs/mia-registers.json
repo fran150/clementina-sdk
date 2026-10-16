@@ -155,7 +155,20 @@
       "hex": "$FFF5",
       "name": "MIA_CTX",
       "access": "w",
-      "description": "Context stack for interrupt handlers, four deep. Writing $01 saves IDXA_SELECT, IDXB_SELECT, CFG_SELECT, CMD_PARAM1-3 and the two descriptors bound to the windows; writing $02 restores them and reloads the ports. Other values do nothing. Reads return the last value written. Overflow and underflow queue errors $22 and $23."
+      "description": "Context stack for interrupt handlers, four deep. Writing $01 saves IDXA_SELECT, IDXB_SELECT, CFG_SELECT, CMD_PARAM1-3 and the two descriptors bound to the windows; writing $02 restores them and reloads the ports. Other values do nothing. Reads return the last value written. Overflow and underflow queue errors $22 and $23.",
+      "depth": 4,
+      "values": [
+        {
+          "value": 1,
+          "name": "MIA_CTX_PUSH",
+          "description": "Save the context."
+        },
+        {
+          "value": 2,
+          "name": "MIA_CTX_POP",
+          "description": "Restore the last saved context."
+        }
+      ]
     },
     {
       "address": 65526,

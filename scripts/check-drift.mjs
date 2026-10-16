@@ -6,13 +6,15 @@
 // MIA side: the C headers under src/mia (plus sd.c for the SD pins and the *_configure_index calls
 // for index reset defaults). ROM side: a fresh cc65 build of the ROM in a temporary folder, read
 // through kernel.dbg (every symbol, by module), kernel.lbl (linker symbols) and kernel.bin (the
-// keyword name tables). Names and values are compared; descriptions are not. --record writes the
-// commits it checked into specs/source-manifest.json, and only when everything matches.
+// keyword name tables), plus the ROM's committed copy of mia.inc. Names and values are compared;
+// descriptions are not. --record writes the commits it checked into specs/source-manifest.json,
+// and only when everything matches.
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {miaSections, renderMiaInc} from './generate-includes.mjs';
 
 const sdkRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -475,6 +477,34 @@ export function checkMia(report, specs, mia, rom) {
       throw Error('the ROM kernel does not name it');
     }, 'the ROM kernel (kernel.inc)');
   }
+  same('mia-registers.json', 'MIA_CTX depth', specs['mia-registers.json'].registers.find(r => r.name === 'MIA_CTX')?.depth, 'MIA_CTX_DEPTH');
+
+  // mia.inc: every name it takes from MIA must still be MIA's, with MIA's value, and the groups it
+  // lists in full must not miss a name MIA adds.
+  const generated = new Set();
+  for (const section of miaSections(specs)) {
+    const file = /[\w-]+\.json/.exec(section.title)?.[0] ?? 'mia.inc';
+    for (const s of section.symbols) {
+      generated.add(s.name);
+      if (s.mia === 'must' || (s.mia === 'maybe' && mia.macros.has(s.name))) same(file, `${s.name} (mia.inc)`, s.value, s.name);
+    }
+  }
+  const checkedElsewhere = new Set(['MIA_AUDIO_VOICE_VOLUME_DEFAULT', 'MIA_CTX_DEPTH']);
+  for (const [prefix, file] of [['MIA_CTX_', 'mia-registers.json'], ['MIA_AUDIO_HEADER_', 'audio.json'], ['MIA_AUDIO_STATUS_', 'audio.json'], ['MIA_AUDIO_FLAG_', 'audio.json'], ['MIA_AUDIO_VOICE_', 'audio.json'], ['MIA_AUDIO_CONTROL_', 'audio.json'],
+    ['MIA_SD_CONTROL_', 'storage.json'], ['MIA_SD_STATUS_', 'storage.json'], ['MIA_SD_CARD_', 'storage.json'], ['MIA_FS_OPEN_', 'storage.json'], ['MIA_FS_DIR_', 'storage.json']]) {
+    for (const [name, header] of mia.names(new RegExp(`^${prefix}`))) if (!generated.has(name) && !checkedElsewhere.has(name)) report.extra(file, name, header);
+  }
+}
+
+/** The ROM keeps a committed copy of mia.inc; it must be exactly what the specs generate. */
+export function checkRomInclude(report, specs, romDir) {
+  const rel = 'src/include/mia.inc';
+  report.same('mia.inc', `the ROM's ${rel}`, true, () => {
+    let text;
+    try { text = readFileSync(path.join(romDir, rel), 'utf8'); } catch { throw Error('is missing'); }
+    if (text !== renderMiaInc(specs)) throw Error('differs from what the specs generate; run npm run generate:includes and copy packages/runtime/asm/mia.inc there');
+    return true;
+  }, 'clementina-rom');
 }
 
 export function checkRom(report, specs, rom) {
@@ -537,6 +567,7 @@ function main(argv) {
   const report = new Report(), mia = new MiaSource(miaDir), rom = new RomBuild(buildRom(romDir));
   checkMia(report, specs, mia, rom);
   checkRom(report, specs, rom);
+  checkRomInclude(report, specs, romDir);
 
   const repos = [['clementina-mia', miaDir], ['clementina-rom', romDir]].map(([name, dir]) => ({name, dir, commit: git(dir, 'rev-parse', 'HEAD'), dirty: git(dir, 'status', '--porcelain') !== ''}));
   console.log(`Clementina spec drift: ${report.checked} values checked against ${repos.map(r => `${r.name} ${r.commit.slice(0, 7)}${r.dirty ? ' (uncommitted changes)' : ''}`).join(' and ')}.`);

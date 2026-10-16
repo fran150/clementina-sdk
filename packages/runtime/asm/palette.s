@@ -9,9 +9,9 @@ rt_use_palettes:
         jsr rt_set_desc
         jsr rt_desc_loc
         bcs @fail
-        lda #<MIA_PALETTES
+        lda #<MIA_VIDEO_PALETTE_OFFSET
         sta rt_to
-        lda #>MIA_PALETTES
+        lda #>MIA_VIDEO_PALETTE_OFFSET
         sta rt_to+1
         stz rt_to+2
         jsr rt_loc_equals_to
@@ -54,7 +54,7 @@ rt_use_palette_bank:
         asl a
         asl a
         sta rt_to
-        lda #>MIA_PALETTES
+        lda #>MIA_VIDEO_PALETTE_OFFSET
         sta rt_to+1
         stz rt_to+2
         lda #16

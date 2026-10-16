@@ -15,6 +15,11 @@
   "pan": {"min":-64,"max":63,"default":0},
   "voiceRecordBytes": 16,
   "voiceOffsets": {"FREQ_L":0,"FREQ_H":1,"PULSE_WIDTH":2,"ATTACK_DECAY":3,"SUSTAIN_RELEASE":4,"WAVEFORM":5,"PAN":6,"CONTROL":7,"VOLUME":8,"SEQ_NOTE_INDEX_L":9,"SEQ_NOTE_INDEX_H":10,"SEQ_STATUS":11},
+  "headerBytes": 16,
+  "headerOffsets": {"VERSION":0,"VOLUME":1,"STATUS":2,"CHANNELS":3,"RATE_L":4,"RATE_H":5,"FLAGS":6},
+  "headerStatusBits": {"ACTIVE":0,"QUEUE_OVERFLOW":1},
+  "headerFlagBits": {"STEREO":0},
+  "controlBits": {"GATE":0,"RESET_PHASE":1},
   "commands": {"enable":"$60","stop":"$61","reset":"$62","sequencerLoad":"$63","sequencerStart":"$64","sequencerStop":"$65","voiceTake":"$66","voiceRelease":"$67","sequencerSetBase0":"$68","sequencerSetBase1":"$69","sequencerSetBase2":"$6A","sequencerSetBase3":"$6B"},
   "sequencer": {
     "trackFormat": "undeclared-length opcode stream at a per-voice track_base, decoded live until END, an unrecognized opcode byte, or a cursor past the top of MIA RAM",
