@@ -1,7 +1,17 @@
-# Source audit
+# Sources
 
-The developer specification was derived from the five repositories and exact commits recorded in
-`specs/source-manifest.json`.
+The developer specification was first derived from a 2026-09-20 audit of five repositories (below).
+Since then `npm run check:drift` checks it against the two repositories most of its values come
+from: it reads MIA's C headers and a fresh cc65 build of the ROM (`kernel.dbg`, `kernel.lbl`,
+`kernel.bin`) and compares names and values, not descriptions, with `specs/`. It expects
+`clementina-mia` and `clementina-rom` checked out next to the SDK (or `--mia DIR --rom DIR`) and
+cc65 on the path.
+
+`specs/source-manifest.json` records the MIA and ROM commits the check last found matching; only
+`npm run check:drift -- --record` writes them, and only when nothing differs. The `Spec drift`
+workflow runs the check against both repositories' `main` every Monday and on demand from the
+Actions tab. It reports and never blocks a pull request: a red run means a spec and its source
+disagree, and the fix goes in a normal PR together with a fresh `--record`.
 
 ## Authority by concern
 
@@ -15,7 +25,7 @@ The developer specification was derived from the five repositories and exact com
 | BASIC programming surface | `clementina-rom` |
 | Asset authoring model | `clementina-studio` |
 
-## Audited project documentation
+## Audited project documentation (2026-09-20)
 
 ### clementina-rom
 `README.md`, memory map, BASIC video/input/memory/sound/timing/file docs,

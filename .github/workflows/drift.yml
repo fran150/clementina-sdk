@@ -1,0 +1,41 @@
+name: Spec drift
+
+# Compares specs/ with MIA's and the ROM's main branches. It only reports: a red run means a spec
+# and its source disagree, and the fix (plus `npm run check:drift -- --record`) goes in a normal PR.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: clementina-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: fran150/clementina-mia
+          path: clementina-mia
+      - uses: actions/checkout@v4
+        with:
+          repository: fran150/clementina-rom
+          path: clementina-rom
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install ca65 toolchain
+        run: sudo apt-get update && sudo apt-get install -y cc65
+      - name: Compare specs with MIA and ROM main
+        working-directory: clementina-sdk
+        run: |
+          set +e
+          npm run --silent check:drift > drift.txt 2>&1
+          status=$?
+          cat drift.txt
+          { echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status

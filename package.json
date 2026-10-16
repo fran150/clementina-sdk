@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "validate:specs": "node scripts/validate-specs.mjs",
+    "check:drift": "node scripts/check-drift.mjs",
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "typecheck": "npm run typecheck --workspaces --if-present",
