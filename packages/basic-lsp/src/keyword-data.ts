@@ -309,7 +309,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "note": "A failed open leaves the current program in memory; a program too large for BASIC memory gives FILE I/O ERROR."
       }
     ],
-    "summary": "Replaces the program with a tokenized BASIC file from the SD card and clears variables; control returns to direct mode even when run from a program."
+    "summary": "Replaces the program with a tokenized BASIC file from the SD card, clears variables and ends at READY, even when a program runs it."
   },
   {
     "keyword": "SAVE",
@@ -2129,7 +2129,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "variable",
         "type": "numeric-variable",
-        "note": "Numeric variable or array element. Reading past the end of the file gives no error; check EOF first."
+        "note": "Numeric variable or array element. Past the end of the file it gets 0 and EOF turns 1; there is no error."
       }
     ],
     "summary": "Reads one byte (0-255) from an open file into a numeric variable."
@@ -3136,7 +3136,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "music",
         "type": "string",
-        "note": "Music string, compiled at once: notes A-G with # + - and lengths, R rest, O octave, < >, L length, T tempo, W waveform, & tie, | loop point."
+        "note": "Music string, compiled at once: notes A-G with # + - and lengths, R rest, O octave, < >, L length, T tempo, W waveform, & tie, | loop point. A number out of range (T outside 1-255, O over 7, W over 4, a length other than 1, 2, 4, 8, 16 or 32) gives ILLEGAL QUANTITY."
       },
       {
         "name": "address",
@@ -3559,8 +3559,9 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
     "returns": {
       "type": "number",
       "min": 0,
-      "note": "1-based index of the note or rest playing now; 0 before the track starts."
+      "max": 65535,
+      "note": "Notes, ties and rests played since the track was loaded, counting on across loops: 1-based, 0 before the track starts, wrapping to 0 after 65535."
     },
-    "summary": "Returns the index of the note or rest a voice's background track is playing (0 before it starts)."
+    "summary": "Returns how many notes, ties and rests a voice's background track has played since it was loaded (0 before it starts)."
   }
 ];
