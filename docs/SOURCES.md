@@ -1,13 +1,13 @@
 # Sources
 
-The developer specification was first derived from a 2026-09-20 audit of five repositories (below).
-Since then `npm run check:drift` checks it against the two repositories most of its values come
-from: it reads MIA's C headers (and its default palette file) and a fresh cc65 build of the ROM
-(`kernel.dbg`, `kernel.lbl`, `kernel.bin`) and compares names and values, not descriptions, with
-`specs/`. It also checks that every MIA name in the generated `mia.inc` still exists in MIA with
-the same value, and that the ROM's committed `src/include/mia.inc` equals what the specs generate.
-It expects `clementina-mia` and `clementina-rom` checked out next to the SDK (or
-`--mia DIR --rom DIR`) and cc65 on the path.
+The developer specification was first derived from a 2026-09-20 audit of five repositories
+(below). Since then `npm run check:drift` checks it against the two repositories most of its
+values come from: it reads MIA's C headers (and its default palette and charset files) and a fresh
+cc65 build of the ROM (`kernel.dbg`, `kernel.lbl`, `kernel.bin`) and compares names and values,
+not descriptions, with `specs/`. It also checks that every MIA name in the generated `mia.inc`
+still exists in MIA with the same value, and that the ROM's committed `src/include/mia.inc` equals
+what the specs generate. It expects `clementina-mia` and `clementina-rom` checked out next to the
+SDK (or `--mia DIR --rom DIR`) and cc65 on the path.
 
 `specs/source-manifest.json` records the MIA and ROM commits the check last found matching; only
 `npm run check:drift -- --record` writes them, and only when nothing differs. The `Spec drift`
