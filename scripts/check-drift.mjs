@@ -267,6 +267,15 @@ export function cString(bin, segments, start) {
   throw Error(`no zero byte ends the string at $${start.toString(16)}`);
 }
 
+/** The operand of the JMP at `address`. */
+export function jmpOperand(bin, segments, address) {
+  const seg = segments.find(s => address >= s.start && address + 3 <= s.start + s.size);
+  if (!seg) throw Error(`no output segment holds $${address.toString(16)}`);
+  const at = seg.offset + address - seg.start;
+  if (bin[at] !== 0x4c) throw Error(`$${address.toString(16)} is not a JMP`);
+  return bin[at + 1] | (bin[at + 2] << 8);
+}
+
 /** Builds the ROM into a temporary folder; returns its symbols, labels and image. */
 export function buildRom(dir) {
   const out = mkdtempSync(path.join(tmpdir(), 'clementina-drift-'));
@@ -563,8 +572,13 @@ export function checkRom(report, specs, rom) {
   report.same('kernel-abi.json', 'jump table size', abi.entries.length * abi.entrySize, () => rom.value('KERN_JUMPTAB_SIZE', 'kernel'), 'kernel.inc KERN_JUMPTAB_SIZE');
   report.same('kernel-abi.json', 'JUMPTAB segment', {start: abi.base, size: abi.entries.length * abi.entrySize}, jump && {start: jump.start, size: jump.size}, 'the ROM build');
   const tableEnd = abi.base + (rom.find('KERN_JUMPTAB_SIZE', 'kernel')?.value ?? abi.entries.length * abi.entrySize);
-  const kern = new Map(rom.symbols.filter(s => s.module === 'kernel' && s.type === 'equ' && /^KERN_/.test(s.name) && s.name !== 'KERN_BASE' && s.value >= abi.base && s.value < tableEnd).map(s => [s.name, 'kernel.inc']));
+  const kern = new Map(rom.symbols.filter(s => s.module === 'kernel' && s.type === 'equ' && /^(KERN|BAS)_/.test(s.name) && s.name !== 'KERN_BASE' && s.value >= abi.base && s.value < tableEnd).map(s => [s.name, 'kernel.inc']));
   table(report, 'kernel-abi.json', abi.entries, e => e.symbol, e => e.address, kern, name => rom.value(name, 'kernel'), 'kernel.inc');
+  // A BAS_* entry is a JMP to the BASIC routine its target names.
+  for (const e of abi.entries.filter(e => e.target)) report.same('kernel-abi.json', `${e.symbol} target`, e.target, () => {
+    const to = jmpOperand(rom.bin, rom.segments, e.address);
+    return rom.find(e.target, 'basic')?.value === to ? e.target : `$${to.toString(16).toUpperCase()}`;
+  }, 'the ROM build');
 
   const map = specs['cpu-memory-map.json'];
   report.same('cpu-memory-map.json', 'image.start', map.image.start, () => rom.label('__KERNEL_START__'), 'kernel.lbl');

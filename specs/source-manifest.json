@@ -16,9 +16,9 @@
       "name": "clementina-rom",
       "repository": "fran150/clementina-rom",
       "branch": "main",
-      "commit": "e9c35952c7071306a04f0300194a674bd45e7341",
+      "commit": "a0816229ec07458adcc37e1087013ad2a211b18b",
       "role": "6502 kernel/BASIC/WozMon; kernel ABI and programmer-facing memory map",
-      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table, image bounds, named CPU locations, VIA registers, BASIC token tables, error messages, editor cursor tiles and debugger addresses, and the ROM's copies of MIA registers, ids, bits and opcodes that use the spec's or MIA's names, plus its committed src/include/mia.inc, which must equal the generated one"
+      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table and the BASIC routine each BAS_ entry jumps to, image bounds, named CPU locations, VIA registers, BASIC token tables, error messages, editor cursor tiles and debugger addresses, and the ROM's copies of MIA registers, ids, bits and opcodes that use the spec's or MIA's names, plus its committed src/include/mia.inc, which must equal the generated one"
     }
   ],
   "sourcePrecedence": [

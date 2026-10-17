@@ -1,6 +1,32 @@
 {
   "format":"clementina-kernel-abi","version":1,"base":1024,"entrySize":3,
+  "notes":["BAS_* entries jump to the BASIC routine named by target. They work only while BASIC is in memory, not in a program that has loaded over it."],
   "entries":[
-    {"address":1024,"hex":"$0400","symbol":"KERN_COLDSTART"},{"address":1027,"hex":"$0403","symbol":"KERN_WARMSTART"},{"address":1030,"hex":"$0406","symbol":"KERN_CHROUT"},{"address":1033,"hex":"$0409","symbol":"KERN_CHRIN"},{"address":1036,"hex":"$040C","symbol":"KERN_GETKEY_NB"},{"address":1039,"hex":"$040F","symbol":"KERN_CLRSCR"},{"address":1042,"hex":"$0412","symbol":"KERN_PRHEX"},{"address":1045,"hex":"$0415","symbol":"KERN_PRBYTE"},{"address":1048,"hex":"$0418","symbol":"KERN_PRSTR"},{"address":1051,"hex":"$041B","symbol":"KERN_LOAD"},{"address":1054,"hex":"$041E","symbol":"KERN_EDITKEY"},{"address":1057,"hex":"$0421","symbol":"KERN_CHROUT_GLYPH"},{"address":1060,"hex":"$0424","symbol":"KERN_WOZMON"},{"address":1063,"hex":"$0427","symbol":"KERN_SET_BACKDROP"},{"address":1066,"hex":"$042A","symbol":"KERN_IRQ"},{"address":1069,"hex":"$042D","symbol":"KERN_PLOT"},{"address":1072,"hex":"$0430","symbol":"KERN_RDTIM"},{"address":1075,"hex":"$0433","symbol":"KERN_SETTIM"}
+    {"address":1024,"hex":"$0400","symbol":"KERN_COLDSTART","description":"Reset entry (MIA points RESET here): sets up the machine and the console, prints the banner and starts BASIC."},
+    {"address":1027,"hex":"$0403","symbol":"KERN_WARMSTART","description":"Re-enters BASIC at READY, keeping the program and variables; resets the stack, IRQ_VEC and bank 0 first."},
+    {"address":1030,"hex":"$0406","symbol":"KERN_CHROUT","description":"Writes the character in A to the console at the cursor, handling control codes; A, X and Y are preserved."},
+    {"address":1033,"hex":"$0409","symbol":"KERN_CHRIN","description":"Waits for one key from MIA's input FIFO and returns it in A, showing the cursor meanwhile."},
+    {"address":1036,"hex":"$040C","symbol":"KERN_GETKEY_NB","description":"Returns C=1 and the next key in A if one is waiting, else C=0, without waiting."},
+    {"address":1039,"hex":"$040F","symbol":"KERN_CLRSCR","description":"Clears the overlay text screen and homes the cursor."},
+    {"address":1042,"hex":"$0412","symbol":"KERN_PRHEX","description":"Prints the low nibble of A as one hex digit."},
+    {"address":1045,"hex":"$0415","symbol":"KERN_PRBYTE","description":"Prints A as two hex digits."},
+    {"address":1048,"hex":"$0418","symbol":"KERN_PRSTR","description":"Prints the zero-terminated string KPTR points at, up to 255 bytes."},
+    {"address":1051,"hex":"$041B","symbol":"KERN_LOAD","description":"Streams a PRG file into CPU RAM. A is the bank for $8000-$BFFF and KPTR a destination override or 0; C=1 jumps to KTMP (0 for the first byte) instead of returning."},
+    {"address":1054,"hex":"$041E","symbol":"KERN_EDITKEY","description":"Screen editor: returns the next character of the line edited on screen, ending with CR; BASIC reads its input lines through it."},
+    {"address":1057,"hex":"$0421","symbol":"KERN_CHROUT_GLYPH","description":"Draws A as a raw glyph at the cursor, never as a control code; A, X and Y are preserved."},
+    {"address":1060,"hex":"$0424","symbol":"KERN_WOZMON","description":"Enters the WozMon monitor; its Q command returns to BASIC through KERN_WARMSTART."},
+    {"address":1063,"hex":"$0427","symbol":"KERN_SET_BACKDROP","description":"Sets the screen backdrop color selector to A."},
+    {"address":1066,"hex":"$042A","symbol":"KERN_IRQ","description":"The kernel's IRQ handler: a program's own handler restores A, X and Y and ends with JMP KERN_IRQ."},
+    {"address":1069,"hex":"$042D","symbol":"KERN_PLOT","description":"C=1 reads the cursor into X (row) and Y (column); C=0 moves it there and returns C=1 if that is off the screen."},
+    {"address":1072,"hex":"$0430","symbol":"KERN_RDTIM","description":"Copies MIA's clock into CLOCK_SNAPSHOT ($02F8-$02FF); returns C=1 if the firmware has a clock."},
+    {"address":1075,"hex":"$0433","symbol":"KERN_SETTIM","description":"Sets MIA's 60 Hz count, BASIC's TI, from A, X and Y, low byte first."},
+    {"address":1078,"hex":"$0436","symbol":"BAS_CHKCOM","target":"CHKCOM","description":"Skips the comma at TXTPTR, else raises SYNTAX ERROR; A is the next character."},
+    {"address":1081,"hex":"$0439","symbol":"BAS_FRMNUM","target":"FRMNUM","description":"Evaluates the numeric expression at TXTPTR into FAC; a string raises TYPE MISMATCH."},
+    {"address":1084,"hex":"$043C","symbol":"BAS_FRMEVL","target":"FRMEVL","description":"Evaluates any expression at TXTPTR into FAC; VALTYP is $FF for a string, whose descriptor address is then in FAC+3 and FAC+4."},
+    {"address":1087,"hex":"$043F","symbol":"BAS_GETADR","target":"GETADR","description":"Converts FAC to a 16-bit value in LINNUM, A (high) and Y (low); outside 0-65535 raises ILLEGAL QUANTITY."},
+    {"address":1090,"hex":"$0442","symbol":"BAS_GETBYT","target":"GETBYT","description":"Evaluates the numeric expression at TXTPTR into X; outside 0-255 raises ILLEGAL QUANTITY."},
+    {"address":1093,"hex":"$0445","symbol":"BAS_PTRGET","target":"PTRGET","description":"Finds or creates the variable named at TXTPTR and returns its value's address in VARPNT, A (low) and Y (high)."},
+    {"address":1096,"hex":"$0448","symbol":"BAS_ERROR","target":"ERROR","description":"Raises the BASIC error whose code is in X (basic.json errors): maps bank 0, prints it and returns to READY."},
+    {"address":1099,"hex":"$044B","symbol":"BAS_LINPRT","target":"LINPRT","description":"Prints A (high) and X (low) as an unsigned decimal, with PRINT's leading space."}
   ]
 }

@@ -16,6 +16,7 @@ import {
   evaluate,
   firstDifference,
   indexDefaults,
+  jmpOperand,
   nameTable,
   paletteBanks,
   parseDbg,
@@ -96,6 +97,10 @@ test('drift check reads ld65 symbols by module and decodes keyword tables', () =
   const text = Buffer.from([0, 0, 0, 0, 0x0d, 0x0a, 0x4f, 0x4b, 0, 0x41, 0x42, 0x43]);
   assert.equal(cString(text, dbg.segments, 0x1000), '\r\nOK');
   assert.throws(() => cString(text, dbg.segments, 0x1005), /no zero byte/);
+  const jmp = Buffer.from([0x4c, 0x34, 0x12, 0x20, 0x34, 0x12]), jmpSegments = [{start: 0x0400, size: 6, offset: 0}];
+  assert.equal(jmpOperand(jmp, jmpSegments, 0x0400), 0x1234);
+  assert.throws(() => jmpOperand(jmp, jmpSegments, 0x0403), /not a JMP/);
+  assert.throws(() => jmpOperand(jmp, jmpSegments, 0x0404), /no output segment/);
 });
 
 test('drift check reads CMake defaults, palette and charset files', () => {
