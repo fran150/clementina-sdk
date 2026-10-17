@@ -6,7 +6,10 @@ The ROM remains the detailed language authority. The SDK captures subsystem-faci
 contracts needed by tools. The `keywords` section of `specs/basic.json` lists every
 keyword with its kind, syntax line, arguments, the ranges the ROM accepts, and a
 one-line summary; arguments outside a listed range raise `ILLEGAL QUANTITY`
-unless the entry says otherwise.
+unless the entry says otherwise. The `errors` section lists the 18 error
+messages in the ROM's table order with what raises each, plus `?EXTRA IGNORED`,
+`?REDO FROM START` and `BREAK`; `npm run check:drift` compares the messages and
+their codes with a ROM build.
 
 The SDK tokenizer and binary `SAVE`/`LOAD` file APIs are documented in
 [BASIC tooling](../basic-tooling.md).

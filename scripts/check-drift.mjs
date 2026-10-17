@@ -196,6 +196,19 @@ export function indexDefaults(text, macros) {
   return out;
 }
 
+/** A CMake cache variable's default, from `set(NAME "value" CACHE ...)`. */
+export function cmakeDefault(text, name) {
+  const m = new RegExp(`^\\s*set\\(\\s*${name}\\s+"([^"]*)"\\s+CACHE\\b`, 'm').exec(text.replace(/#.*$/gm, ''));
+  if (!m) throw Error(`${name} has no CACHE default`);
+  return m[1];
+}
+
+/** A palette file's RGB565 little-endian words, `perBank` to a bank. */
+export function paletteBanks(bin, perBank) {
+  if (bin.length % (perBank * 2)) throw Error(`is ${bin.length} bytes, not whole banks of ${perBank} colors`);
+  return Array.from({length: bin.length / (perBank * 2)}, (_, bank) => Array.from({length: perBank}, (__, c) => bin.readUInt16LE((bank * perBank + c) * 2)));
+}
+
 // ---------------------------------------------------------------------------------------------
 // ROM build
 
@@ -229,6 +242,19 @@ export function nameTable(bin, segments, start, end = Infinity) {
     if (byte & 0x80) { names.push(name); name = ''; }
   }
   return names;
+}
+
+/** Reads a zero-terminated string. */
+export function cString(bin, segments, start) {
+  const seg = segments.find(s => start >= s.start && start < s.start + s.size);
+  if (!seg) throw Error(`no output segment holds $${start.toString(16)}`);
+  let text = '';
+  for (let addr = start; addr < seg.start + seg.size; addr++) {
+    const byte = bin[seg.offset + addr - seg.start];
+    if (byte === 0) return text;
+    text += String.fromCharCode(byte);
+  }
+  throw Error(`no zero byte ends the string at $${start.toString(16)}`);
 }
 
 /** Builds the ROM into a temporary folder; returns its symbols, labels and image. */
@@ -408,6 +434,10 @@ export function checkMia(report, specs, mia, rom) {
   }
   const oam = region(video.regions, 'OAM');
   same('video.json', 'regions OAM end', oam && oam.start + oam.size, 'MIA_VIDEO_STATE_SIZE');
+  // MIA embeds palettes/<MIA_PALETTE>.palette.bin and copies it into palette RAM when video starts.
+  const palette = video.palettes.default, paletteFile = `palettes/${palette.name}.palette.bin`;
+  report.same('video.json', 'palettes.default.name', palette.name, () => cmakeDefault(readFileSync(path.join(mia.dir, 'CMakeLists.txt'), 'utf8'), 'MIA_PALETTE'), 'CMakeLists.txt MIA_PALETTE');
+  report.same('video.json', 'palettes.default.colors', palette.colors, () => paletteBanks(readFileSync(path.join(mia.dir, paletteFile)), video.palettes.colorsPerBank), paletteFile);
 
   const audio = specs['audio.json'];
   same('audio.json', 'layoutVersion', audio.layoutVersion, 'MIA_AUDIO_VERSION');
@@ -548,6 +578,13 @@ export function checkRom(report, specs, rom) {
   for (const [key, name] of [['extensionPrefix', 'TOKEN_EXT'], ['extension2Prefix', 'TOKEN_EXT2'], ['extensionFunctionPrefix', 'TOKEN_EXTFN']]) report.same('basic.json', `tokens.${key}`, t[key], () => rom.value(name, 'basic'), `token.s ${name}`);
   report.same('basic.json', 'tokens.special.MON', t.special.MON, () => rom.value('TOKEN_MON', 'basic'), 'token.s TOKEN_MON');
   for (const [key, name] of [['statementBoundaryAddress', 'NEWSTT2'], ['currentLineAddress', 'CURLIN'], ['variableTablePointerAddress', 'VARTAB']]) report.same('basic.json', `runtimeDebug.${key}`, basic.runtimeDebug[key], () => rom.value(name, 'basic'), `the ROM build (${name})`);
+
+  const errors = basic.errors, text = name => () => cString(rom.bin, rom.segments, rom.value(name, 'basic')).replace(/[\r\n]/g, '');
+  report.same('basic.json', 'errors.entries messages', errors.entries.map(e => e.message), names('ERROR_MESSAGES'), 'the ROM build (ERROR_MESSAGES)');
+  const errNames = new Map(rom.symbols.filter(s => s.module === 'basic' && /^ERR_/.test(s.name)).map(s => [s.name, 'error.s']));
+  table(report, 'basic.json', errors.entries, e => e.name, e => e.code, errNames, name => rom.value(name, 'basic'), 'error.s');
+  for (const m of errors.messages) report.same('basic.json', `errors.messages ${m.name}`, m.text, text(m.name), `the ROM build (${m.name})`);
+  for (const [key, name] of [['suffix', 'QT_ERROR'], ['inLine', 'QT_IN'], ['ready', 'QT_OK']]) report.same('basic.json', `errors.format.${key}`, errors.format[key], text(name), `message.s ${name}`);
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -74,7 +74,7 @@
       "expression": "Numeric or string expression.",
       "path": "String expression naming an SD card file or directory, relative to the current directory (CD) or absolute from /. An SD error raises FILE I/O ERROR.",
       "handle": "File number 1-16 of a file opened with OPEN.",
-      "line-number": "Line number written as literal digits, not an expression; a line that does not exist raises UNDEF'D STATEMENT.",
+      "line-number": "Line number written as literal digits, not an expression. For GOTO, GOSUB, THEN, ON and RUN a line that does not exist raises UNDEF'D STATEMENT; LIST lists nothing for it.",
       "condition": "Numeric expression where 0 is false and any other value is true.",
       "variable": "Numeric or string variable, or array element, that receives a value.",
       "numeric-variable": "Numeric variable, or array element, that receives a value.",
@@ -1688,6 +1688,61 @@
         "returns": {"type": "number", "min": 0, "max": 65535, "note": "Notes, ties and rests played since the track was loaded, counting on across loops: 1-based, 0 before the track starts, wrapping to 0 after 65535."},
         "summary": "Returns how many notes, ties and rests a voice's background track has played since it was loaded (0 before it starts)."
       }
+    ]
+  },
+  "errors": {
+    "notes": [
+      "An error prints a new line, then ?, the message and ERROR, then IN and the line number when a program is running, and returns to READY. The whole line uses the BASIC pen.",
+      "An error stops background music, clears the FOR/GOSUB stack and makes CONT impossible.",
+      "code is the error's byte offset in the ROM's ERROR_MESSAGES table, the value the interpreter's ERROR routine takes in X. The ROM build defines it as the entry's name.",
+      "Statements added for Clementina raise the standard errors: ILLEGAL QUANTITY for arguments outside the ranges in keywords.entries, TYPE MISMATCH, SYNTAX, OUT OF DATA for the DATA readers, and FILE I/O for SD errors."
+    ],
+    "format": {"prefix": "?", "suffix": " ERROR", "inLine": " IN ", "ready": "READY."},
+    "entries": [
+        {"name": "ERR_NOFOR", "code": 0, "message": "NEXT WITHOUT FOR",
+         "trigger": "NEXT ran with no FOR loop active, or named a variable that has no active loop."},
+        {"name": "ERR_SYNTAX", "code": 16, "message": "SYNTAX",
+         "trigger": "BASIC cannot parse the statement: an unknown or misspelled keyword, or a missing parenthesis, comma or quote. READ of a non-number into a numeric variable also raises it, on the DATA line."},
+        {"name": "ERR_NOGOSUB", "code": 22, "message": "RETURN WITHOUT GOSUB",
+         "trigger": "RETURN ran with no GOSUB active."},
+        {"name": "ERR_NODATA", "code": 42, "message": "OUT OF DATA",
+         "trigger": "READ, or a statement that reads DATA (NTREAD, ATRREAD, CHRREAD, PALREAD, OAMREAD), ran past the last DATA item."},
+        {"name": "ERR_ILLQTY", "code": 53, "message": "ILLEGAL QUANTITY",
+         "trigger": "A value is outside what a statement or function accepts: an argument outside a keyword's range, SQR of a negative number, LOG of 0 or less, or an integer (%) value outside -32768 to 32767."},
+        {"name": "ERR_OVERFLOW", "code": 69, "message": "OVERFLOW",
+         "trigger": "A number is too large for BASIC (above about 1.7E38), or a hex number has a digit past $FFFFFF."},
+        {"name": "ERR_MEMFULL", "code": 77, "message": "OUT OF MEMORY",
+         "trigger": "The program, variables, arrays and strings no longer fit, or FOR loops, GOSUBs and parentheses nest too deeply for the stack."},
+        {"name": "ERR_UNDEFSTAT", "code": 90, "message": "UNDEF'D STATEMENT",
+         "trigger": "GOTO, GOSUB, THEN, ON or RUN names a line number that does not exist."},
+        {"name": "ERR_BADSUBS", "code": 107, "message": "BAD SUBSCRIPT",
+         "trigger": "An array index is larger than the array's DIM (10 for an array used without DIM), or the number of indexes does not match."},
+        {"name": "ERR_REDIMD", "code": 120, "message": "REDIM'D ARRAY",
+         "trigger": "DIM names an array that already exists, including one BASIC created when it was first used without DIM."},
+        {"name": "ERR_ZERODIV", "code": 133, "message": "DIVISION BY ZERO",
+         "trigger": "A division by zero."},
+        {"name": "ERR_ILLDIR", "code": 149, "message": "ILLEGAL DIRECT",
+         "trigger": "INPUT, GET or DEF was typed as a direct command; they only work inside a program."},
+        {"name": "ERR_BADTYPE", "code": 163, "message": "TYPE MISMATCH",
+         "trigger": "A string where a number is expected or the reverse, such as comparing a string with a number or reading a file byte into a string variable."},
+        {"name": "ERR_STRLONG", "code": 176, "message": "STRING TOO LONG",
+         "trigger": "A string result would be longer than 255 characters."},
+        {"name": "ERR_FRMCPX", "code": 191, "message": "FORMULA TOO COMPLEX",
+         "trigger": "A string expression needs more than three temporary strings at once, as with deeply nested string functions; split it with a variable."},
+        {"name": "ERR_CANTCONT", "code": 210, "message": "CAN'T CONTINUE",
+         "trigger": "CONT has no stopped program to resume: nothing was stopped, or an error, a program edit, CLEAR, NEW or RUN came after the stop."},
+        {"name": "ERR_UNDEFFN", "code": 224, "message": "UNDEF'D FUNCTION",
+         "trigger": "FN called a function that no DEF FN has defined."},
+        {"name": "ERR_FILEIO", "code": 240, "message": "FILE I/O",
+         "trigger": "An SD card or file operation failed: no card, a missing file or directory, a full card, a directory that is not empty, or a file number that is not open."}
+    ],
+    "messages": [
+        {"name": "ERREXTRA", "text": "?EXTRA IGNORED",
+         "trigger": "INPUT got more comma-separated values than it has variables. The extra values are dropped and the program continues."},
+        {"name": "ERRREENTRY", "text": "?REDO FROM START",
+         "trigger": "INPUT got text where it needs a number. It prints this and asks for the whole line again."},
+        {"name": "QT_BREAK", "text": "BREAK",
+         "trigger": "STOP ran, or Ctrl+C was pressed while a program ran. BASIC prints BREAK IN and the line number, and CONT resumes."}
     ]
   }
 }
