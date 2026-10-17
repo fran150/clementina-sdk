@@ -9,7 +9,7 @@ export const basicTokenTables = {
   mon: 0xfe,
   extensionPrefix: 0xff,
   extension: [
-    'BCOLOR','SNDON','SNDOFF','SNDCLR','VOL','WAVE','NOTE','FREQ','GATE','ADSR','PULSE','PAN','BGON','BGOFF','BGMODE','BGSET','SCROLL','BGBANK','BGALT','SPRON','SPROFF','SPRCOUNT','SPRBANK','CHRMODE','CHRPLANE','PALETTE','VIDON','VIDOFF','BGCHAR','CHRLOAD','PALLOAD','OAMLOAD','SPRITE','SPRTILE','SPRX','SPRY','SPRCOLOR','SPRFLIP','SPRPRI','OPEN','CLOSE','BGET#','BPUT#',
+    'BCOLOR','SNDON','SNDOFF','SNDCLR','VOL','WAVE','NOTE','FREQ','GATE','ADSR','PULSE','PAN','BGON','BGOFF','BGMODE','BGSET','SCROLL','BGBANK','BGALT','SPRON','SPROFF','SPRCOUNT','SPRBANK','CHRMODE','CHRPLANE','PALETTE','VIDON','VIDOFF','BGCHAR','CHRLOAD','PALLOAD','OAMLOAD','SPRITE','SPRTILE','SPRX','SPRY','SPRCOLOR','SPRFLIP','SPRPRI','OPEN','CLOSE','BGET#','BPUT#','BANK','BRUN',
   ],
   extension2Prefix: 0xfc,
   extension2: [
@@ -23,7 +23,7 @@ export const basicTokenTables = {
 export const basicSourceLimits = {maxLineNumber: 63999, maxInputCharacters: 80} as const;
 /** ROM interpreter hook used by source debuggers; synchronized with specs/basic.json. */
 export const basicRuntimeDebug = {
-  statementBoundaryAddress: 0x1e2a,
+  statementBoundaryAddress: 0x1e74,
   currentLineAddress: 0x0041,
   /** VARTAB, followed by ARYTAB: the simple-variable table's bounds. */
   variableTablePointerAddress: 0x0035,

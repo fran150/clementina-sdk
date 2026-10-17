@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- PRG files carry a 2-byte load-address header with no bank byte. Load plans pick each PRG bank with `BANK n:` and start the program with `BRUN`, `MIALOAD` steps no longer emit a length, and the BASIC tokenizer keeps hex digits after `$` (up to 6) raw instead of crunching `CD` or `DEF`, matching the ROM.
 - Generate `clementina.inc` and `mia.inc` from `specs/` (`npm run generate:includes`) and put them on every assembly build's include path; the asset runtime uses MIA's names from them.
 - Add automated package-content checks and CI for supported Node versions.
 - Make the SDK npm packages publishable under GPL-3.0-only.

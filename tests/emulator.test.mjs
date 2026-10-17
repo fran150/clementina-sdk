@@ -234,7 +234,7 @@ test('load-plan launch enters source through ROM input before starting execution
  ]},{bootCycles:10,inputCycles:20,inputChunkBytes:64});
  assert.deepEqual(requests.map(r=>r.method),['reset','step','input','step','input','step','input','run']);
  assert.deepEqual(requests.filter(r=>r.method==='input').map(r=>String.fromCharCode(...r.data)),[
-  '10 MIALOAD "A.BIN",256,1\r','20 BLOAD "G.PRG",24576\r','RUN\r',
+  '10 MIALOAD "A.BIN",256\r','20 BANK 0:BRUN "G.PRG"\r','RUN\r',
  ]);
  await assert.rejects(client.launchLoadPlan({format:'clementina-load-plan',version:1,steps:[]}),/fewer than 1|terminal/i);
 });

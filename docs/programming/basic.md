@@ -25,12 +25,17 @@ It exposes source selection, held HID keys, mouse, four gamepads, and repeat set
 `TICKS(0)`, `DELAY`, and `TI` use MIA wall time, independent of PHI2.
 
 ## Files
-There are 16 BASIC file handles over MIA slots plus CPU `BLOAD/BSAVE`,
-MIA `MIALOAD/MIASAVE`, and asset load/save operations.
+There are 16 BASIC file handles over MIA slots plus CPU `BLOAD/BRUN/BSAVE`,
+MIA `MIALOAD/MIASAVE`, and asset load/save operations. Load and save commands
+take the path first, then where, then how much.
 
-CPU PRG convention:
-- unbanked: 2-byte little-endian load address
-- banked `$8000-$BFFF`: load address plus explicit bank byte 0-31
+CPU PRG convention: a 2-byte little-endian load address, then the data. The
+file records no bank: `BANK n` (0-31) picks the bank that `BLOAD`, `BRUN`,
+`BSAVE`, `PEEK`, `POKE` and `SYS` use at `$8000-$BFFF`. Each maps it only while
+it works there and maps bank 0, which holds BASIC's strings, back.
+
+Numbers can be written in hex: `$` and 1 to 6 hex digits, 0-16777215, enough for
+any MIA RAM address (`MIALOAD "MAP.BIN",$14000`).
 
 ## Audio
 BASIC drives four PSG voices and a MIA-side background sequencer.

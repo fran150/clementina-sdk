@@ -339,7 +339,7 @@ test('Node debug composition builds and prepares breakpoints before launching th
  const build={kind:'assembly',sdRoot:'build/sd',diagnostics:[],
   assembly:{binary:Uint8Array.of(0x60),prg:Uint8Array.of(0,0x60,0x60),loadStep:{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000},entryAddress:0x6000,debug,artifacts:{binary:'',prg:'',debug:'',map:'',labels:'',objects:[],listings:[]}},
   loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000}]},
-  bootstrapSource:'10 BLOAD "build/game.prg",24576,24576\n',files:[],
+  bootstrapSource:'10 BANK 0:BRUN "build/game.prg"\n',files:[],
  };
  let closed=0;
  const created=await createProjectDebugSession('/project',{threadName:'Editor CPU'},{

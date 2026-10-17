@@ -81,9 +81,9 @@ test('project build emits explicit video placements, terminal PRG, load plan, an
     {kind: 'prg', path: 'build/game.prg', loadAddress: 0x6000, length: 3, runAddress: 0x6000},
   ]);
   assert.equal(built.value.bootstrapSource, [
-    '10 MIALOAD "build/asset-palette.bin",256,256',
-    '20 MIALOAD "build/asset-chr-3.bin",18944,6144',
-    '30 BLOAD "build/game.prg",24576', '',
+    '10 MIALOAD "build/asset-palette.bin",256',
+    '20 MIALOAD "build/asset-chr-3.bin",18944',
+    '30 BANK 0:BRUN "build/game.prg"', '',
   ].join('\n'));
   assert.deepEqual(Array.from(await readFile(join(root, 'build', 'game.prg'))), [0, 0x60, 0xa9, 0x2a, 0x60]);
   assert.deepEqual(Array.from((await readFile(join(root, 'build', 'asset-palette.bin'))).slice(0, 4)), [0, 0, 0x34, 0x12]);

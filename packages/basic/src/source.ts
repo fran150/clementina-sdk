@@ -42,6 +42,16 @@ function matches(input: readonly number[], at: number, keyword: string): boolean
   for (let i = 0; i < keyword.length; i++) if (upper(input[at + i]!) !== keyword.charCodeAt(i)) return false;
   return true;
 }
+/** True for the ASCII letters and digits a variable name is made of. */
+function nameCharacter(code: number | undefined): boolean {
+  return code !== undefined && ((code >= 0x30 && code <= 0x39) || (code >= 0x41 && code <= 0x5a));
+}
+
+/** True for an ASCII hex digit in either case. */
+function hexDigit(code: number | undefined): boolean {
+  return code !== undefined && ((code >= 0x30 && code <= 0x39) || (upper(code) >= 0x41 && upper(code) <= 0x46));
+}
+
 /** Find the first ROM keyword according to table and entry search order. */
 function keywordMatch(input: readonly number[], at: number): KeywordMatch | undefined {
   const tables: readonly {keywords: readonly string[]; prefix?: number; start: number}[] = [
@@ -115,6 +125,14 @@ export function tokenizeBasicLineWithSpans(text: string): {bytes: Uint8Array; le
     }
     if (code === 0x22) { emit(at, at + 1, [code], 'literal'); at++; rawMode = 'literal'; continue; }
     if (code === 0x3f) { emit(at, at + 1, [PRINT_TOKEN], 'keyword', 'PRINT'); at++; continue; }
+    // A $ that doesn't end a string variable name (A$) starts a hex number,
+    // whose digits stay as typed, so the CD in $CD00 is not a keyword.
+    if (code === 0x24 && !nameCharacter(output[output.length - 1])) {
+      let end = at + 1;
+      while (hexDigit(input[end])) end++;
+      emit(at, end, input.slice(at, end).map(upper), 'text'); at = end;
+      continue;
+    }
     if ((upper(code) === 0x4d) && matches(input, at, 'MON')) {
       const after = input[at + 3];
       if (after === undefined || after === 0x20 || after === 0x3a) { emit(at, at + 3, [basicTokenTables.mon], 'keyword', 'MON'); at += 3; continue; }

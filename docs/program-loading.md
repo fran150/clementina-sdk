@@ -12,7 +12,7 @@ program. The game then loads its assets through the runtime.
 `buildProject().value.sdRoot` is project-relative. CLI `run`, SDK debug sessions
 and Studio mount `resolve(projectRoot, build.sdRoot)`; load-plan paths are
 relative to that mount. Builds without `build.assets` retain `sdRoot: "."`.
-Load runtime games at `$1800` or higher so BLOAD's resident loader survives: the
+Load runtime games at `$1800` or higher so BRUN's resident loader survives: the
 kernel, which holds the loader, ends below `$1600`, and `$1800` leaves some room.
 
 
@@ -27,19 +27,22 @@ normally produce one logical PRG image; separate PRGs are useful for banked data
 overlays, or independently loaded modules. Portable project assets remain authoring
 inputs. PRGs, raw MIA binaries, and the bootstrap are generated build outputs.
 
-The final line uses `BLOAD`'s run argument:
+Each PRG step picks its bank with `BANK` first, and the final line uses `BRUN`:
 
 ```basic
-10 MIALOAD "PALETTE.BIN",256,256
-20 MIALOAD "TILES.BIN",512,6144
-30 BLOAD "BANK1.PRG"
-40 BLOAD "GAME.PRG",24576
+10 MIALOAD "PALETTE.BIN",256
+20 MIALOAD "TILES.BIN",512
+30 BANK 1:BLOAD "BANK1.PRG"
+40 BANK 0:BRUN "GAME.PRG"
 ```
 
-`BLOAD "GAME.PRG",24576` loads the PRG according to its header and jumps to
-`$6000`. It does not return to BASIC. A separate `BLOAD` followed by `SYS` is not
-the standard takeover path: the ROM loads wherever the file says, so a returning
-load at or above `$0400` may overwrite the kernel or the interpreter it returns to.
+`BANK n` picks the bank that `BLOAD` and `BRUN` load into from `$8000` up; the
+bootstrap writes it only when it changes, and always before the first PRG.
+`BRUN "GAME.PRG"` loads the PRG at its header address and jumps to its first
+byte, or to `BRUN "GAME.PRG",run` when the entry point is elsewhere in the image.
+It does not return to BASIC. A separate `BLOAD` followed by `SYS` is not the
+standard takeover path: the ROM loads wherever the file says, so a returning load
+at or above `$0400` may overwrite the kernel or the interpreter it returns to.
 `SYS` remains appropriate for a machine-code subroutine that was loaded without
 destroying BASIC and returns with `RTS`: below `$0400` (`$0280-$02F7` is free), in
 banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE 63,lo:POKE 64,hi:CLEAR`).
@@ -76,8 +79,10 @@ const info = inspectPrg(file);
 Steps execute in array order. An assembly plan ends with exactly one PRG step
 containing `runAddress`; no later step could execute because the kernel jumps away
 permanently. A BASIC plan ends with the `basic` step described below.
-Returning PRG steps normally use `$8000-$BFFF` with an explicit bank 1-31, which
-BASIC never touches. The ROM loads a returning PRG anywhere, so the check only warns
+A PRG file holds only its 2-byte load address; a step's `bank` (0-31, 0 when left
+out) is the one `BANK` picks before loading it, for the bytes from `$8000` up.
+Returning PRG steps normally use `$8000-$BFFF` with a bank 1-31, which BASIC never
+touches. The ROM loads a returning PRG anywhere, so the check only warns
 (`load.prg.return`) about a returning unbanked or bank-0 step: below `$0400` is
 system zero page, stack, input buffers and kernel variables, and from `$0400` up
 through bank 0 the load may overwrite the kernel or BASIC unless the program lowered
@@ -85,8 +90,8 @@ through bank 0 the load may overwrite the kernel or BASIC unless the program low
 bounds account for the loader's automatic advance across extended-RAM banks.
 
 MIA steps name the exact file length and must fit in the physical 256 KiB MIA RAM.
-Lengths at most 65,535 are emitted as `MIALOAD`'s `maxlen`; larger exact files load
-to EOF because the BASIC argument is only 16-bit. Paths are relative portable paths
+`MIALOAD` always loads the whole file, so the length is only checked, not emitted.
+Paths are relative portable paths
 inside the mounted build output and cannot contain traversal, quotes, backslashes,
 or control characters. Generated lines must fit the ROM's 80-character input limit.
 The SDK caps a plan at 6,399 steps so its line numbers, emitted in increments of
@@ -119,7 +124,8 @@ A `basic` step is a terminal step like a returning-forbidden `prg` step with
 `runAddress`; only one terminal step is allowed and it must be last.
 `checkLoadPlanLaunch`/`renderLoadPlanLaunch` render this as `mode: 'direct'`:
 every preceding step becomes the same `MIALOAD`/`BLOAD` command issued directly
-(not through a numbered bootstrap), followed by `LOAD "GAME.BAS"` and `RUN`. An
+(not through a numbered bootstrap), followed by `LOAD "GAME.BAS"` and `RUN`
+(`BANK 0:LOAD "GAME.BAS"` when an earlier step picked another bank). An
 assembly plan (ending in a returning `prg` step) instead renders `mode: 'numbered'`:
 a temporary numbered bootstrap program, executed with `RUN`. Both modes share the
 same `startCommand: 'RUN'`.
@@ -134,7 +140,7 @@ clementina-automation -sd build
 
 The path must be an existing directory. The server still binds only to loopback.
 The SDK can then exercise the real ROM editor, tokenizer, MIA filesystem, `MIALOAD`,
-and `BLOAD` path:
+`BANK` and `BRUN` path:
 
 ```ts
 await client.addBreakpoint(0x6000);
