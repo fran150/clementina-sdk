@@ -9,11 +9,14 @@ import {
   cDefines,
   checkRomInclude,
   cEnums,
+  cmakeDefault,
   cReturnFunctions,
+  cString,
   evaluate,
   firstDifference,
   indexDefaults,
   nameTable,
+  paletteBanks,
   parseDbg,
   parseLbl,
 } from '../scripts/check-drift.mjs';
@@ -89,6 +92,17 @@ test('drift check reads ld65 symbols by module and decodes keyword tables', () =
   assert.deepEqual(nameTable(bin, dbg.segments, 0x1000), ['END', 'T', 'OR']);
   assert.deepEqual(nameTable(bin, dbg.segments, 0x1000, 0x1003), ['END']);
   assert.deepEqual([...parseLbl('al 000400 .__KERNEL_START__\nal 001200 .__KERNEL_SIZE__\n')], [['__KERNEL_START__', 0x400], ['__KERNEL_SIZE__', 0x1200]]);
+  const text = Buffer.from([0, 0, 0, 0, 0x0d, 0x0a, 0x4f, 0x4b, 0, 0x41, 0x42, 0x43]);
+  assert.equal(cString(text, dbg.segments, 0x1000), '\r\nOK');
+  assert.throws(() => cString(text, dbg.segments, 0x1005), /no zero byte/);
+});
+
+test('drift check reads CMake defaults and palette files', () => {
+  const cmake = '# set(MIA_PALETTE "old" CACHE STRING "")\nset(MIA_PALETTE "clementina-text" CACHE STRING "Default palette")\nset(PALETTE_BIN_FILE "x")\n';
+  assert.equal(cmakeDefault(cmake, 'MIA_PALETTE'), 'clementina-text');
+  assert.throws(() => cmakeDefault(cmake, 'PALETTE_BIN_FILE'), /no CACHE default/);
+  assert.deepEqual(paletteBanks(Buffer.from([0x1f, 0x1a, 0xff, 0xff, 0x00, 0xf8, 0x00, 0x00]), 2), [[0x1a1f, 0xffff], [0xf800, 0]]);
+  assert.throws(() => paletteBanks(Buffer.alloc(6), 2), /not whole banks/);
 });
 
 test('drift report names the first value that differs', () => {

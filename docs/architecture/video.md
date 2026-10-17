@@ -21,7 +21,10 @@
 
 ## Palettes / CHR
 
-There are 16 global palette banks of 8 RGB565 colors each.
+There are 16 global palette banks of 8 RGB565 colors each. MIA loads its
+default palette, `clementina-text`, when video starts; `specs/video.json`
+`palettes.default` lists its 128 colors and names each bank's text ink, and
+`npm run check:drift` compares them with MIA's palette file.
 
 There are 8 CHR banks, 6,144 bytes each. A bank is either 3bpp or 1bpp.
 3bpp gives 256 8-color tiles. 1bpp interprets the three planes as three

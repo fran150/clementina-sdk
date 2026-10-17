@@ -19,61 +19,71 @@
       "name": "LOCAL_CONTROL",
       "start": 0,
       "size": 32,
-      "syncable": false
+      "syncable": false,
+      "description": "MIA and 6502 local control, counters and diagnostics; never sent to the client."
     },
     {
       "name": "RENDER_CONTROL",
       "start": 32,
       "size": 32,
-      "syncable": true
+      "syncable": true,
+      "description": "Mode, scroll, layer enables, active banks and CHR decode controls."
     },
     {
       "name": "CONTROL_RESERVED",
       "start": 64,
       "size": 192,
-      "syncable": true
+      "syncable": true,
+      "description": "Reserved; sent as zero in a full refresh."
     },
     {
       "name": "PALETTE",
       "start": 256,
       "size": 256,
-      "syncable": true
+      "syncable": true,
+      "description": "16 palette banks of 8 RGB565 colors."
     },
     {
       "name": "CHR",
       "start": 512,
       "size": 49152,
-      "syncable": true
+      "syncable": true,
+      "description": "8 CHR banks of 256 tiles, 24 bytes per tile (three 2048-byte planes)."
     },
     {
       "name": "BG_NT",
       "start": 49664,
       "size": 8000,
-      "syncable": true
+      "syncable": true,
+      "description": "8 background nametables of 40x25 tile codes."
     },
     {
       "name": "BG_ATTR",
       "start": 57664,
       "size": 8000,
-      "syncable": true
+      "syncable": true,
+      "description": "8 background attribute tables of 40x25 bytes."
     },
     {
       "name": "OV_NT",
       "start": 65664,
       "size": 1000,
-      "syncable": true
+      "syncable": true,
+      "description": "Overlay nametable: 40x25 tile codes, fixed to the screen."
     },
     {
       "name": "OV_ATTR",
       "start": 66664,
       "size": 1000,
-      "syncable": true
+      "syncable": true,
+      "description": "Overlay attributes: 40x25 bytes."
     },
     {
       "name": "OAM",
       "start": 67664,
       "size": 1280,
-      "syncable": true
+      "syncable": true,
+      "description": "256 sprite records of 5 bytes."
     }
   ],
   "renderControl": {
@@ -200,7 +210,196 @@
     "colorsPerBank": 8,
     "encoding": "RGB565 little-endian",
     "bytesPerBank": 16,
-    "totalBytes": 256
+    "totalBytes": 256,
+    "default": {
+      "name": "clementina-text",
+      "source": "clementina-mia palettes/clementina-text.palette.bin, embedded in the firmware by the CMake MIA_PALETTE option and copied into palette RAM when video starts; the emulator embeds the same file (--palette clementina-text)",
+      "notes": [
+        "colors holds the 16 banks in order, each as 8 RGB565 values.",
+        "Color 0 of every bank is the backdrop blue and color 1 is the bank's text ink, the color overlay text draws its set pixels in. Colors 2-7 are white, red, orange, yellow, green and cyan in every bank.",
+        "inks names color 1 of each bank: the 16 text colors the editor's ESC 0-F and BASIC's COLOR pick."
+      ],
+      "inks": [
+        "white",
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "cyan",
+        "backdrop blue",
+        "violet",
+        "magenta / pink",
+        "black",
+        "gray",
+        "light gray",
+        "dark red / brown",
+        "dark green",
+        "blue",
+        "white"
+      ],
+      "colors": [
+        [
+          6687,
+          65535,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          63488,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          64608,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          65216,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          2016,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          1887,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          6687,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          43039,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          64127,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          0,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          33808,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          50712,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          31008,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          992,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          27391,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ],
+        [
+          6687,
+          65535,
+          65535,
+          63488,
+          64608,
+          65216,
+          2016,
+          1887
+        ]
+      ]
+    }
   },
   "chr": {
     "banks": 8,
