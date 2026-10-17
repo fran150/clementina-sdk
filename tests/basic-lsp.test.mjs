@@ -95,7 +95,7 @@ test('keyword entries are the ones in specs/basic.json and drive the signatures'
   const spec = JSON.parse(await readFile(new URL('../specs/basic.json', import.meta.url), 'utf8'));
   assert.deepEqual(basicKeywordEntries, spec.keywords.entries);
   for (const [keyword, signature] of basicSignatureByKeyword) assert.equal(signature.label, basicKeywordByName.get(keyword).syntax);
-  assert.deepEqual(basicSignatureByKeyword.get('BLOAD').parameters, ['path', 'run?', 'address?']);
+  assert.deepEqual(basicSignatureByKeyword.get('BLOAD').parameters, ['path', 'address?']);
   assert.deepEqual(basicSignatureByKeyword.get('NEXT').parameters, ['variable...?']);
   assert.equal(basicSignatureByKeyword.has('TO'), false);
 });

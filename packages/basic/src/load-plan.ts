@@ -20,9 +20,9 @@ export interface PrgLoadStep {
   kind: 'prg';
   path: string;
   loadAddress: number;
-  /** Payload length, excluding the two- or three-byte PRG header. */
+  /** Payload length, excluding the 2-byte PRG header. */
   length: number;
-  /** Bank 0-31, required for load addresses $8000-$BFFF; forbidden below $8000. */
+  /** Bank 0-31 that BANK picks before the load, for the bytes from $8000 up; 0 when omitted. */
   bank?: number;
   /** A nonzero value makes this the terminal takeover step. */
   runAddress?: number;
@@ -62,11 +62,10 @@ function portablePath(path: string): boolean {
     && path.split('/').every(part => part !== '' && part !== '.' && part !== '..');
 }
 
-/** Count the payload bytes available from a PRG load address through supported RAM. */
+/** Count the payload bytes available from a PRG load address through bank 31. */
 function prgCapacity(step: Pick<PrgLoadStep, 'loadAddress' | 'bank'>): number {
-  if (step.loadAddress < 0x8000) return 0x8000 - step.loadAddress;
-  if (step.bank === undefined) return 0;
-  return (32 - step.bank) * 0x4000 - (step.loadAddress - 0x8000);
+  const banks = (32 - (step.bank ?? 0)) * 0x4000;
+  return step.loadAddress < 0x8000 ? 0x8000 - step.loadAddress + banks : banks - (step.loadAddress - 0x8000);
 }
 
 /** A diagnostic that reports a likely mistake without failing the plan. */
@@ -106,13 +105,11 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
     }
 
     const banked = step.loadAddress >= 0x8000;
-    if (banked && step.bank === undefined) diagnostics.push(diagnostic('load.prg.bank', `${base}/bank`, 'Bank 0-31 is required for a PRG loading at $8000-$BFFF'));
-    if (!banked && step.bank !== undefined) diagnostics.push(diagnostic('load.prg.bank', `${base}/bank`, 'An unbanked PRG must not declare a bank'));
-    if (step.length > prgCapacity(step)) diagnostics.push(diagnostic('load.prg.bounds', base, 'PRG payload exceeds its available unbanked RAM or the banks up to 31'));
+    if (step.length > prgCapacity(step)) diagnostics.push(diagnostic('load.prg.bounds', base, 'PRG payload runs past bank 31'));
     if (step.runAddress !== undefined) {
       if (terminal !== -1) diagnostics.push(diagnostic('load.run.multiple', `${base}/runAddress`, 'Only one terminal run step is allowed'));
       terminal = index;
-    } else if (!banked || step.bank === 0) {
+    } else if (!banked || !step.bank) {
       diagnostics.push(warning('load.prg.return', base, `This BLOAD returns to BASIC: below $${KERNEL_BASE.toString(16).toUpperCase()} is system RAM, and from there up through bank 0 it may overwrite the kernel or BASIC unless the program lowered MEMSIZ; banks 1-31 are always safe`));
     }
   });
@@ -137,21 +134,34 @@ function editorLine(statement: string, diagnostics: ClementinaDiagnostic[], path
   return line;
 }
 
-/** Render one validated load step as a ROM BASIC statement. */
-function loadStatement(step: LoadStep): string {
-  if (step.kind === 'mia') return `MIALOAD "${step.path}",${step.address}${step.length <= 0xffff ? `,${step.length}` : ''}`;
-  if (step.kind === 'basic') return `LOAD "${step.path}"`;
-  return `BLOAD "${step.path}"${step.runAddress === undefined ? '' : `,${step.runAddress}`}`;
+/**
+ * Render validated load steps as ROM BASIC statements. Each PRG step picks its
+ * bank with BANK first, unless the step before it already did; BANK is left
+ * as the user had it until the first PRG step, and a later BASIC program gets
+ * bank 0 back.
+ */
+function loadStatements(steps: readonly LoadStep[]): string[] {
+  let bank: number | undefined;
+  return steps.map(step => {
+    if (step.kind === 'mia') return `MIALOAD "${step.path}",${step.address}`;
+    const wanted = step.kind === 'prg' ? step.bank ?? 0 : bank === undefined ? undefined : 0;
+    const select = wanted === undefined || wanted === bank ? '' : `BANK ${wanted}:`;
+    bank = wanted;
+    if (step.kind === 'basic') return `${select}LOAD "${step.path}"`;
+    if (step.runAddress === undefined) return `${select}BLOAD "${step.path}"`;
+    return `${select}BRUN "${step.path}"${step.runAddress === step.loadAddress ? '' : `,${step.runAddress}`}`;
+  });
 }
 
 /** Render numbered lines after the shared load-plan validation has passed. */
 function numberedBootstrap(plan: LoadPlan): ValidationResult<string[]> {
   const diagnostics: ClementinaDiagnostic[] = [];
+  const statements = loadStatements(plan.steps);
   const lines = plan.steps.map((step, index) => {
     if (step.kind === 'basic') {
       diagnostics.push(diagnostic('load.basic.bootstrap', `/steps/${index}`, 'A BASIC terminal program uses direct launch commands, not a numbered bootstrap'));
     }
-    return editorLine(loadStatement(step), diagnostics, `/steps/${index}/path`, (index + 1) * 10);
+    return editorLine(statements[index]!, diagnostics, `/steps/${index}/path`, (index + 1) * 10);
   });
   return result(lines, diagnostics);
 }
@@ -179,9 +189,8 @@ export function checkLoadPlanLaunch(value: unknown): ValidationResult<LoadPlanLa
       : bootstrap as ValidationResult<LoadPlanLaunch>;
   }
   const diagnostics: ClementinaDiagnostic[] = [];
-  const lines = checked.value.steps.map((step, index) => {
-    return editorLine(loadStatement(step), diagnostics, `/steps/${index}/path`);
-  });
+  const statements = loadStatements(checked.value.steps);
+  const lines = statements.map((statement, index) => editorLine(statement, diagnostics, `/steps/${index}/path`));
   return result({mode: 'direct', lines, startCommand: 'RUN'}, diagnostics);
 }
 

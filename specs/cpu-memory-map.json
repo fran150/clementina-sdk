@@ -1069,7 +1069,7 @@
           "size": 2,
           "name": "KTMP",
           "owner": "kernel",
-          "description": "Scratch: the overlay offset and address CHROUT computes. KERN_LOAD takes its run address here."
+          "description": "Scratch: the overlay offset and address CHROUT computes. KERN_LOAD takes its run address here when it jumps; 0 means the first byte loaded."
         },
         {
           "address": 244,
@@ -1101,7 +1101,7 @@
           "size": 1,
           "name": "KLOAD_BANK",
           "owner": "kernel",
-          "description": "KERN_LOAD: destination bank, 0 when unbanked."
+          "description": "KERN_LOAD: the bank being written at $8000-$BFFF."
         },
         {
           "address": 250,
@@ -1334,10 +1334,26 @@
         {
           "address": 774,
           "hex": "$0306",
-          "size": 3,
+          "size": 1,
+          "name": "DATA_BANK",
           "owner": "kernel",
-          "unused": true,
-          "description": "Unused since the CINV/COUTV stubs were removed (2026-10-11); the variables after them kept their addresses."
+          "description": "The bank BASIC's BANK statement picked for BLOAD, BRUN, BSAVE, PEEK, POKE and SYS at $8000-$BFFF; 0 at cold and warm start."
+        },
+        {
+          "address": 775,
+          "hex": "$0307",
+          "size": 1,
+          "name": "KLOAD_RUN_BANK",
+          "owner": "kernel",
+          "description": "KERN_LOAD: the bank it maps at $8000-$BFFF before it jumps to the run address."
+        },
+        {
+          "address": 776,
+          "hex": "$0308",
+          "size": 1,
+          "name": "KLOAD_MODE",
+          "owner": "kernel",
+          "description": "KERN_LOAD: bit 7 set when it jumps to the run address instead of returning."
         },
         {
           "address": 777,

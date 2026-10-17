@@ -356,7 +356,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "type": "number",
         "min": 0,
         "max": 65535,
-        "note": "CPU address; $8000-$BFFF writes the mapped Extended RAM bank, and $C000 and up reach I/O and the MIA registers."
+        "note": "CPU address; $8000-$BFFF writes the bank BANK picked (bank 0 is mapped again afterwards), and $C000 and up reach I/O and the MIA registers."
       },
       {
         "name": "value",
@@ -1107,7 +1107,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "type": "number",
         "min": 0,
         "max": 65535,
-        "note": "CPU address; $8000-$BFFF reads the mapped Extended RAM bank."
+        "note": "CPU address; $8000-$BFFF reads the bank BANK picked (bank 0 is mapped again afterwards)."
       }
     ],
     "returns": {
@@ -1808,8 +1808,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "CHRLOAD",
     "kind": "statement",
-    "syntax": "CHRLOAD bank,offset,count,path",
+    "syntax": "CHRLOAD path,bank[,offset]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "bank",
         "type": "number",
@@ -1819,29 +1823,23 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "offset",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 6143,
-        "note": "Byte offset into the 6144-byte bank."
-      },
-      {
-        "name": "count",
-        "type": "number",
-        "min": 0,
-        "max": 65535,
-        "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the bank, so a long file continues into the next banks."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Byte offset into the 6144-byte bank; omitted, 0. A long file continues into the next banks."
       }
     ],
-    "summary": "Loads up to count bytes from an SD card file into a CHR bank, starting offset bytes into it."
+    "summary": "Loads a whole SD card file into a CHR bank, starting offset bytes into it."
   },
   {
     "keyword": "PALLOAD",
     "kind": "statement",
-    "syntax": "PALLOAD bank,offset,count,path",
+    "syntax": "PALLOAD path,bank[,offset]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "bank",
         "type": "number",
@@ -1851,49 +1849,33 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "offset",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 15,
-        "note": "Byte offset into the 16-byte bank (8 colors of 2 bytes)."
-      },
-      {
-        "name": "count",
-        "type": "number",
-        "min": 0,
-        "max": 255,
-        "note": "Maximum bytes, not colors; 0 loads to the end of the file. Not checked against the bank, so a long file continues into the next banks."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Byte offset into the 16-byte bank (8 colors of 2 bytes); omitted, 0. A long file continues into the next banks."
       }
     ],
-    "summary": "Loads up to count palette bytes from an SD card file into a palette bank, starting offset bytes into it."
+    "summary": "Loads a whole SD card file of RGB565 bytes into palette RAM, starting offset bytes into a palette bank."
   },
   {
     "keyword": "OAMLOAD",
     "kind": "statement",
-    "syntax": "OAMLOAD index,count,path",
+    "syntax": "OAMLOAD path[,index]",
     "arguments": [
-      {
-        "name": "index",
-        "type": "number",
-        "min": 0,
-        "max": 255,
-        "note": "First sprite."
-      },
-      {
-        "name": "count",
-        "type": "number",
-        "min": 0,
-        "max": 255,
-        "note": "Number of 5-byte sprite records; 0 loads to the end of the file. Not checked against the 256 sprites."
-      },
       {
         "name": "path",
         "type": "path"
+      },
+      {
+        "name": "index",
+        "type": "number",
+        "optional": true,
+        "min": 0,
+        "max": 255,
+        "note": "First sprite; omitted, 0. The file holds 5-byte sprite records."
       }
     ],
-    "summary": "Loads count sprites' 5-byte OAM records from an SD card file, starting at sprite index."
+    "summary": "Loads a whole SD card file of 5-byte sprite records into OAM, starting at sprite index."
   },
   {
     "keyword": "SPRITE",
@@ -2157,6 +2139,42 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
     "summary": "Writes one byte (0-255) to an open file."
   },
   {
+    "keyword": "BANK",
+    "kind": "statement",
+    "syntax": "BANK bank",
+    "arguments": [
+      {
+        "name": "bank",
+        "type": "number",
+        "min": 0,
+        "max": 31,
+        "note": "0 at power-on and warm start."
+      }
+    ],
+    "summary": "Picks the bank that BLOAD, BRUN, BSAVE, PEEK, POKE and SYS use at $8000-$BFFF; each maps it only while it works there, then maps bank 0 back."
+  },
+  {
+    "keyword": "BRUN",
+    "kind": "statement",
+    "syntax": "BRUN path[,run]",
+    "arguments": [
+      {
+        "name": "path",
+        "type": "path",
+        "note": "A PRG file, loaded at its header address; bytes from $8000 up go to the bank BANK picked."
+      },
+      {
+        "name": "run",
+        "type": "number",
+        "optional": true,
+        "min": 0,
+        "max": 65535,
+        "note": "Address jumped to; 0 or omitted jumps to the first byte loaded. BASIC does not return."
+      }
+    ],
+    "summary": "Loads a PRG file at its header address and jumps to it, with the BANK bank mapped; it never returns to BASIC."
+  },
+  {
     "keyword": "NTREAD",
     "kind": "statement",
     "syntax": "NTREAD table,cell,count",
@@ -2188,8 +2206,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "NTLOAD",
     "kind": "statement",
-    "syntax": "NTLOAD table,cell,count,path",
+    "syntax": "NTLOAD path,table[,cell]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "table",
         "type": "number",
@@ -2200,29 +2222,23 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "cell",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 999,
-        "note": "Cell offset within the 1000-cell table."
-      },
-      {
-        "name": "count",
-        "type": "number",
-        "min": 0,
-        "max": 65535,
-        "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the table."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Cell offset within the 1000-cell table; omitted, 0. A long file continues into the next tables."
       }
     ],
-    "summary": "Loads up to count bytes from a file into a background nametable, starting at cell."
+    "summary": "Loads a whole file into a background table's nametable, starting at cell."
   },
   {
     "keyword": "NTSAVE",
     "kind": "statement",
-    "syntax": "NTSAVE table,cell,count,path",
+    "syntax": "NTSAVE path,table[,cell[,count]]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "table",
         "type": "number",
@@ -2233,23 +2249,21 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "cell",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 999,
-        "note": "Cell offset within the 1000-cell table."
+        "note": "Cell offset within the 1000-cell table; omitted, 0."
       },
       {
         "name": "count",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 65535,
-        "note": "Bytes written; not checked against the table."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Bytes written; omitted, the rest of the table. Not checked against the table."
       }
     ],
-    "summary": "Saves count bytes of a background nametable, starting at cell, to a file, creating or truncating it."
+    "summary": "Saves count bytes of a background table's nametable, or the rest of the table, starting at cell, to a file."
   },
   {
     "keyword": "ATRREAD",
@@ -2283,8 +2297,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "ATRLOAD",
     "kind": "statement",
-    "syntax": "ATRLOAD table,cell,count,path",
+    "syntax": "ATRLOAD path,table[,cell]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "table",
         "type": "number",
@@ -2295,29 +2313,23 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "cell",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 999,
-        "note": "Cell offset within the 1000-cell table."
-      },
-      {
-        "name": "count",
-        "type": "number",
-        "min": 0,
-        "max": 65535,
-        "note": "Maximum bytes; 0 loads to the end of the file. Not checked against the table."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Cell offset within the 1000-cell table; omitted, 0. A long file continues into the next tables."
       }
     ],
-    "summary": "Loads up to count bytes from a file into a background table's attribute plane, starting at cell."
+    "summary": "Loads a whole file into a background table's attribute plane, starting at cell."
   },
   {
     "keyword": "ATRSAVE",
     "kind": "statement",
-    "syntax": "ATRSAVE table,cell,count,path",
+    "syntax": "ATRSAVE path,table[,cell[,count]]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "table",
         "type": "number",
@@ -2328,23 +2340,21 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "cell",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 999,
-        "note": "Cell offset within the 1000-cell table."
+        "note": "Cell offset within the 1000-cell table; omitted, 0."
       },
       {
         "name": "count",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 65535,
-        "note": "Bytes written; not checked against the table."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Bytes written; omitted, the rest of the table. Not checked against the table."
       }
     ],
-    "summary": "Saves count bytes of a background table's attribute plane, starting at cell, to a file."
+    "summary": "Saves count bytes of a background table's attribute plane, or the rest of the table, starting at cell, to a file."
   },
   {
     "keyword": "CHRREAD",
@@ -2378,8 +2388,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "CHRSAVE",
     "kind": "statement",
-    "syntax": "CHRSAVE bank,offset,count,path",
+    "syntax": "CHRSAVE path,bank[,offset[,count]]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "bank",
         "type": "number",
@@ -2390,23 +2404,21 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "offset",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 6143,
-        "note": "Byte offset within the 6144-byte bank."
+        "note": "Byte offset within the 6144-byte bank; omitted, 0."
       },
       {
         "name": "count",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 65535,
-        "note": "Bytes written; not checked against the bank."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Bytes written; omitted, the rest of the bank. Not checked against the bank."
       }
     ],
-    "summary": "Saves count bytes of a CHR bank, starting at byte offset, to a file."
+    "summary": "Saves count bytes of a CHR bank, or the rest of the bank, starting at byte offset, to a file."
   },
   {
     "keyword": "PALREAD",
@@ -2440,8 +2452,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "PALSAVE",
     "kind": "statement",
-    "syntax": "PALSAVE bank,offset,count,path",
+    "syntax": "PALSAVE path,bank[,offset[,count]]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "bank",
         "type": "number",
@@ -2452,23 +2468,21 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "offset",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 15,
-        "note": "Byte offset within the 16-byte bank."
+        "note": "Byte offset within the 16-byte bank; omitted, 0."
       },
       {
         "name": "count",
         "type": "number",
+        "optional": true,
         "min": 0,
-        "max": 255,
-        "note": "Bytes written; not checked against the bank."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "max": 65535,
+        "note": "Bytes written; omitted, the rest of the bank. Not checked against the bank."
       }
     ],
-    "summary": "Saves count raw palette bytes of a palette bank, starting at offset, to a file."
+    "summary": "Saves count raw palette bytes, or the rest of the palette bank, starting at offset, to a file."
   },
   {
     "keyword": "OAMREAD",
@@ -2495,33 +2509,35 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "OAMSAVE",
     "kind": "statement",
-    "syntax": "OAMSAVE index,count,path",
+    "syntax": "OAMSAVE path[,index[,count]]",
     "arguments": [
+      {
+        "name": "path",
+        "type": "path"
+      },
       {
         "name": "index",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 255,
-        "note": "First sprite."
+        "note": "First sprite; omitted, 0."
       },
       {
         "name": "count",
         "type": "number",
+        "optional": true,
         "min": 0,
         "max": 255,
-        "note": "Number of 5-byte sprite records written."
-      },
-      {
-        "name": "path",
-        "type": "path"
+        "note": "Number of 5-byte sprite records written; omitted, the rest of the 256."
       }
     ],
-    "summary": "Saves count 5-byte sprite records, starting at OAM index, to a file."
+    "summary": "Saves count 5-byte sprite records, or the rest of the 256, starting at OAM index, to a file."
   },
   {
     "keyword": "MIALOAD",
     "kind": "statement",
-    "syntax": "MIALOAD path,address[,length[,offset[,rows,fileStride,ramStride]]]",
+    "syntax": "MIALOAD path,address",
     "arguments": [
       {
         "name": "path",
@@ -2533,49 +2549,9 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "min": 0,
         "max": 16777215,
         "note": "MIA RAM destination. BASIC accepts 24 bits and leaves addresses past MIA RAM to the firmware."
-      },
-      {
-        "name": "length",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 16777215,
-        "note": "Omitted or 0 loads to the end of the file. In the rectangle form, the bytes in each row."
-      },
-      {
-        "name": "offset",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 4294967295,
-        "note": "Byte offset into the file to start from."
-      },
-      {
-        "name": "rows",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 65535,
-        "note": "Rectangle form: the number of rows; fileStride and ramStride must follow."
-      },
-      {
-        "name": "fileStride",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 4294967295,
-        "note": "Bytes between row starts in the file."
-      },
-      {
-        "name": "ramStride",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 16777215,
-        "note": "Bytes between row starts in MIA RAM."
       }
     ],
-    "summary": "Loads a file, part of a file, or a rectangle of rows straight into MIA RAM at a raw address."
+    "summary": "Loads a whole file straight into MIA RAM at a raw address, stopping at the end of the file or of MIA RAM."
   },
   {
     "keyword": "MIASAVE",
@@ -2597,8 +2573,8 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "name": "length",
         "type": "number",
         "min": 0,
-        "max": 65535,
-        "note": "Bytes saved; 16 bits, unlike MIALOAD."
+        "max": 16777215,
+        "note": "Bytes saved."
       }
     ],
     "summary": "Saves length bytes of MIA RAM starting at a raw address to a file."
@@ -3047,20 +3023,12 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
   {
     "keyword": "BLOAD",
     "kind": "statement",
-    "syntax": "BLOAD path[,run[,address]]",
+    "syntax": "BLOAD path[,address]",
     "arguments": [
       {
         "name": "path",
         "type": "path",
-        "note": "A PRG-style file: a 2-byte load address, plus a bank byte 0-31 when it is in $8000-$BFFF."
-      },
-      {
-        "name": "run",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 65535,
-        "note": "0 or omitted returns to BASIC; any other address is jumped to after loading, and BASIC does not return."
+        "note": "A PRG file: a 2-byte load address, then the data. Bytes from $8000 up go to the bank BANK picked, continuing into the next bank past $BFFF."
       },
       {
         "name": "address",
@@ -3068,15 +3036,15 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "optional": true,
         "min": 0,
         "max": 49151,
-        "note": "Load address override; give run 0 to load without running. $8000-$BFFF loads into the bank mapped now; $C000 and up gives FILE I/O ERROR."
+        "note": "Load address instead of the header's; 0 or omitted uses the header's. A header address of $C000 and up gives FILE I/O ERROR."
       }
     ],
-    "summary": "Loads a PRG-style file into CPU RAM at its header address or an override, optionally jumping to a run address."
+    "summary": "Loads a PRG file into CPU RAM at its header address or another address, then returns to BASIC."
   },
   {
     "keyword": "BSAVE",
     "kind": "statement",
-    "syntax": "BSAVE path,address,length[,bank]",
+    "syntax": "BSAVE path,address,length",
     "arguments": [
       {
         "name": "path",
@@ -3086,26 +3054,18 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "name": "address",
         "type": "number",
         "min": 0,
-        "max": 65535,
-        "note": "CPU start address."
+        "max": 49151,
+        "note": "CPU start address; from $8000 up, the bank BANK picked."
       },
       {
         "name": "length",
         "type": "number",
         "min": 0,
         "max": 65535,
-        "note": "Bytes saved after the header; a save past $BFFF continues at $8000 of the next bank."
-      },
-      {
-        "name": "bank",
-        "type": "number",
-        "optional": true,
-        "min": 0,
-        "max": 31,
-        "note": "Only for addresses $8000 and up: the bank to save from, recorded in the header. Omitted: the bank mapped now."
+        "note": "Bytes saved after the 2-byte header; a save past $BFFF continues at $8000 of the next bank."
       }
     ],
-    "summary": "Saves length bytes of CPU RAM from address to a file in BLOAD's format, adding a bank byte at $8000 and up."
+    "summary": "Saves length bytes of CPU RAM from address to a file in BLOAD's format, a 2-byte address header and the data."
   },
   {
     "keyword": "SYS",
@@ -3117,7 +3077,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "type": "number",
         "min": 0,
         "max": 65535,
-        "note": "Called with JSR; the routine returns with RTS."
+        "note": "Called with JSR; the routine returns with RTS. At $8000-$BFFF it runs with the bank BANK picked mapped, and bank 0 is mapped again when it returns."
       }
     ],
     "summary": "Calls a machine-code subroutine at a CPU address with JSR and continues after it returns."
