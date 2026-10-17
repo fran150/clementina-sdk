@@ -209,6 +209,16 @@ export function paletteBanks(bin, perBank) {
   return Array.from({length: bin.length / (perBank * 2)}, (_, bank) => Array.from({length: perBank}, (__, c) => bin.readUInt16LE((bank * perBank + c) * 2)));
 }
 
+/** A CHR dump as [bank][plane][tile], each tile its rows as hex. */
+export function chrTiles(bin, chr) {
+  if (bin.length !== chr.banks * chr.bytesPerBank) throw Error(`is ${bin.length} bytes, not ${chr.banks} banks of ${chr.bytesPerBank}`);
+  const rows = chr.planeBytes / chr.tilesPerBank;
+  return Array.from({length: chr.banks}, (_, bank) => Array.from({length: chr.planes}, (__, plane) => Array.from({length: chr.tilesPerBank}, (___, tile) => {
+    const at = bank * chr.bytesPerBank + plane * chr.planeBytes + tile * rows;
+    return bin.subarray(at, at + rows).toString('hex');
+  })));
+}
+
 // ---------------------------------------------------------------------------------------------
 // ROM build
 
@@ -438,6 +448,16 @@ export function checkMia(report, specs, mia, rom) {
   const palette = video.palettes.default, paletteFile = `palettes/${palette.name}.palette.bin`;
   report.same('video.json', 'palettes.default.name', palette.name, () => cmakeDefault(readFileSync(path.join(mia.dir, 'CMakeLists.txt'), 'utf8'), 'MIA_PALETTE'), 'CMakeLists.txt MIA_PALETTE');
   report.same('video.json', 'palettes.default.colors', palette.colors, () => paletteBanks(readFileSync(path.join(mia.dir, paletteFile)), video.palettes.colorsPerBank), paletteFile);
+  // Likewise charsets/<MIA_CHARSET>.bin into CHR RAM: the glyph plane, its reversed copy, and nothing else.
+  const charset = video.chr.default, charsetFile = `charsets/${charset.name}.bin`;
+  let tiles;
+  const chr = () => (tiles ??= chrTiles(readFileSync(path.join(mia.dir, charsetFile)), video.chr));
+  const reversed = hexRows => Buffer.from(hexRows, 'hex').map(b => b ^ 0xff).toString('hex');
+  const used = new Set([`${charset.glyphBank}/${charset.plane}`, `${charset.reverseBank}/${charset.plane}`]);
+  report.same('video.json', 'chr.default.name', charset.name, () => cmakeDefault(readFileSync(path.join(mia.dir, 'CMakeLists.txt'), 'utf8'), 'MIA_CHARSET'), 'CMakeLists.txt MIA_CHARSET');
+  report.same('video.json', 'chr.default.glyphs', charset.glyphs, () => chr()[charset.glyphBank][charset.plane], charsetFile);
+  report.same('video.json', 'chr.default reversed glyphs', charset.glyphs.map(reversed), () => chr()[charset.reverseBank][charset.plane], charsetFile);
+  report.same('video.json', 'chr.default planes with art', [...used], () => chr().flatMap((planes, bank) => planes.map((t, plane) => (t.some(g => /[^0]/.test(g)) ? `${bank}/${plane}` : null))).filter(Boolean), charsetFile);
 
   const audio = specs['audio.json'];
   same('audio.json', 'layoutVersion', audio.layoutVersion, 'MIA_AUDIO_VERSION');
@@ -585,6 +605,8 @@ export function checkRom(report, specs, rom) {
   table(report, 'basic.json', errors.entries, e => e.name, e => e.code, errNames, name => rom.value(name, 'basic'), 'error.s');
   for (const m of errors.messages) report.same('basic.json', `errors.messages ${m.name}`, m.text, text(m.name), `the ROM build (${m.name})`);
   for (const [key, name] of [['suffix', 'QT_ERROR'], ['inLine', 'QT_IN'], ['ready', 'QT_OK']]) report.same('basic.json', `errors.format.${key}`, errors.format[key], text(name), `message.s ${name}`);
+
+  for (const k of specs['video.json'].chr.default.kernelTiles) report.same('video.json', `chr.default.kernelTiles ${k.name}`, k.code, () => rom.value(k.name, 'kernel'), 'kernel.inc');
 }
 
 // ---------------------------------------------------------------------------------------------

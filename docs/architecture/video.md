@@ -28,7 +28,12 @@ default palette, `clementina-text`, when video starts; `specs/video.json`
 
 There are 8 CHR banks, 6,144 bytes each. A bank is either 3bpp or 1bpp.
 3bpp gives 256 8-color tiles. 1bpp interprets the three planes as three
-independent 256-tile monochrome pages.
+independent 256-tile monochrome pages. MIA loads its default character set,
+`clascii`, when video starts: bank 0 plane 0 holds the glyph for each character
+code and bank 1 plane 0 the same glyphs reversed. `specs/video.json`
+`chr.default` holds the 256 glyphs, the tiles the kernel uses as cursors and the
+screen editor's glyph-mode rule (which key types which tile), and
+`npm run check:drift` compares them with MIA's charset file and the ROM build.
 
 Color index 0 is visible on the background and transparent for sprites/overlay.
 

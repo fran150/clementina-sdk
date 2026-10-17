@@ -10,7 +10,7 @@
       "branch": "main",
       "commit": "7c9676afead948611e51da2d998741e78fef126b",
       "role": "physical MIA firmware; register/RAM protocols and hardware implementation",
-      "checks": "C headers under src/mia (plus sd.c's SD pins and the *_configure_index reset defaults): commands, errors, status and IRQ bits, config fields, index ids and defaults, RAM blocks, GPIO pins, and the machine, video, audio, input and storage values they define; also the default palette file CMakeLists.txt MIA_PALETTE names"
+      "checks": "C headers under src/mia (plus sd.c's SD pins and the *_configure_index reset defaults): commands, errors, status and IRQ bits, config fields, index ids and defaults, RAM blocks, GPIO pins, and the machine, video, audio, input and storage values they define; also the default palette and charset files CMakeLists.txt MIA_PALETTE and MIA_CHARSET name"
     },
     {
       "name": "clementina-rom",
@@ -18,7 +18,7 @@
       "branch": "main",
       "commit": "e9c35952c7071306a04f0300194a674bd45e7341",
       "role": "6502 kernel/BASIC/WozMon; kernel ABI and programmer-facing memory map",
-      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table, image bounds, named CPU locations, VIA registers, BASIC token tables, error messages and debugger addresses, and the ROM's copies of MIA registers, ids, bits and opcodes that use the spec's or MIA's names, plus its committed src/include/mia.inc, which must equal the generated one"
+      "checks": "a cc65 build's kernel.dbg, kernel.lbl and kernel.bin: the jump table, image bounds, named CPU locations, VIA registers, BASIC token tables, error messages, editor cursor tiles and debugger addresses, and the ROM's copies of MIA registers, ids, bits and opcodes that use the spec's or MIA's names, plus its committed src/include/mia.inc, which must equal the generated one"
     }
   ],
   "sourcePrecedence": [
