@@ -8,6 +8,7 @@ import {
   Report,
   cDefines,
   checkRomInclude,
+  chrTiles,
   cEnums,
   cmakeDefault,
   cReturnFunctions,
@@ -97,12 +98,15 @@ test('drift check reads ld65 symbols by module and decodes keyword tables', () =
   assert.throws(() => cString(text, dbg.segments, 0x1005), /no zero byte/);
 });
 
-test('drift check reads CMake defaults and palette files', () => {
+test('drift check reads CMake defaults, palette and charset files', () => {
   const cmake = '# set(MIA_PALETTE "old" CACHE STRING "")\nset(MIA_PALETTE "clementina-text" CACHE STRING "Default palette")\nset(PALETTE_BIN_FILE "x")\n';
   assert.equal(cmakeDefault(cmake, 'MIA_PALETTE'), 'clementina-text');
   assert.throws(() => cmakeDefault(cmake, 'PALETTE_BIN_FILE'), /no CACHE default/);
   assert.deepEqual(paletteBanks(Buffer.from([0x1f, 0x1a, 0xff, 0xff, 0x00, 0xf8, 0x00, 0x00]), 2), [[0x1a1f, 0xffff], [0xf800, 0]]);
   assert.throws(() => paletteBanks(Buffer.alloc(6), 2), /not whole banks/);
+  const chr = {banks: 2, planes: 2, bytesPerBank: 8, planeBytes: 4, tilesPerBank: 2};
+  assert.deepEqual(chrTiles(Buffer.from([1, 2, 3, 4, 0, 0, 0, 0, 0xff, 0, 0, 0, 0, 0, 0, 9]), chr), [[['0102', '0304'], ['0000', '0000']], [['ff00', '0000'], ['0000', '0009']]]);
+  assert.throws(() => chrTiles(Buffer.alloc(15), chr), /not 2 banks of 8/);
 });
 
 test('drift report names the first value that differs', () => {
