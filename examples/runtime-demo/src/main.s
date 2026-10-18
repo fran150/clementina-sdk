@@ -1,5 +1,7 @@
-; Runtime integration example. $0700: last completed check; $0701: error;
-; $0702: $A5 on completion. All routine results are checked before continuing.
+; Runtime integration example. Its results go in $0280-$02F7, which the
+; memory map leaves free for programs: $0280: last completed check; $0281:
+; error; $0282: $A5 on completion. All routine results are checked before
+; continuing.
 .setcpu "65C02"
 .include "assets.inc"
 .import __BSS_RUN__, __BSS_SIZE__
@@ -15,19 +17,19 @@ digits: .byte 0, 0
  .local ok
  bcc ok
  lda #number
- sta $0700
+ sta $0280
  lda rt_error
- sta $0701
+ sta $0281
  jmp failed
 ok:
  lda #number
- sta $0700
+ sta $0280
 .endmacro
 game_start:
  cld
- stz $0700
- stz $0701
- stz $0702
+ stz $0280
+ stz $0281
+ stz $0282
  ; BLOAD does not initialize BSS. The game owns initialization.
  lda #<__BSS_RUN__
  sta clear_ptr
@@ -85,8 +87,8 @@ poll:
  Check 14
  ; GetCell values are preserved separately below (Check changes A).
  GetCell BG_LEVEL1, #0, #0
- sta $0703
- stx $0704
+ sta $0283
+ stx $0284
  DrawRect BG_LEVEL1, #0, #0, #2, #1, #0, #1, #1
  Check 15
  DrawRow BG_LEVEL1, #0, #0, #2, #0, #1, #2
@@ -98,8 +100,8 @@ poll:
  LoadColumns BG_LEVEL1, #0, #1, #SLOT_BANK
  Check 19
  GetCell BG_LEVEL1, #0, #24
- sta $0706
- stx $0707
+ sta $0286
+ stx $0287
  LoadRect BG_LEVEL1, #0, #0, #2, #1
  Check 20
  DrawRect BG_LEVEL1, #0, #0, #2, #1, #0, #0, #0
@@ -176,12 +178,12 @@ poll:
  stz rt_a0
  RuntimeRestore
  lda rt_a0
- sta $0705
+ sta $0285
  lda #$A5
- sta $0702
+ sta $0282
 finished:
  jmp finished
 failed:
  lda rt_error
- sta $0701
+ sta $0281
  jmp failed

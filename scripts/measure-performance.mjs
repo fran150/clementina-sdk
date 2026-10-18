@@ -166,15 +166,12 @@ async function measureRuntime(sprites) {
     ['game_start:\n cld\n', 'game_start:\n cld\n sei\n'],
     ['.include "assets.inc"\n', '.include "assets.inc"\n.include "clementina.inc"\n'],
     ['.segment "CODE"\n', extraData],
-    [' lda #$A5\n sta $0702', extra + ' lda #$A5\n sta $0702'],
+    [' lda #$A5\n sta $0282', extra + ' lda #$A5\n sta $0282'],
   ];
   for (const [needle, replacement] of edits) {
     assert.equal(source.split(needle).length, 2, `Expected one ${JSON.stringify(needle)}`);
     source = source.replace(needle, replacement);
   }
-  // The demo's result bytes at $0700-$0707 are inside the kernel's code
-  // (CHROUT's printable path), which the kernel calls above need intact.
-  source = source.replace(/\$070([0-9A-F])/g, '$$028$1');
   await writeFile(join(root, 'src/main.s'), source);
 
   const built = await buildProject(root);

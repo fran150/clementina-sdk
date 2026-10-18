@@ -9,7 +9,7 @@ spec and source. The debugger supports BASIC and assembly projects.
 
 ```sh
 node agents/workflows/debug-game.mjs <project> --line 124 \
-  --source src/main.s --memory 1792:16 \
+  --source src/main.s --memory 640:16 \
   --emulator /path/to/clementina-automation
 ```
 

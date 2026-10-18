@@ -19,8 +19,8 @@ node packages/cli/bin/clementina.mjs build examples/hardware-audio
 Copy the **contents** of `examples/runtime-demo/build/sd` to a card directory
 for the runtime test. On the machine, load `BOOT.BAS` and run it as described in
 [program loading](program-loading.md). Record the displayed result and, if a
-hardware memory inspection interface is available, `$0700` (last completed
-check), `$0701` (runtime error), and `$0702` (completion marker `$A5`). The
+hardware memory inspection interface is available, `$0280` (last completed
+check), `$0281` (runtime error), and `$0282` (completion marker `$A5`). The
 checked-in [assembly source](../examples/runtime-demo/src/main.s) defines those
 mailbox fields. Keep the built files and their hashes with the report.
 

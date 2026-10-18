@@ -42,7 +42,7 @@ for(const [needle,replacement] of [
  [' Check 36\n',' Check 36\nanimation_moved:\n'],
  [' Check 37\n',' Check 37\nanimation_stopped:\n'],
  [' Check 41\n',' Check 41\nsong_playing:\n'],
- [' SongPosition #0\n Check 42',' SongPosition #0\n sta $070A\n stx $070B\n sty $070C\n Check 42'],
+ [' SongPosition #0\n Check 42',' SongPosition #0\n sta $028A\n stx $028B\n sty $028C\n Check 42'],
  [' Check 43\n',' Check 43\nsong_stopped:\n'],
  [' Check 45\n',' Check 45\nsound_started:\n'],
  [' .repeat 4\n TickSound #2\n Check 46\n .endrepeat',[
@@ -59,7 +59,7 @@ for(const [needle,replacement] of [
 instrumented=replaceOnce(instrumented,' lda #$A5',[
  ' FillPlaceholder OVL_HUD, #128, #digits',' Check 52',
  ' Load BG_LARGE, #$14000',' Check 53',' Relocate BG_LARGE, #$27880',' Check 54',
- ' GetCell BG_LARGE, #399, #99',' sta $0708',' stx $0709',' Check 55',' lda #$A5',
+ ' GetCell BG_LARGE, #399, #99',' sta $0288',' stx $0289',' Check 55',' lda #$A5',
 ].join('\n'));
 await writeFile(join(root,'src/main.s'),instrumented);
 const built=await buildProject(root);
@@ -159,7 +159,7 @@ try {
  await c.resume();
  await nextStop('finished');
  video=await c.video();
- const mailbox=await c.readMemory(0x700,13);
+ const mailbox=await c.readMemory(0x280,13);
  console.log({root,mailbox,finished:address('finished'),failed:address('failed')});
  assert.deepEqual(mailbox.slice(0,10),[55,0,0xa5,7,2,0x5a,192,0,39999%251,39999%16]);
  assert.equal(mailbox[12]&3,1,'SongPosition returns a running, non-taken sequencer status');
