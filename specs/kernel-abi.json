@@ -3,7 +3,7 @@
   "notes":["BAS_* entries jump to the BASIC routine named by target. They work only while BASIC is in memory, not in a program that has loaded over it."],
   "entries":[
     {"address":1024,"hex":"$0400","symbol":"KERN_COLDSTART","description":"Reset entry (MIA points RESET here): sets up the machine and the console, prints the banner and starts BASIC."},
-    {"address":1027,"hex":"$0403","symbol":"KERN_WARMSTART","description":"Re-enters BASIC at READY, keeping the program and variables; resets the stack, IRQ_VEC and bank 0 first."},
+    {"address":1027,"hex":"$0403","symbol":"KERN_WARMSTART","description":"Re-enters BASIC at READY, keeping the program and variables; resets the stack, IRQ_VEC, bank 0 and the VIA (every interrupt source off but Timer 1, which restarts at 6250) first."},
     {"address":1030,"hex":"$0406","symbol":"KERN_CHROUT","description":"Writes the character in A to the console at the cursor, handling control codes; A, X and Y are preserved."},
     {"address":1033,"hex":"$0409","symbol":"KERN_CHRIN","description":"Waits for one key from MIA's input FIFO and returns it in A, showing the cursor meanwhile."},
     {"address":1036,"hex":"$040C","symbol":"KERN_GETKEY_NB","description":"Returns C=1 and the next key in A if one is waiting, else C=0, without waiting."},
