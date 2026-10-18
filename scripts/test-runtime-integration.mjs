@@ -143,9 +143,15 @@ try {
  assert.deepEqual(voice(audio,2).slice(0,12),[0x70,0x17,96,4,2,1,0,0,160,0,0,2],
   'TickSound advances frequency, pulse and volume, then releases the gate');
  await c.resume();
+ const third=audio;
  await nextStop('sound_released');
  audio=await c.audio();
  assert.equal(voice(audio,2)[11]&3,0,'final sound entry releases the voice');
+ // The demo loads the sound into a CPU bank, and its last entry has 0 pairs.
+ assert.deepEqual(voice(audio,2).slice(0,11),voice(third,2).slice(0,11),
+  'an entry with 0 register pairs writes no voice register');
+ assert.deepEqual([0,1,3].map(i=>voice(audio,i)),[0,1,3].map(i=>voice(third,i)),
+  'TickSound writes only its own voice');
  await c.resume();
  await nextStop('sound_restarted');
  audio=await c.audio();

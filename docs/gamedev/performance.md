@@ -80,8 +80,8 @@ sprites to see what each sprite adds.
 | `DrawScreen`, map in MIA RAM | 4,466 |
 | `DrawScreen`, map in a CPU bank | 77,663 (about 39 per byte) |
 | `Relocate` or `UseTileset`, CPU bank → MIA | about 26 per byte (161,586 for the tileset) |
-| `PlaySound` | 3,839 |
-| `TickSound`, an entry of 3 or 5 register pairs | 1,414 or 2,074 |
+| `PlaySound` | 3,841 |
+| `TickSound`, an entry of 3, 5 or 0 register pairs | 1,416, 2,076 or 519 |
 | `StopSound` | 36 |
 | `PlaySong` | 882 |
 | `SongPosition` | 213 |
