@@ -42,7 +42,7 @@ for(const [needle,replacement] of [
  [' Check 36\n',' Check 36\nanimation_moved:\n'],
  [' Check 37\n',' Check 37\nanimation_stopped:\n'],
  [' Check 41\n',' Check 41\nsong_playing:\n'],
- [' SongPosition #0\n Check 42',' SongPosition #0\n sta $070A\n stx $070B\n sty $070C\n Check 42'],
+ [' SongPosition #0\n Check 42',' SongPosition #0\n sta $028A\n stx $028B\n sty $028C\n Check 42'],
  [' Check 43\n',' Check 43\nsong_stopped:\n'],
  [' Check 45\n',' Check 45\nsound_started:\n'],
  [' .repeat 4\n TickSound #2\n Check 46\n .endrepeat',[
@@ -59,7 +59,7 @@ for(const [needle,replacement] of [
 instrumented=replaceOnce(instrumented,' lda #$A5',[
  ' FillPlaceholder OVL_HUD, #128, #digits',' Check 52',
  ' Load BG_LARGE, #$14000',' Check 53',' Relocate BG_LARGE, #$27880',' Check 54',
- ' GetCell BG_LARGE, #399, #99',' sta $0708',' stx $0709',' Check 55',' lda #$A5',
+ ' GetCell BG_LARGE, #399, #99',' sta $0288',' stx $0289',' Check 55',' lda #$A5',
 ].join('\n'));
 await writeFile(join(root,'src/main.s'),instrumented);
 const built=await buildProject(root);
@@ -143,9 +143,15 @@ try {
  assert.deepEqual(voice(audio,2).slice(0,12),[0x70,0x17,96,4,2,1,0,0,160,0,0,2],
   'TickSound advances frequency, pulse and volume, then releases the gate');
  await c.resume();
+ const third=audio;
  await nextStop('sound_released');
  audio=await c.audio();
  assert.equal(voice(audio,2)[11]&3,0,'final sound entry releases the voice');
+ // The demo loads the sound into a CPU bank, and its last entry has 0 pairs.
+ assert.deepEqual(voice(audio,2).slice(0,11),voice(third,2).slice(0,11),
+  'an entry with 0 register pairs writes no voice register');
+ assert.deepEqual([0,1,3].map(i=>voice(audio,i)),[0,1,3].map(i=>voice(third,i)),
+  'TickSound writes only its own voice');
  await c.resume();
  await nextStop('sound_restarted');
  audio=await c.audio();
@@ -159,7 +165,7 @@ try {
  await c.resume();
  await nextStop('finished');
  video=await c.video();
- const mailbox=await c.readMemory(0x700,13);
+ const mailbox=await c.readMemory(0x280,13);
  console.log({root,mailbox,finished:address('finished'),failed:address('failed')});
  assert.deepEqual(mailbox.slice(0,10),[55,0,0xa5,7,2,0x5a,192,0,39999%251,39999%16]);
  assert.equal(mailbox[12]&3,1,'SongPosition returns a running, non-taken sequencer status');

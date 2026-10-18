@@ -243,7 +243,9 @@ next_write_page:
 ; bank, rt_cpu (reading) and rt_ptr (writing), going on into the next bank at
 ; $C000. rt_mode and rt_t5 hold each side's $80 | bank, or 0 for MIA; when
 ; both sides are banks, each access selects its own. rt_close_read puts back
-; the bank rt_open_read found selected.
+; the bank rt_open_read found selected. rt_read's N and Z flags don't follow
+; the byte (from a bank they come from stepping rt_cpu), so a caller that
+; branches on the byte tests A first.
 ; ---------------------------------------------------------------------------
 rt_open_read:
         lda VIA_ORA

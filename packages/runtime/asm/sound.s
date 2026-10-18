@@ -79,6 +79,7 @@ rt_tick_sound:
         jsr rt_read
         sta rt_t1                   ; pairs
         sta rt_t4                   ; (for the step to the next entry)
+        cmp #0                      ; rt_read's flags aren't the byte's
         beq @done
 @pair:  jsr rt_read                 ; register: MIA_AUDIO_VOICES_OFFSET + voice * 16 + it
         sta rt_t2
