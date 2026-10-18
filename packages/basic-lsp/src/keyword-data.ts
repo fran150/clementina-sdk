@@ -3096,7 +3096,7 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
       {
         "name": "music",
         "type": "string",
-        "note": "Music string, compiled at once: notes A-G with # + - and lengths, R rest, O octave, < >, L length, T tempo, W waveform, & tie, | loop point. A number out of range (T outside 1-255, O over 7, W over 4, a length other than 1, 2, 4, 8, 16 or 32) gives ILLEGAL QUANTITY."
+        "note": "MML music string, compiled at once: notes A-G with # + -, a length and dots, R rest, O octave, < >, L length, T tempo in quarter notes a minute (default 120), V volume, W waveform, & tie, | loop point. A number out of range (T outside 1-255, O over 7, V over 15, W over 4, a length outside 1-64) gives ILLEGAL QUANTITY."
       },
       {
         "name": "address",
