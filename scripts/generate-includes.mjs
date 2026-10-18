@@ -135,7 +135,9 @@ export function programSections(specs) {
   const clockLocations = page('INPUT_PAGE').locations.filter(l => l.address >= clock.start && l.address < clock.endExclusive);
   return [
     {title: 'Kernel jump table, kernel-abi.json: JSR these; they never move', symbols:
-      abi.entries.map(e => sym(e.symbol, e.address, undefined, false))},
+      abi.entries.filter(e => !e.target).map(e => sym(e.symbol, e.address, undefined, false))},
+    {title: 'BASIC entry points, kernel-abi.json: fixed too, but only while BASIC is in memory', symbols:
+      abi.entries.filter(e => e.target).map(e => sym(e.symbol, e.address, undefined, false))},
     {title: 'Zero page free for programs, cpu-memory-map.json', symbols: [
       sym('ZP_FREE_START', zp.start, undefined, false),
       sym('ZP_FREE_END', zp.endExclusive - 1, 'last free byte', false),

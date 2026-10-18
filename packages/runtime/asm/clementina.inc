@@ -26,6 +26,16 @@ KERN_PLOT         = $042D
 KERN_RDTIM        = $0430
 KERN_SETTIM       = $0433
 
+; BASIC entry points, kernel-abi.json: fixed too, but only while BASIC is in memory
+BAS_CHKCOM        = $0436
+BAS_FRMNUM        = $0439
+BAS_FRMEVL        = $043C
+BAS_GETADR        = $043F
+BAS_GETBYT        = $0442
+BAS_PTRGET        = $0445
+BAS_ERROR         = $0448
+BAS_LINPRT        = $044B
+
 ; Zero page free for programs, cpu-memory-map.json
 ZP_FREE_START     = $98
 ZP_FREE_END       = $DF       ; last free byte

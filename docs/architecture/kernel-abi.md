@@ -2,7 +2,8 @@
 
 The stable jump table starts at `$0400`, the first byte of the loaded image.
 Every entry is a 3-byte `JMP`. New entries are appended at the end, so an
-existing address never changes.
+existing address never changes. `npm run check:drift` compares the table with
+the ROM build, including the BASIC routine each `BAS_*` entry jumps to.
 
 | Address | Symbol |
 | --- | --- |
@@ -24,6 +25,23 @@ existing address never changes.
 | `$042D` | `KERN_PLOT` |
 | `$0430` | `KERN_RDTIM` |
 | `$0433` | `KERN_SETTIM` |
+| `$0436` | `BAS_CHKCOM` |
+| `$0439` | `BAS_FRMNUM` |
+| `$043C` | `BAS_FRMEVL` |
+| `$043F` | `BAS_GETADR` |
+| `$0442` | `BAS_GETBYT` |
+| `$0445` | `BAS_PTRGET` |
+| `$0448` | `BAS_ERROR` |
+| `$044B` | `BAS_LINPRT` |
+
+The `BAS_*` entries jump into BASIC, for machine code that BASIC calls with
+`SYS` or `USR`: they read arguments written after `SYS`'s address
+(`SYS 49152,10,4660` reads the 10 with `BAS_CHKCOM` and `BAS_GETBYT`), print a
+number or raise a BASIC error. They work only while BASIC is in memory, not in
+a program that has loaded over it. A BASIC error maps bank 0 back, so a routine
+running in another bank can raise one. Each entry's registers are in
+`specs/kernel-abi.json` and clementina-rom `docs/memory-map.md` §6;
+`clementina.inc` defines them for assembly programs.
 
 `KERN_IRQ` is the kernel's IRQ handler. A program that points `IRQ_VEC`
 (`$FFFE`) at its own handler restores A, X and Y and ends with `JMP KERN_IRQ`

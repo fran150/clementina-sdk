@@ -23,8 +23,9 @@ Important base-RAM areas:
 - `$02F8-$02FF` clock snapshot written by `KERN_RDTIM` (see
   [kernel ABI](kernel-abi.md))
 - `$0300-$03FF` kernel/editor variables
-- `$0400-$0435` fixed kernel jump table, the first bytes of the loaded image
-- from `$0436` upward: the rest of the image (BASIC's DIR scratch buffer,
+- `$0400-$044D` fixed kernel jump table, with BASIC's entry points at the
+  end, the first bytes of the loaded image
+- from `$044E` upward: the rest of the image (BASIC's DIR scratch buffer,
   kernel, WozMon, BASIC), followed by BASIC heap
 
 The image is bottom-anchored at `$0400`, so base RAM has no unused gap. Never
