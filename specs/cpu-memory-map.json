@@ -317,7 +317,7 @@
         "address": 49166,
         "hex": "$C00E",
         "name": "VIA_IER",
-        "description": "Interrupt enable. The kernel enables only Timer 1."
+        "description": "Interrupt enable. The kernel enables only Timer 1, at reset and at warm start, which turn every other source off."
       },
       {
         "offset": 15,
