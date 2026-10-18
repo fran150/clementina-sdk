@@ -937,11 +937,11 @@
         "keyword": "CHRPLANE", "kind": "statement",
         "syntax": "CHRPLANE background,sprites,overlay",
         "arguments": [
-          {"name": "background", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank the background decodes."},
-          {"name": "sprites", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank sprites decode."},
-          {"name": "overlay", "type": "number", "min": 0, "max": 3, "note": "Plane of a 1bpp bank the overlay (text) layer decodes."}
+          {"name": "background", "type": "number", "min": 0, "max": 2, "note": "Plane of a 1bpp bank the background decodes."},
+          {"name": "sprites", "type": "number", "min": 0, "max": 2, "note": "Plane of a 1bpp bank sprites decode."},
+          {"name": "overlay", "type": "number", "min": 0, "max": 2, "note": "Plane of a 1bpp bank the overlay (text) layer decodes."}
         ],
-        "summary": "Chooses which plane of a 1bpp CHR bank the background, sprite and overlay layers each decode (0-3)."
+        "summary": "Chooses which plane of a 1bpp CHR bank the background, sprite and overlay layers each decode (0-2)."
       },
       {
         "keyword": "PALETTE", "kind": "statement",

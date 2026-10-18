@@ -1693,25 +1693,25 @@ export const basicKeywordEntries: readonly BasicKeywordEntry[] = [
         "name": "background",
         "type": "number",
         "min": 0,
-        "max": 3,
+        "max": 2,
         "note": "Plane of a 1bpp bank the background decodes."
       },
       {
         "name": "sprites",
         "type": "number",
         "min": 0,
-        "max": 3,
+        "max": 2,
         "note": "Plane of a 1bpp bank sprites decode."
       },
       {
         "name": "overlay",
         "type": "number",
         "min": 0,
-        "max": 3,
+        "max": 2,
         "note": "Plane of a 1bpp bank the overlay (text) layer decodes."
       }
     ],
-    "summary": "Chooses which plane of a 1bpp CHR bank the background, sprite and overlay layers each decode (0-3)."
+    "summary": "Chooses which plane of a 1bpp CHR bank the background, sprite and overlay layers each decode (0-2)."
   },
   {
     "keyword": "PALETTE",
