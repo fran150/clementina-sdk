@@ -88,7 +88,7 @@ Build checks:
 | MIA → MIA (`COPY_INDEXES`, DMA) | microseconds for kilobytes | free |
 | SD → MIA (`FS_LOAD_TO_MIA_RAM`) | at most 1.5 MB/s, the 12 MHz SPI clock; expect a few hundred KB/s after FAT and MIA's 1 ms service slices. To be measured on hardware. | free; each command has a start-up delay and variable duration |
 | SD → CPU bank | limited by the CPU copy below | busy |
-| CPU bank ↔ MIA (through an index window) | 9–13 cycles per byte: about 90–130 KB/s at the default 1.2 MHz PHI2, and 0.6–0.85 MB/s at 8 MHz | busy, but starts at once and always takes the same time |
+| CPU bank ↔ MIA (through an index window) | a hand-written loop: 9.4–14 cycles per byte, about 85–130 KB/s at the default 1.2 MHz PHI2 and 0.57–0.85 MB/s at 8 MHz; the runtime's own copies: about 26 cycles per byte, 46 KB/s at 1.2 MHz (see [performance](performance.md)) | busy, but starts at once and always takes the same time |
 
 MIA can't write CPU RAM, so every byte of an SD → bank load passes through the
 CPU. The current runtime reads at most 1,984 bytes at a time through FS handle 15
