@@ -1,7 +1,7 @@
 ; Runtime internals: MIA registers, addresses and the helpers the routines
 ; share. .global exports a symbol from the module that defines it and
 ; imports it everywhere else. Sources: clementina-mia README.md, docs/sd.md,
-; docs/video-output.md, docs/audio.md.
+; docs/video-output.md, docs/audio.md, docs/input.md, sys/timing.c.
 .include "runtime.inc"
 .macpack longbranch
 
@@ -50,6 +50,7 @@ RT_IDX_B      = $41
 ; Commands
 CMD_COPY_INDEXES = $10
 CMD_COPY_RECT    = $11
+CMD_CLOCK_SNAPSHOT = $55
 CMD_AUDIO_ENABLE = $60
 CMD_SEQ_LOAD     = $63
 CMD_SEQ_START    = $64
@@ -72,6 +73,9 @@ MIA_BG_NT     = $00C200     ; + table * 1000
 MIA_BG_ATTR   = $00E140
 MIA_OVERLAY   = $010080     ; 1,000 tiles, then 1,000 attributes
 MIA_OAM       = $010850     ; 5 bytes a record: tile, x, y, attr, ext
+INPUT_KEYS    = $011000     ; held Keyboard/Keypad usages, a 32-byte bitmap
+INPUT_PADS    = $011050     ; 10 bytes a gamepad: d-pad, sticks, buttons, axes
+MIA_TI        = $01107C     ; the 60 Hz count, 3 bytes, as CLOCK_SNAPSHOT left it
 RC_LAYERS     = $000021
 RC_VIEWPORT   = $000022     ; viewport mode, then active set
 RC_SCROLL     = $000024     ; x, then y, 2 bytes each

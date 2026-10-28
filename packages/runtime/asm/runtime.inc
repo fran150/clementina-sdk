@@ -85,6 +85,16 @@ RT_ANIM_SIZE     = 12
 RT_TICK_FRAME = 1           ; a new frame is showing
 RT_TICK_WRAP  = 2           ; ... and it is frame 0 again
 
+; ReadPad's result in A, a bit per control held.
+RT_PAD_UP     = $01
+RT_PAD_DOWN   = $02
+RT_PAD_LEFT   = $04
+RT_PAD_RIGHT  = $08
+RT_PAD_A      = $10
+RT_PAD_B      = $20
+RT_PAD_SELECT = $40
+RT_PAD_START  = $80
+
 ; ---------------------------------------------------------------------------
 ; Zero page and routines
 ; ---------------------------------------------------------------------------
@@ -107,6 +117,7 @@ RT_STATE_SIZE = 42
 .global rt_play_sound, rt_tick_sound, rt_stop_sound
 .global rt_hide_sprites, rt_set_sprite_count
 .global rt_set_layers, rt_set_chr_banks, rt_set_scroll, rt_set_viewport
+.global rt_wait_tick, rt_read_pad, rt_key_held
 
 ; ---------------------------------------------------------------------------
 ; Argument helpers
@@ -531,6 +542,27 @@ RT_STATE_SIZE = 42
         rt__byte rt_a0, mode
         rt__byte rt_a1, set
         jsr rt_set_viewport
+.endmacro
+
+; ---------------------------------------------------------------------------
+; Timing and input
+; ---------------------------------------------------------------------------
+
+; WaitTick: waits until MIA's 60 Hz count moves on from where the last
+; WaitTick returned; A = the ticks since then (1-255). The first returns at once.
+.macro WaitTick
+        jsr rt_wait_tick
+.endmacro
+; ReadPad player: A = the RT_PAD_* bits held on gamepad 0-3; player 0 adds
+; the keyboard's arrows, WASD, Z/Space (A), X (B), Tab (Select), Enter (Start).
+.macro ReadPad player
+        ldx player
+        jsr rt_read_pad
+.endmacro
+; KeyHeld usage: A = nonzero while that Keyboard/Keypad usage is held.
+.macro KeyHeld usage
+        lda usage
+        jsr rt_key_held
 .endmacro
 
 ; ---------------------------------------------------------------------------
