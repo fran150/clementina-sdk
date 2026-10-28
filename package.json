@@ -11,7 +11,7 @@
   "scripts": {
     "validate:specs": "node scripts/validate-specs.mjs",
     "check:drift": "node scripts/check-drift.mjs",
-    "build": "tsc -b",
+    "build": "tsc -b && npm run bundle --workspace clementina",
     "clean": "tsc -b --clean",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:packages": "node scripts/check-packages.mjs",

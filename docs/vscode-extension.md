@@ -21,10 +21,12 @@ debugging or language logic of its own:
 `packages/vscode-extension/src/extension.ts` is the entire integration: it
 registers a `DebugAdapterDescriptorFactory` that spawns
 `clementina-debug-adapter` and a `LanguageClient` that spawns
-`clementina-basic-lsp`, both resolved from their package locations via
-`require.resolve` (so a local workspace install works without a separate
-global install step) and both spawned through `process.execPath` for
-cross-platform reliability.
+`clementina-basic-lsp`, both spawned through `process.execPath` for
+cross-platform reliability. The build bundles the extension and both servers,
+with their SDK dependencies, into `dist/` (`scripts/bundle.mjs`, using
+esbuild), so the `.vsix` needs no `node_modules` and no separate SDK install;
+the servers always match the extension's version. Only the emulator is
+external.
 
 ## Capabilities
 
@@ -74,5 +76,7 @@ then either:
 
 - Open `packages/vscode-extension` in VS Code and press `F5` to launch an
   Extension Development Host, or
-- Package it with `npx vsce package` (from `packages/vscode-extension`) and
-  install the resulting `.vsix` with `code --install-extension`.
+- Package it with `npm run package` (from `packages/vscode-extension`) and
+  install the resulting `.vsix` with `code --install-extension`. The script
+  runs `vsce package --no-dependencies`: vsce cannot collect dependencies from
+  an npm workspace, and the bundle already contains them.
