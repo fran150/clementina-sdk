@@ -17,8 +17,8 @@ game_start:
  jmp game_start
 `;
 
-/** A new assembly project's link.cfg: zero page, then the program and its data in RAM. */
-export const ASSEMBLY_STARTER_LINK_CFG = `MEMORY { ZP: start=$40, size=$B0, type=rw; RAM: start=$1800, size=$6800, type=rw, file=%O; }
+/** A new assembly project's link.cfg: zero page below the system's $E0-$FF, then the program and its data in RAM. */
+export const ASSEMBLY_STARTER_LINK_CFG = `MEMORY { ZP: start=$40, size=$A0, type=rw; RAM: start=$1800, size=$6800, type=rw, file=%O; }
 SEGMENTS { ZEROPAGE: load=ZP, type=zp; CODE: load=RAM, type=ro; RODATA: load=RAM, type=ro; DATA: load=RAM, type=rw; BSS: load=RAM, type=bss, define=yes; }
 `;
 
