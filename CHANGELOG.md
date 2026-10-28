@@ -15,5 +15,6 @@
 - Ship the CLI as standalone executables for Linux, macOS, and Windows that need no Node.js install (`npm run build:binaries`; attached to tagged GitHub releases).
 - Embed the ca65 runtime sources as `runtimeFiles` in `@clementina/runtime`; builds write them instead of copying from the package directory.
 - Bundle the VS Code extension with its debug adapter and BASIC language server so the `.vsix` packages from the workspace (`npm run package` in `packages/vscode-extension`).
+- Add `clementina project import` to turn a Studio session file into a new portable assembly project.
 
 The first distributed release will establish the package release history.
