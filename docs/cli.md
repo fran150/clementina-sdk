@@ -38,8 +38,9 @@ npx clementina doctor
 `project import` turns a Clementina Studio session file (`.cstudio`, format
 version 2) into a new portable assembly project. It refuses to overwrite any
 file, so the destination may be the folder that holds the session. Each asset is written to `assets/<kind>/<asset name>.json`, the session's
-Builder settings become `build.assets`, and a starter `src/main.s` and `link.cfg`
-are added. The name defaults to the session file's name. Studio opens the
+Builder settings become `build.assets` (empty when it has none, so the starter
+`src/main.s` can still include `assets.inc`), and a starter `src/main.s` and
+`link.cfg` are added. The name defaults to the session file's name. Studio opens the
 resulting `clementina.yaml` with File > Open and keeps the file paths on save.
 
 `project validate` defaults to the current directory. It reads `clementina.yaml`,

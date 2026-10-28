@@ -38,8 +38,9 @@ function fileStem(name: string): string {
 /**
  * The portable assembly project for a Studio v2 session: every asset in its
  * own JSON file named after the asset (`assets/<kind>/<name>.json`), and the
- * session's Builder settings, if any, as `build.assets`. Throws when the
- * session is invalid. Writes nothing.
+ * session's Builder settings as `build.assets`: empty without any, since the
+ * starter main.s includes the assets.inc that section generates. Throws when
+ * the session is invalid. Writes nothing.
  */
 export function importStudioProject(session: StudioSessionV2, name: string): PortableProject {
  if (session.format !== undefined && session.format !== "clementina-studio") throw Error(`Not a Clementina Studio project: format ${session.format}`);
@@ -54,7 +55,7 @@ export function importStudioProject(session: StudioSessionV2, name: string): Por
   build: {
    outputDirectory: "build",
    assembly: {linkerConfig: "link.cfg", outputName: "game", loadAddress: ASSEMBLY_STARTER_LOAD_ADDRESS, entrySymbol: "game_start"},
-   ...(session.builder ? {assets: structuredClone(session.builder)} : {}),
+   assets: session.builder ? structuredClone(session.builder) : {slots: [], include: []},
   },
  };
  for (const kind of Object.keys(KIND_FOLDERS) as Array<keyof PortableAssetSet>) {

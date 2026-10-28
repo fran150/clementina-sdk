@@ -7,6 +7,7 @@ import {join} from 'node:path';
 import {executeCommand,runCli} from '../packages/cli/dist/index.js';
 const bin=new URL('../packages/cli/bin/clementina.mjs',import.meta.url);
 const run=(...args)=>spawnSync(process.execPath,[bin.pathname,...args],{encoding:'utf8'});
+const hasTools=['ca65','ld65','ar65'].every(t=>spawnSync(t,[t==='ar65'?'V':'--version'],{stdio:'ignore'}).status===0);
 test('CLI commands validate the example through shared APIs',async()=>{
  for(const args of [
   ['project','validate','examples/minimal-game'],
@@ -103,6 +104,9 @@ test('project import turns a Studio session into a validating assembly project',
  assert.match(await readFile(join(target,'link.cfg'),'utf8'),/ZEROPAGE/);
  assert.match(await readFile(join(target,'link.cfg'),'utf8'),/ZP: start=\$40, size=\$A0,/,'zero page stays below the system\'s $E0-$FF');
  assert.equal(run('project','validate',target,'--json').status,0);
+ // The fixture has no Builder settings; the starter main.s still needs assets.inc.
+ assert.deepEqual(out.data.manifest.build.assets,{slots:[],include:[]});
+ if(hasTools){const built=run('build',target,'--json');assert.equal(built.status,0,built.stdout+built.stderr);}
  const again=run('project','import','tests/fixtures/studio-v2.json',target,'--json');
  assert.equal(again.status,1);assert.equal(JSON.parse(again.stdout).diagnostics[0].code,'project.import.exists');
  assert.equal(run('project','import','tests/fixtures/studio-v2.json','--json').status,2);
