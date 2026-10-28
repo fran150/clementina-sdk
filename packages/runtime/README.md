@@ -1,6 +1,6 @@
 # @clementina/runtime
 
-The Clementina asset runtime is a ca65 library for loading built assets from SD and using them from a 65C02 game. It supplies explicit routines for palettes, tilesets, backgrounds, overlays, sprites, animation, songs, sounds, and video control. The TypeScript entry point exports the source manifest and descriptor constants used by `@clementina/build`.
+The Clementina asset runtime is a ca65 library for loading built assets from SD and using them from a 65C02 game. It supplies explicit routines for palettes, tilesets, backgrounds, overlays, sprites, animation, songs, sounds, video control, frame timing, and gamepad and keyboard input. The TypeScript entry point exports the source manifest and descriptor constants used by `@clementina/build`.
 
 The runtime gives games primitives; the game chooses when to load, draw, play, and tick assets. The [builder guide](../../docs/gamedev/builder.md) documents every ca65 macro, descriptor, memory rule, and result convention.
 

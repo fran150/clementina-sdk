@@ -172,6 +172,20 @@ poll:
  Check 50
  SetScroll #0, #0
  Check 51
+ WaitTick                   ; the first returns at once
+ Check 52
+ WaitTick                   ; A = ticks since the first
+ sta $028D
+ Check 53
+ ReadPad #0                 ; gamepad 0 and the keyboard
+ sta $028E
+ Check 54
+ ReadPad #1
+ sta $028F
+ Check 55
+ KeyHeld #$14               ; Q
+ sta $0290
+ Check 56
  lda #$5A
  sta rt_a0
  RuntimeSave

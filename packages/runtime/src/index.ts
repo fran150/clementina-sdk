@@ -14,6 +14,7 @@ export const runtimeDirectory = join(dirname(fileURLToPath(import.meta.url)), '.
 export const runtimeSources = [
   'zp.s', 'core.s', 'mia-index.s', 'location.s', 'load.s', 'sd-load.s', 'items.s', 'relocate.s', 'palette.s', 'tileset.s', 'overlay.s',
   'bg_draw.s', 'bg_load.s', 'sprite_load.s', 'sprite_draw.s', 'animation.s', 'audio.s', 'song.s', 'sound.s', 'video.s',
+  'clock.s', 'input.s',
 ] as const;
 /** Machine definitions generated from specs/: KERN_*, VIA and zero-page bounds, plus MIA's registers, ids and RAM layout. */
 export const systemIncludes = ['clementina.inc', 'mia.inc'] as const;

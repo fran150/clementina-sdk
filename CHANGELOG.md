@@ -16,5 +16,6 @@
 - Embed the ca65 runtime sources as `runtimeFiles` in `@clementina/runtime`; builds write them instead of copying from the package directory.
 - Bundle the VS Code extension with its debug adapter and BASIC language server so the `.vsix` packages from the workspace (`npm run package` in `packages/vscode-extension`).
 - Add `clementina project import` to turn a Studio session file into a new portable assembly project.
+- Add `WaitTick`, `ReadPad` and `KeyHeld` to the runtime: frame timing from MIA's 60 Hz count, and held gamepad and keyboard input.
 
 The first distributed release will establish the package release history.

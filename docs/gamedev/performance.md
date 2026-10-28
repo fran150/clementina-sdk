@@ -87,9 +87,14 @@ sprites to see what each sprite adds.
 | `SongPosition` | 213 |
 | `StopSong` | 252 |
 | `RuntimeSave` / `RuntimeRestore` | 505 / 639 |
+| `WaitTick`, when MIA's count has already moved on | 236 |
+| `ReadPad`, players 1–3: the gamepad | 269 |
+| `ReadPad`, player 0: the gamepad and the keyboard | 989 |
+| `KeyHeld` | 209 |
 
 From MIA RAM the drawing calls cost the same whatever their size, because MIA's
-DMA does the copying. Loads from SD aren't listed: the emulator's card has no
+DMA does the copying. `WaitTick` otherwise waits for the count to move on; that
+wait is the time left in the tick, not work. Loads from SD aren't listed: the emulator's card has no
 real timing.
 
 ## BASIC
@@ -133,4 +138,5 @@ from the start), so put the lines jumped to most often near the start.
 - Keep what is drawn every frame in MIA RAM, where a drawing call costs about
   4,400 cycles whatever its size.
 - Use MIA DMA and file-to-RAM paths for bulk transfers.
-- Use wall time or explicit game ticks for gameplay timing, not cycle counts.
+- Use wall time (`WaitTick`) or explicit game ticks for gameplay timing, not
+  cycle counts.

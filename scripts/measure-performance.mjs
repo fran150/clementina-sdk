@@ -193,6 +193,8 @@ async function measureRuntime(sprites) {
     await c.launchLoadPlan(built.value.loadPlan);
     assert.equal((await stopped(c)).pc, address('game_start'));
     await c.removeBreakpoint(address('game_start'));
+    // ReadPad's figures are for connected gamepads.
+    for (const player of [0, 1]) await c.setGamepadState(player, [0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     for (const a of new Set([...labels, 'finished', 'failed'].map(address))) await c.addBreakpoint(a);
     for (;;) {
       await c.resume();

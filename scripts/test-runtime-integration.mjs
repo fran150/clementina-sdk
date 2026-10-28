@@ -34,7 +34,7 @@ function replaceOnce(text,needle,replacement){
  return text.replace(needle,replacement);
 }
 let instrumented=replaceOnce(source,'.export game_start, finished, failed',
- '.export game_start, finished, failed, sprite_drawn, animation_started, animation_advanced, animation_moved, animation_stopped, song_playing, song_stopped, sound_started, sound_second, sound_third, sound_released, sound_restarted, sound_stopped');
+ '.export game_start, finished, failed, sprite_drawn, animation_started, animation_advanced, animation_moved, animation_stopped, song_playing, song_stopped, sound_started, sound_second, sound_third, sound_released, sound_restarted, sound_stopped, input_ready');
 for(const [needle,replacement] of [
  [' Check 30\n',' Check 30\nsprite_drawn:\n'],
  [' Check 34\n',' Check 34\nanimation_started:\n'],
@@ -50,16 +50,23 @@ for(const [needle,replacement] of [
   ' TickSound #2',' Check 46','sound_third:',
   ' TickSound #2',' Check 46','sound_released:',
   ' TickSound #2',' Check 46',
-  ' PlaySound SFX_JUMP, #2',' Check 56','sound_restarted:',
+  ' PlaySound SFX_JUMP, #2',' Check 61','sound_restarted:',
  ].join('\n')],
  [' Check 47\n',' Check 47\nsound_stopped:\n'],
  [' SetViewport #0, #0',' SetViewport #5, #1'],
  [' SetScroll #0, #0',' SetScroll #$0123, #$0045'],
+ // A third WaitTick starts just after a tick, so it waits a whole one.
+ [' Check 53\n',' Check 53\n WaitTick\n sta $0291\n Check 62\n'],
+ [' ReadPad #0','input_ready:\n ReadPad #0'],
+ [' Check 56\n',[
+  ' Check 56',' ReadPad #2',' sta $0292',' Check 63',' KeyHeld #$04',' sta $0293',' Check 64',
+  ' ReadPad #4',' bcs :+',' jmp failed',': lda rt_error',' sta $0294','',
+ ].join('\n')],
 ])instrumented=replaceOnce(instrumented,needle,replacement);
 instrumented=replaceOnce(instrumented,' lda #$A5',[
- ' FillPlaceholder OVL_HUD, #128, #digits',' Check 52',
- ' Load BG_LARGE, #$14000',' Check 53',' Relocate BG_LARGE, #$27880',' Check 54',
- ' GetCell BG_LARGE, #399, #99',' sta $0288',' stx $0289',' Check 55',' lda #$A5',
+ ' FillPlaceholder OVL_HUD, #128, #digits',' Check 57',
+ ' Load BG_LARGE, #$14000',' Check 58',' Relocate BG_LARGE, #$27880',' Check 59',
+ ' GetCell BG_LARGE, #399, #99',' sta $0288',' stx $0289',' Check 60',' lda #$A5',
 ].join('\n'));
 await writeFile(join(root,'src/main.s'),instrumented);
 const built=await buildProject(root);
@@ -74,7 +81,7 @@ const emulator=await startEmulatorProcess({executable,sdRoot:resolve(root,build.
 try {
  const c=emulator.client;
  const stops=['sprite_drawn','animation_started','animation_advanced','animation_moved','animation_stopped',
-  'song_playing','song_stopped','sound_started','sound_second','sound_third','sound_released','sound_restarted','sound_stopped','finished'];
+  'song_playing','song_stopped','sound_started','sound_second','sound_third','sound_released','sound_restarted','sound_stopped','input_ready','finished'];
  await c.addBreakpoint(address(stops[0]));
  await c.addBreakpoint(address('failed'));
  await c.launchLoadPlan(build.loadPlan);
@@ -163,12 +170,29 @@ try {
  assert.equal(voice(audio,2)[11]&3,0,'StopSound releases an active sound');
  assert.equal(voice(audio,2)[7],0,'StopSound gates the voice off');
  await c.resume();
+ await nextStop('input_ready');
+ // Each record also holds bits ReadPad must drop: Sony labels, the right
+ // stick, button X and L2.
+ await c.setGamepadState(0,[0x80|0x04,0,0x02,0,0,0,0,0,0,0]);
+ await c.setGamepadState(1,[0x80|0x40,0xf0|0x01,0x08,0x08|0x01,0,0,0,0,0,0]);
+ await c.setHidUsage(7,0x2c,true);
+ await c.setHidUsage(7,0x14,true);
+ await c.resume();
  await nextStop('finished');
  video=await c.video();
- const mailbox=await c.readMemory(0x280,13);
+ const mailbox=await c.readMemory(0x280,21);
  console.log({root,mailbox,finished:address('finished'),failed:address('failed')});
- assert.deepEqual(mailbox.slice(0,10),[55,0,0xa5,7,2,0x5a,192,0,39999%251,39999%16]);
+ assert.deepEqual(mailbox.slice(0,10),[60,0,0xa5,7,2,0x5a,192,0,39999%251,39999%16]);
  assert.equal(mailbox[12]&3,1,'SongPosition returns a running, non-taken sequencer status');
+ assert.ok(mailbox[13]>=1,'WaitTick reports at least one tick');
+ // MIA's clock follows host time, so allow a stalled host a tick or two more.
+ assert.ok(mailbox[17]>=1&&mailbox[17]<=3,`A whole WaitTick reports ${mailbox[17]} ticks`);
+ assert.equal(mailbox[14],0x04|0x20|0x10,'ReadPad 0: d-pad left, B, and Space as A');
+ assert.equal(mailbox[15],0x01|0x80,'ReadPad 1: left stick up and Start, without the keyboard');
+ assert.notEqual(mailbox[16],0,'KeyHeld sees Q held');
+ assert.equal(mailbox[18],0,'A disconnected gamepad reads as nothing');
+ assert.equal(mailbox[19],0,'KeyHeld reports a released key as 0');
+ assert.equal(mailbox[20],6,'ReadPad rejects player 4 with RT_ERR_ARGUMENT');
  const bytes=video;
  assert.equal(bytes[0x21],1,'background layer enabled');
  assert.deepEqual(bytes.slice(0x22,0x28),[5,1,0x23,0x01,0x45,0x00],'viewport mode, table set and pixel scroll');

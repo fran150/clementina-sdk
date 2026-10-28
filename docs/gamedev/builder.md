@@ -193,7 +193,7 @@ by number.
 ### Packaging
 
 - The SDK package is `@clementina/runtime`. Related primitives share modules
-  across 20 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
+  across 22 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
   and written with `ar65 r`. `ld65` includes referenced modules and their helpers.
   `runtime/code-sizes.json` and the memory report record CODE bytes per module;
   these are module sizes, not isolated per-routine costs.
@@ -231,6 +231,9 @@ by number.
 - **Default: main loop only.** The recommended pattern is a timer interrupt that
   only counts ticks, and a main loop that calls `TickAnimation` once per counted
   tick.
+- **Without an interrupt.** `WaitTick` paces the main loop instead: it waits for
+  MIA's 60 Hz count to move on, at any PHI2 speed, and returns the ticks since it
+  last returned. It keeps that tick in BSS, so call it from one place.
 - **Calling from a handler.** An interrupt handler may also
   call drawing, animation, sound and copy routines, provided it:
   1. writes PUSH to `MIA_CTX` on entry and POP before `RTI`;
@@ -268,6 +271,8 @@ the default slot.
 | Animation | `StartAnimation inst, file, anim, sprite, x, y`; `TickAnimation inst`; `MoveAnimation inst, x, y`; `StopAnimation inst` |
 | Song | `PlaySong song` (sets each voice's track address, then loads and starts the voices); `StopSong song`; `SongPosition voice` |
 | Sound | `PlaySound sound, voice` (takes the voice with `AUDIO_VOICE_TAKE`); `TickSound voice` (after the last frame it releases the gate and gives the voice back with `AUDIO_VOICE_RELEASE`); `StopSound voice` |
+| Timing | `WaitTick` (A = the ticks since the last `WaitTick`, 1–255; the first returns at once) |
+| Input | `ReadPad player` (A = the `RT_PAD_*` bits held on gamepad 0–3; a disconnected gamepad reads as 0); `KeyHeld usage` (A = nonzero while that Keyboard/Keypad usage is held) |
 
 Details:
 - **Draw routines** read from an asset at its current location, with the map
@@ -284,6 +289,16 @@ Details:
 - **Animation instances** use the `RT_ANIM_*` field constants and are blocks of
   `RT_ANIM_SIZE` (12) bytes that the game
   allocates. The runtime keeps one sound state per voice.
+- **`ReadPad` bits.** `RT_PAD_UP`, `RT_PAD_DOWN`, `RT_PAD_LEFT` and `RT_PAD_RIGHT`
+  ($01–$08) come from the d-pad or the left stick's digital directions;
+  `RT_PAD_A` ($10) and `RT_PAD_B` ($20) from buttons 0 and 1; `RT_PAD_SELECT`
+  ($40) and `RT_PAD_START` ($80) from buttons 10 and 11. The other buttons, the
+  right stick and the analog values are left out.
+- **The keyboard as player 0** is the runtime's choice, not the hardware's: the
+  arrows and WASD steer, Z and Space are A, X is B, Tab is Select and Enter is
+  Start. A game that wants other keys reads them with `KeyHeld`, which takes a
+  HID Keyboard/Keypad usage ID (`$04`–`$1D` A–Z, `$28` Enter, `$2C` Space,
+  `$4F`–`$52` the arrows).
 
 ## Limits and verification
 
