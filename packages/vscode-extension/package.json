@@ -19,8 +19,10 @@
   ],
   "main": "./dist/extension.js",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run bundle",
+    "bundle": "node scripts/bundle.mjs",
     "vscode:prepublish": "npm run build",
+    "package": "npx --yes @vscode/vsce@4.0.0 package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "contributes": {
@@ -76,14 +78,13 @@
     ]
   },
   "devDependencies": {
-    "@types/node": "^26.6.2",
-    "@types/vscode": "^1.138.0",
-    "typescript": "^5.8.0"
-  },
-  "dependencies": {
     "@clementina/basic-lsp": "0.2.0",
     "@clementina/debug-adapter": "0.2.0",
+    "@types/node": "^26.6.2",
+    "@types/vscode": "^1.138.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.8.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist", "!dist/.tsbuildinfo", "language-configuration.json", "syntaxes"]
+  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "syntaxes", "LICENSE"]
 }

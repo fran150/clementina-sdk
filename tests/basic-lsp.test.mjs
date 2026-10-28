@@ -224,8 +224,7 @@ test('completionsFor filters by prefix and covers every table exactly once', () 
     ['extension', 'extension2', 'extensionFunction', 'primary', 'special']);
 });
 
-test('the stdio LSP server publishes diagnostics for a real document', async () => {
-  const binPath = new URL('../packages/basic-lsp/bin/clementina-basic-lsp.mjs', import.meta.url).pathname;
+async function exerciseStdioServer(binPath) {
   const child = spawn(process.execPath, [binPath], {stdio: ['pipe', 'pipe', 'pipe']});
   let stderr = '';
   child.stderr.on('data', chunk => { stderr += chunk.toString(); });
@@ -343,4 +342,10 @@ test('the stdio LSP server publishes diagnostics for a real document', async () 
     child.kill();
     await once(child, 'exit');
   }
-});
+}
+
+test('the stdio LSP server publishes diagnostics for a real document', () =>
+  exerciseStdioServer(new URL('../packages/basic-lsp/bin/clementina-basic-lsp.mjs', import.meta.url).pathname));
+
+test('the LSP server bundled into the VS Code extension serves the same requests', () =>
+  exerciseStdioServer(new URL('../packages/vscode-extension/dist/basic-lsp.mjs', import.meta.url).pathname));

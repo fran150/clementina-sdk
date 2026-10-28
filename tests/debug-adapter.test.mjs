@@ -34,9 +34,9 @@ test('the stdio DAP server declares only the capabilities it actually supports',
   }
 });
 
-test('launching a BASIC project reaches emulator startup instead of rejecting its program kind', async () => {
+async function launchBasicProject(adapterPath) {
   const root = await basicProjectFixture();
-  const dc = new DebugClient(process.execPath, binPath, 'clementina');
+  const dc = new DebugClient(process.execPath, adapterPath, 'clementina');
   await dc.start();
   try {
     await dc.initializeRequest();
@@ -48,7 +48,12 @@ test('launching a BASIC project reaches emulator startup instead of rejecting it
   } finally {
     await dc.stop();
   }
-});
+}
+
+test('launching a BASIC project reaches emulator startup instead of rejecting its program kind', () => launchBasicProject(binPath));
+
+test('the debug adapter bundled into the VS Code extension builds and launches the same way', () =>
+  launchBasicProject(new URL('../packages/vscode-extension/dist/debug-adapter.mjs', import.meta.url).pathname));
 
 test('disconnect is safe when no session was ever launched', async () => {
   const dc = new DebugClient(process.execPath, binPath, 'clementina');

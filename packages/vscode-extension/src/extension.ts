@@ -6,14 +6,14 @@ const DEBUG_TYPE = 'clementina';
 
 let languageClient: LanguageClient | undefined;
 
-function resolveBin(packageName: string, binName: string): string {
-  const packageJsonPath = require.resolve(`${packageName}/package.json`);
-  return path.join(path.dirname(packageJsonPath), 'bin', binName);
+// scripts/bundle.mjs places the bundled servers next to this file.
+function serverPath(name: string): string {
+  return path.join(__dirname, `${name}.mjs`);
 }
 
 class ClementinaDebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
   createDebugAdapterDescriptor(): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
-    return new vscode.DebugAdapterExecutable(process.execPath, [resolveBin('@clementina/debug-adapter', 'clementina-debug-adapter.mjs')]);
+    return new vscode.DebugAdapterExecutable(process.execPath, [serverPath('debug-adapter')]);
   }
 }
 
@@ -22,8 +22,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.debug.registerDebugAdapterDescriptorFactory(DEBUG_TYPE, new ClementinaDebugAdapterDescriptorFactory()),
   );
 
-  const lspBin = resolveBin('@clementina/basic-lsp', 'clementina-basic-lsp.mjs');
-  const run = {command: process.execPath, args: [lspBin], transport: TransportKind.stdio};
+  const run = {command: process.execPath, args: [serverPath('basic-lsp')], transport: TransportKind.stdio};
   const serverOptions: ServerOptions = {run, debug: run};
   const clientOptions: LanguageClientOptions = {documentSelector: [{scheme: 'file', language: 'clementina-basic'}]};
   languageClient = new LanguageClient('clementinaBasic', 'Clementina BASIC Language Server', serverOptions, clientOptions);

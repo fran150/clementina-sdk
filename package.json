@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "validate:specs": "node scripts/validate-specs.mjs",
-    "build": "tsc -b",
+    "build": "tsc -b && npm run bundle --workspace clementina",
     "clean": "tsc -b --clean",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check:packages": "node scripts/check-packages.mjs",
