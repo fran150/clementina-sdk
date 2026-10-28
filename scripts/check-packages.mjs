@@ -32,7 +32,7 @@ try {
     const packageLicense = await readFile(join(workspaceRoot, directory, 'LICENSE'));
     if (!packageLicense.equals(license)) errors.push(`${directory}: LICENSE differs from the repository copy`);
     if (!Array.isArray(manifest.files) || manifest.files.length === 0) errors.push(`${directory}: missing files allowlist`);
-    for (const [dependency, version] of Object.entries(manifest.dependencies ?? {})) {
+    for (const [dependency, version] of Object.entries({...manifest.dependencies, ...manifest.devDependencies})) {
       if (dependency.startsWith('@clementina/') && !byName.has(dependency)) errors.push(`${directory}: unknown workspace dependency ${dependency}`);
       if (dependency.startsWith('@clementina/') && version !== manifest.version) errors.push(`${directory}: ${dependency} version ${version} differs from ${manifest.version}`);
     }

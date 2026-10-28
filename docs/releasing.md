@@ -38,9 +38,10 @@ Publish npm packages in dependency order: `core`, `assets`, `project`, `basic`,
 `debug-adapter`, `cli`, and `mcp`. For a public release, use
 `npm publish --workspace @clementina/<name> --access public` for each package
 after verifying npm scope ownership. The repository's npm version and the VS
-Code extension's version must stay aligned. Package the extension only after
-its npm dependencies are available; its Marketplace publisher must be verified
-before publication.
+Code extension's version must stay aligned. The extension bundles its servers
+from the workspace build, so `npm run package --workspace clementina` does not
+wait for npm publication; its Marketplace publisher must be verified before
+publication.
 
 ## CLI executables
 

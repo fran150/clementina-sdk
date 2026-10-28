@@ -7,5 +7,6 @@ build/
 !packages/build/src/
 !packages/build/src/**
 coverage/
+*.vsix
 .DS_Store
 *.log
