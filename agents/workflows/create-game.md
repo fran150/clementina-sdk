@@ -7,8 +7,7 @@ it works with any agent or shell.
 
 ## 1. Read the contract and choose the path
 
-Read [compatibility](../../docs/compatibility.md), the
-[architecture overview](../../docs/architecture/overview.md),
+Read the [architecture overview](../../docs/architecture/overview.md),
 [video](../../docs/architecture/video.md),
 [input](../../docs/architecture/input.md), and
 [storage](../../docs/architecture/storage.md) before changing hardware-dependent

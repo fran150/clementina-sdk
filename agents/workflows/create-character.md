@@ -2,7 +2,7 @@
 
 One hardware sprite is 8×8; a character is a shape made from sprites. Use one
 tileset for every pose in an animation and preserve one origin and canvas.
-Read `docs/compatibility.md`, `docs/architecture/video.md`,
+Read `docs/architecture/video.md`,
 `specs/video.json`, and `specs/assets.json` before editing.
 
 1. Make a canonical idle pose and inspect it at native 320×200. Lock its

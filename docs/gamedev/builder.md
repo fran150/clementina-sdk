@@ -1,7 +1,7 @@
 # Asset builder and runtime
 
-The current hardware contract lives in the [architecture docs](../architecture/overview.md),
-[compatibility notes](../compatibility.md), and [specs](../../specs/).
+The current hardware contract lives in the [architecture docs](../architecture/overview.md)
+and [specs](../../specs/).
 
 ## Purpose
 
@@ -323,6 +323,4 @@ node scripts/test-runtime-integration.mjs /path/to/clementina-automation /path/t
 ```
 
 The script checks runtime memory and OAM state, bank crossings, large transfers,
-overlay placeholders, and a rendered 320×200 image. See
-[compatibility notes](../compatibility.md) for the physical-hardware verification
-limit.
+overlay placeholders, and a rendered 320×200 image.

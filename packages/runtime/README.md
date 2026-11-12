@@ -10,7 +10,7 @@ The runtime gives games primitives; the game chooses when to load, draw, play, a
 - `ca65`, `ld65`, and `ar65` from cc65 on `PATH` to assemble and link a game that uses the runtime.
 - A Clementina assembly project with `clementina.yaml`, portable asset files, and a linker configuration. The game's startup code must clear BSS before calling the runtime. The game owns its slot layout and SD loading schedule.
 
-The runtime uses the MIA index windows, command registers, and CPU bank selector. Calls leave those hardware settings changed. See [runtime conventions](../../docs/gamedev/builder.md#conventions) and the [compatibility notes](../../docs/compatibility.md) before choosing locations or calling routines from an interrupt handler.
+The runtime uses the MIA index windows, command registers, and CPU bank selector. Calls leave those hardware settings changed. See [runtime conventions](../../docs/gamedev/builder.md#conventions) before choosing locations or calling routines from an interrupt handler.
 
 ## Use in an SDK asset build
 
