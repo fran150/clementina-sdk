@@ -4,13 +4,12 @@ The SDK is the authoritative developer-facing Clementina contract.
 
 Before hardware-dependent work:
 
-1. Read `docs/compatibility.md`.
-2. Read the relevant `docs/architecture/*.md`.
-3. Read the corresponding `specs/*.json`.
-4. Never invent addresses, limits, commands, formats, or timing.
-5. Do not silently choose behavior listed as unresolved.
-6. Prefer deterministic SDK validators/build tools when they exist.
-7. Keep hardware facts separate from game-development recommendations.
+1. Read the relevant `docs/architecture/*.md`.
+2. Read the corresponding `specs/*.json`.
+3. Never invent addresses, limits, commands, formats, or timing.
+4. Do not silently choose behavior listed as unresolved.
+5. Prefer deterministic SDK validators/build tools when they exist.
+6. Keep hardware facts separate from game-development recommendations.
 
 For project and asset work:
 

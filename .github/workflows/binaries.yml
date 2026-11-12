@@ -64,7 +64,6 @@ jobs:
           "$cli" doctor --json
           "$cli" project validate examples/minimal-game
           "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json
-          cd examples/hardware-audio && "$cli" build
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

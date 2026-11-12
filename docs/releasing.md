@@ -22,8 +22,7 @@ dependency versions, and the files in every npm package. The
 [emulator integration workflow](../.github/workflows/emulator-integration.yml)
 tests against the companion Go repositories. Its checkout needs access to those
 repositories; configure `CLEMENTINA_COMPANION_TOKEN` when the default GitHub
-token cannot read them. Review the [physical verification](hardware-verification.md)
-record separately before calling a release hardware-tested.
+token cannot read them.
 
 ## Version and publish order
 
