@@ -66,9 +66,10 @@ export async function createProjectDebugSession(
   }
   try {
     let session: ClementinaDebugSession | ClementinaBasicDebugSession;
-    if (build.value.kind === 'assembly') {
-      const bank = build.value.assembly.loadStep.bank;
-      const sourceMap = createAssemblySourceMap(build.value.assembly.debug, bank === undefined ? {} : {bank});
+    // A BASIC program runs last whenever there is one, so it is the one to debug.
+    if (!build.value.basic) {
+      const bank = build.value.assembly!.loadStep.bank;
+      const sourceMap = createAssemblySourceMap(build.value.assembly!.debug, bank === undefined ? {} : {bank});
       session = new ClementinaDebugSession(process.client, sourceMap, {
         ...(bank === undefined ? {} : {bank}),
         ...(threadName === undefined ? {} : {threadName}),

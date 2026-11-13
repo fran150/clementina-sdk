@@ -19,8 +19,10 @@ kernel, which holds the loader, ends below `$1600`, and `$1800` leaves some room
 The common Clementina runtime entry point is a small BASIC bootstrap. It loads
 generated assets into MIA RAM, loads any returning banked CPU images, and finally
 hands control to the main machine-code image. This uses the ROM's filesystem and
-loaders on hardware and in the emulator. An assembly project already generates
-this BASIC bootstrap; it does not need `program.kind: mixed`.
+loaders on hardware and in the emulator. A project with assembly and no BASIC
+program gets this bootstrap. With a BASIC program, the PRG is `BLOAD`ed instead
+and the bootstrap ends by loading the program (see [BASIC terminal step](#basic-terminal-step)).
+See [program parts](project-format.md#program-parts).
 
 Multiple assembly source files are a build concern. The assembler and linker
 normally produce one logical PRG image; separate PRGs are useful for banked data,
@@ -45,7 +47,10 @@ standard takeover path: the ROM loads wherever the file says, so a returning loa
 at or above `$0400` may overwrite the kernel or the interpreter it returns to.
 `SYS` remains appropriate for a machine-code subroutine that was loaded without
 destroying BASIC and returns with `RTS`: below `$0400` (`$0280-$02F7` is free), in
-banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE 63,lo:POKE 64,hi:CLEAR`).
+banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE 63,lo:POKE 64,hi:CLEAR`,
+which a `memoryTop` step emits). Only a cold start sets `MEMSIZ`, so the lowered
+value survives `LOAD`, `RUN` and `CLEAR`, and `LOAD` refuses a program that would
+reach it.
 
 ## Portable load plan
 
@@ -82,8 +87,9 @@ permanently. A BASIC plan ends with the `basic` step described below.
 A PRG file holds only its 2-byte load address; a step's `bank` (0-31, 0 when left
 out) is the one `BANK` picks before loading it, for the bytes from `$8000` up.
 Returning PRG steps normally use `$8000-$BFFF` with a bank 1-31, which BASIC never
-touches. The ROM loads a returning PRG anywhere, so the check only warns
-(`load.prg.return`) about a returning unbanked or bank-0 step: below `$0400` is
+touches, or bank-0 RAM above an earlier `memoryTop` step. The ROM loads a returning
+PRG anywhere, so the check only warns (`load.prg.return`) about any other returning
+unbanked or bank-0 step: below `$0400` is
 system zero page, stack, input buffers and kernel variables, and from `$0400` up
 through bank 0 the load may overwrite the kernel or BASIC unless the program lowered
 `MEMSIZ`. The terminal image may be unbanked or banked, in any bank 0-31. Payload
@@ -103,6 +109,13 @@ SD/FS state permanently occupies MIA RAM `$13000-$13BFF` (see
 commands, including the rest of the plan, rely on. Nothing else has a default
 claim on that range: sequencer tracks have no default address (see
 `docs/architecture/audio.md`).
+
+## Memory top step
+
+`{kind: 'memoryTop', address}` lowers BASIC's `MEMSIZ` to `address` (`$1600` to
+`$C000`) with `POKE 63,lo:POKE 64,hi:CLEAR`. A plan may have one. A returning
+bank-0 PRG step that lies wholly from `address` to `$BFFF` does not warn.
+`build.basic.memoryTop` puts this step first.
 
 ## BASIC terminal step
 
@@ -126,9 +139,14 @@ A `basic` step is a terminal step like a returning-forbidden `prg` step with
 every preceding step becomes the same `MIALOAD`/`BLOAD` command issued directly
 (not through a numbered bootstrap), followed by `LOAD "GAME.BAS"` and `RUN`
 (`BANK 0:LOAD "GAME.BAS"` when an earlier step picked another bank). An
-assembly plan (ending in a returning `prg` step) instead renders `mode: 'numbered'`:
+assembly plan (ending in a `prg` step with `runAddress`) instead renders `mode: 'numbered'`:
 a temporary numbered bootstrap program, executed with `RUN`. Both modes share the
 same `startCommand: 'RUN'`.
+
+A BASIC plan also renders as a numbered bootstrap (`bootstrap.bas`, and `BOOT.BAS`
+on a card) for starting it from the card: its last line is the `LOAD`, which ends
+at `READY` even inside a program, so on hardware `LOAD "BOOT.BAS"`, `RUN`, then a
+second `RUN` starts the game.
 
 ## Emulator launch
 
@@ -163,10 +181,10 @@ implementing a second one. For standalone BASIC programs outside a load plan,
 `@clementina/basic` can also directly emit and inspect the raw binary form consumed
 by ROM `LOAD`; see [BASIC tooling](basic-tooling.md).
 
-`@clementina/build` validates a portable project and, discriminated on
-`program.kind`, either combines explicit manifest placement with ca65/ld65 output
-and palette/CHR encoding into an assembly load plan, or compiles `program.entry`
-through `@clementina/basic` into a BASIC load plan; both cases emit
-`load-plan.json` alongside the generated files. CLI `build` calls that API. CLI
-`run` then mounts the project root through the Node emulator lifecycle and passes
-this same plan to `launchLoadPlan`, working for either project kind.
+`@clementina/build` validates a portable project and combines its parts into one
+load plan: the `memoryTop` step, explicit video and asset placements, the
+`build.assembly` PRG from ca65/ld65, and the `program.entry` program compiled
+through `@clementina/basic`. It emits `load-plan.json` alongside the generated
+files. CLI `build` calls that API. CLI `run` then mounts the build's SD root
+through the Node emulator lifecycle and passes this same plan to `launchLoadPlan`,
+whatever parts the project has.

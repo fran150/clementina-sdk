@@ -164,9 +164,8 @@ try {
  await writeFile(join(debugRoot,'clementina.yaml'),[
   'format: clementina-project','version: 1','name: Debug Adapter Integration',
   'target:','  machine: clementina-6502',
-  'program:','  kind: assembly','  entry: src/main.s','  sources:','    - src/data.s',
   'assets:','  palettes: []','  paletteConfigs: []','  tilesets: []','  backgrounds: []','  overlays: []','  shapes: []','  animations: []',
-  'build:','  outputDirectory: build','  assembly:','    linkerConfig: link.cfg',
+  'build:','  outputDirectory: build','  assembly:','    sources: [src/main.s, src/data.s]','    linkerConfig: link.cfg',
   '    outputName: game','    loadAddress: 24576','    entrySymbol: game_start','',
  ].join('\n'));
 

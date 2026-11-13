@@ -14,7 +14,7 @@ async function basicProjectFixture() {
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Adapter Test',
     'target:', '  machine: clementina-6502',
-    'program:', '  kind: basic', '  entry: main.bas',
+    'program:', '  entry: main.bas',
     'assets:', '  palettes: []', '  paletteConfigs: []',
     '  tilesets: []', '  backgrounds: []', '  overlays: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
@@ -50,7 +50,7 @@ async function launchBasicProject(adapterPath) {
   }
 }
 
-test('launching a BASIC project reaches emulator startup instead of rejecting its program kind', () => launchBasicProject(binPath));
+test('launching a BASIC project reaches emulator startup instead of rejecting it', () => launchBasicProject(binPath));
 
 test('the debug adapter bundled into the VS Code extension builds and launches the same way', () =>
   launchBasicProject(new URL('../packages/vscode-extension/dist/debug-adapter.mjs', import.meta.url).pathname));

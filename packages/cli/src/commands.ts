@@ -132,18 +132,17 @@ const build: Command = {
     if (!built.ok) return validationResult(false, built.diagnostics);
     const {value} = built;
     const loadPlan = value.files.find(file => file.kind === 'load-plan')!.path;
-    if (value.kind === 'assembly') {
-      const bootstrap = value.files.find(file => file.kind === 'bootstrap')!.path;
-      return {
-        ok: true, diagnostics: built.diagnostics, exitCode: EXIT_OK,
-        message: `Built ${value.assembly.artifacts.prg} and ${loadPlan}. SD card: ${value.sdRoot}.`,
-        data: {kind: 'assembly', sdRoot: value.sdRoot, prg: value.assembly.artifacts.prg, loadPlan, bootstrap, entryAddress: value.assembly.entryAddress},
-      };
-    }
+    const bootstrap = value.files.find(file => file.kind === 'bootstrap')!.path;
+    const memoryLayout = value.files.find(file => file.kind === 'memory-layout')!.path;
+    const outputs = [value.assembly?.artifacts.prg, value.basic?.artifact].filter(Boolean).join(', ');
     return {
-      ok: true, diagnostics: [], exitCode: EXIT_OK,
-      message: `Built ${value.basic.artifact} and ${loadPlan}.`,
-      data: {kind: 'basic', program: value.basic.artifact, loadPlan, lines: value.basic.lines},
+      ok: true, diagnostics: value.diagnostics, exitCode: EXIT_OK,
+      message: `Built ${outputs} and ${loadPlan}. SD card: ${value.sdRoot}.`,
+      data: {
+        sdRoot: value.sdRoot, loadPlan, bootstrap, memoryLayout,
+        ...(value.assembly ? {assembly: {prg: value.assembly.artifacts.prg, entryAddress: value.assembly.entryAddress}} : {}),
+        ...(value.basic ? {basic: {program: value.basic.artifact, lines: value.basic.lines}} : {}),
+      },
     };
   },
 };
@@ -165,8 +164,9 @@ const run: Command = {
         ok: true, diagnostics: [], exitCode: EXIT_OK, session: {emulator, initialState},
         message: `Running at ${emulator.endpoint}. Press Ctrl-C to stop.`,
         data: {
-          endpoint: emulator.endpoint, pid: emulator.pid, kind: built.value.kind,
-          ...(built.value.kind === 'assembly' ? {entryAddress: built.value.assembly.entryAddress} : {program: built.value.basic.artifact}),
+          endpoint: emulator.endpoint, pid: emulator.pid,
+          ...(built.value.assembly ? {assembly: {entryAddress: built.value.assembly.entryAddress}} : {}),
+          ...(built.value.basic ? {basic: {program: built.value.basic.artifact}} : {}),
         },
       };
     } catch (error) {

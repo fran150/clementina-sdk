@@ -42,7 +42,7 @@ export function createClementinaMcpServer(): McpServer {
     try {
       const checked = await loadProject(resolve(projectRoot));
       return reply({ok: checked.ok, diagnostics: checked.diagnostics,
-        ...(checked.ok ? {name: checked.value.manifest.name, programKind: checked.value.manifest.program.kind,
+        ...(checked.ok ? {name: checked.value.manifest.name, parts: {basic: checked.value.manifest.program !== undefined, assembly: checked.value.manifest.build?.assembly !== undefined},
           assets: Object.fromEntries(Object.entries(checked.value.assets).map(([kind, items]) => [kind, items.length]))} : {})}, !checked.ok);
     } catch (error) { return failure(error); }
   });
@@ -62,8 +62,8 @@ export function createClementinaMcpServer(): McpServer {
     try {
       const built = await buildProject(resolve(projectRoot));
       return built.ok
-        ? reply({ok: true, kind: built.value.kind, sdRoot: built.value.sdRoot,
-          files: built.value.files, diagnostics: built.diagnostics, loadPlan: built.value.loadPlan})
+        ? reply({ok: true, parts: {assembly: built.value.assembly !== undefined, basic: built.value.basic !== undefined}, sdRoot: built.value.sdRoot,
+          files: built.value.files, diagnostics: built.diagnostics, loadPlan: built.value.loadPlan, memoryLayout: built.value.memoryLayout})
         : reply({ok: false, diagnostics: built.diagnostics}, true);
     } catch (error) { return failure(error); }
   }));
@@ -83,7 +83,7 @@ export function createClementinaMcpServer(): McpServer {
       try {
         const state = await emulator.client.launchLoadPlan(built.value.loadPlan);
         active = {root, process: emulator, output: dirname(built.value.files.find(file => file.kind === 'load-plan')!.path)};
-        return reply({ok: true, projectRoot: root, kind: built.value.kind, endpoint: emulator.endpoint, state});
+        return reply({ok: true, projectRoot: root, parts: {assembly: built.value.assembly !== undefined, basic: built.value.basic !== undefined}, endpoint: emulator.endpoint, state});
       } catch (error) {
         await emulator.close().catch(() => undefined);
         return failure(error);

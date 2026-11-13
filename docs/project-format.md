@@ -39,7 +39,6 @@ target:
   machine: clementina-6502
   phi2Hz: 1200000
 program:
-  kind: basic
   entry: src/main.bas
 assets:
   palettes:
@@ -70,21 +69,38 @@ setting yet, so project validation rejects non-default values. The three audio
 lists are optional, and a missing list means no assets of that kind; every other
 list is required, even when it is empty.
 
+## Program parts
+
+A project is described by the parts it has, not by a kind:
+
+- `program.entry` (optional) is a BASIC program. It runs last.
+- `build.assembly` (optional) is ca65 code linked into one PRG.
+
+A project needs at least one of them:
+
+| Parts | What the loader does |
+| --- | --- |
+| BASIC only | Loads the assets, then `LOAD`s and `RUN`s the program. |
+| Assembly only | A generated loader loads the assets and `BRUN`s the PRG, which takes over. |
+| BASIC and assembly | Loads the assets, `BLOAD`s the PRG (it returns to BASIC), then `LOAD`s and `RUN`s the program, which calls the code with `SYS`. |
+
+`program.entry` needs `build.basic` settings, and `build.basic` needs
+`program.entry`. Asset builds (`build.assets`) need `build.assembly`, because the
+runtime library is ca65 code.
+
 ## Build declaration
 
-Assembly projects can declare an explicit reproducible build. All paths
-remain project-relative. The linker configuration owns CPU memory placement; the
-SDK verifies its output against `loadAddress` rather than choosing an address.
+The build is explicit and reproducible. All paths remain project-relative.
+The linker configuration owns CPU memory placement; the SDK verifies its output
+against `loadAddress` rather than choosing an address.
 
 ```yaml
-program:
-  kind: assembly
-  entry: src/main.s
-  sources:
-    - src/player.s
 build:
   outputDirectory: build
   assembly:
+    sources:
+      - src/main.s
+      - src/player.s
     linkerConfig: config/game.cfg
     outputName: game
     loadAddress: 24576       # $6000
@@ -105,19 +121,54 @@ Each tileset placement names a distinct CHR bank from 0 through 7. The build emi
 the selected complete palette configuration at MIA `$00100` and each tileset at
 its declared CHR bank. No placement is inferred from manifest array order.
 
+A BASIC program's settings name its output file and, optionally, where BASIC's
+memory ends:
+
+```yaml
+program:
+  entry: src/main.bas
+build:
+  outputDirectory: build
+  basic:
+    outputName: game
+    memoryTop: 40960         # $A000
+```
+
+`memoryTop` lowers `MEMSIZ` before the program loads (`POKE 63,lo:POKE 64,hi:CLEAR`).
+BASIC then keeps its program, variables and strings below it, so bank-0 RAM from
+`memoryTop` to `$BFFF` is free for assembly the program calls with `SYS`. `FRE`
+reports correspondingly less memory. The program text starts at the bottom of
+BASIC's area, so lowering the top does not make room low in RAM: code at `$1800`
+still overlaps the program. The value is from `$1600` (the kernel region's end;
+BASIC's interpreter follows it, so the usable floor is higher and moves with each
+ROM build) to `$C000` (the default).
+
+## Memory layout
+
+The manifest places every part: the PRG with `loadAddress` and `bank`, video data
+with `build.video`, assets with `build.assets` slots, and BASIC's top with
+`memoryTop`. The build never moves a part. It writes `memory-layout.json`, a map of
+every part in CPU memory and MIA RAM next to the machine's own areas (system RAM,
+the kernel, BASIC's workspace and the SD/FS state at MIA `$13000`), and warns
+(`build.layout.overlap`) about each overlap. An overlap is a warning, not an error:
+avoiding one, or overwriting BASIC on purpose, is the programmer's decision. An
+assembly-only program takes over with `BRUN`, so overlapping BASIC is not reported
+for it; overlapping the kernel, which holds the loader, is.
+
 `@clementina/build` and `clementina build` produce the linked binary and PRG,
-debug artifacts, palette/CHR files, `load-plan.json`, and `bootstrap.bas` inside
-`outputDirectory`. With `build.assets`, sprite files contain each tileset's
+debug artifacts, palette/CHR files, `load-plan.json`, `memory-layout.json` and
+`bootstrap.bas` inside `outputDirectory`. With `build.assets`, sprite files contain each tileset's
 shapes followed by animations, with generated item/location tables.
 
 ## Asset build (`build.assets`)
 
-For an assembly project, add:
+For a project with assembly, add:
 
 ```yaml
 build:
   outputDirectory: build
   assembly:
+    sources: [src/main.s]
     linkerConfig: link.cfg
     outputName: game
     loadAddress: 6144       # $1800; retain the resident kernel loader
@@ -141,12 +192,14 @@ and `sound`. A sprite file uses its **tileset ID**. `file` overrides the generat
 `checks` defaults to true. Built-in slots are `palettes`, `chr0`–`chr7` and
 `overlay`; user MIA slots stay inside `$14000–$3FFFF`. CPU slots name a bank
 1–31 and address `$8000–$BFFF`, and may span consecutive banks through bank 31.
-Overlapping slots, duplicate or unresolved includes, reserved locations and
-invalid assembly constants are rejected. Assets sharing a slot are alternatives.
+Duplicate or unresolved includes, reserved locations and invalid assembly
+constants are rejected. Overlapping slots are a warning
+(`project.build.slot.overlap`). Assets sharing a slot are alternatives.
 
 Output includes `assets.inc`, `assets.s`, `memory-report.json`, the runtime
 sources/library/listings and `runtime/code-sizes.json`. The deployable card is
-`build/sd`, containing `BOOT.BAS`, `GAME.PRG` and `ASSETS/`. Runtime calls own
+`build/sd`, containing `BOOT.BAS`, `GAME.PRG` and `ASSETS/`, plus the compiled
+`<NAME>.BAS` when the project has a BASIC program. Runtime calls own
 loading and playback; merely including an asset does not load or use it.
 See [the Builder](gamedev/builder.md) and `examples/runtime-demo`.
 
