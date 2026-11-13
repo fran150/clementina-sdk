@@ -43,6 +43,20 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
   **BASIC Variables** scope and simple-variable hover/watch evaluation.
 - `.bas` files have a TextMate grammar and language configuration, and the
   **Clementina BASIC: Renumber Program…** command prompts for start and step.
+- `.s` and `.inc` files open as **Clementina Assembly** (ca65 syntax for the
+  W65C02S, including the Rockwell bit instructions and `WAI`/`STP`), with a
+  TextMate grammar and a language configuration (`;` comments, folding of
+  `.proc`/`.scope`/`.macro`/`.if` blocks). The grammar also highlights the
+  symbols the SDK's public includes define: the asset runtime macros, routines
+  and zero-page arguments from `runtime.inc`, and the constants that
+  `generate-includes.mjs` writes into `clementina.inc` and `mia.inc` from
+  `specs/*.json`. It is generated from those files by
+  `scripts/generate-asm-grammar.mjs` (`npm run generate:asm-grammar`), and
+  `npm test` fails if it is stale. There is no assembly language server yet:
+  no hover, completion or go-to-definition.
+- Both languages contribute `breakpoints`, so source breakpoints can be set
+  from the gutter in `.bas`, `.s` and `.inc` files; the debugger resolves
+  assembly breakpoints through the ld65 source map.
 
 Launch configuration:
 

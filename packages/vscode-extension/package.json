@@ -1,7 +1,7 @@
 {
   "name": "clementina",
   "displayName": "Clementina",
-  "description": "Debugging and BASIC language support for the Clementina homebrew computer",
+  "description": "Debugging, BASIC and 65C02 assembly language support for the Clementina homebrew computer",
   "version": "0.3.0-alpha.1",
   "repository": {"type": "git", "url": "git+https://github.com/fran150/clementina-sdk.git", "directory": "packages/vscode-extension"},
   "private": true,
@@ -32,19 +32,30 @@
         "extensions": [".bas"],
         "aliases": ["Clementina BASIC"],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "clementina-asm",
+        "extensions": [".s", ".inc"],
+        "aliases": ["Clementina Assembly", "65C02 Assembly (ca65)"],
+        "configuration": "./asm-language-configuration.json"
       }
     ],
     "grammars": [
-      {"language": "clementina-basic", "scopeName": "source.clementina-basic", "path": "./syntaxes/clementina-basic.tmLanguage.json"}
+      {"language": "clementina-basic", "scopeName": "source.clementina-basic", "path": "./syntaxes/clementina-basic.tmLanguage.json"},
+      {"language": "clementina-asm", "scopeName": "source.clementina-asm", "path": "./syntaxes/clementina-asm.tmLanguage.json"}
     ],
     "commands": [
       {"command": "clementina.basic.renumberInteractive", "title": "Clementina BASIC: Renumber Program…"}
+    ],
+    "breakpoints": [
+      {"language": "clementina-basic"},
+      {"language": "clementina-asm"}
     ],
     "debuggers": [
       {
         "type": "clementina",
         "label": "Clementina",
-        "languages": ["clementina-basic"],
+        "languages": ["clementina-basic", "clementina-asm"],
         "configurationAttributes": {
           "launch": {
             "required": ["program"],
@@ -86,5 +97,5 @@
     "typescript": "^5.8.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "syntaxes", "LICENSE"]
+  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "LICENSE"]
 }

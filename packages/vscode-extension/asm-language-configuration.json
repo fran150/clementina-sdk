@@ -1,0 +1,8 @@
+{
+  "comments": {"lineComment": ";"},
+  "brackets": [["(", ")"], ["{", "}"]],
+  "autoClosingPairs": [{"open": "\"", "close": "\"", "notIn": ["string", "comment"]}, {"open": "'", "close": "'", "notIn": ["string", "comment"]}, {"open": "(", "close": ")"}, {"open": "{", "close": "}"}],
+  "surroundingPairs": [{"open": "\"", "close": "\""}, {"open": "'", "close": "'"}, {"open": "(", "close": ")"}, {"open": "{", "close": "}"}],
+  "wordPattern": "[.@]?[A-Za-z_][A-Za-z0-9_]*|\\$[0-9A-Fa-f]+|%[01]+|[0-9]+",
+  "folding": {"markers": {"start": "^\\s*\\.(?i:proc|scope|macro|mac|struct|union|enum|if|ifdef|ifndef|ifblank|ifnblank|ifconst|ifref|ifnref|repeat)\\b", "end": "^\\s*\\.(?i:endproc|endscope|endmacro|endmac|endstruct|endunion|endenum|endif|endrepeat|endrep)\\b"}}
+}
