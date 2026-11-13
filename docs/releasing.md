@@ -46,8 +46,17 @@ publication.
 
 The [CLI binaries workflow](../.github/workflows/binaries.yml) compiles the
 standalone executables with Bun on every push and pull request, then runs each
-one on its own operating system with Node.js removed from `PATH`. Pushing a
-`v*` tag also attaches the executables and `SHA256SUMS` to that GitHub release.
+one on its own operating system with Node.js removed from `PATH`. The same job packages
+the VS Code extension. Pushing a `v*` tag attaches the executables, the `.vsix`
+and `SHA256SUMS` to that GitHub release.
+
+## Alpha releases
+
+Alpha releases use a prerelease version such as `0.3.0-alpha.1`. A tag with a
+prerelease suffix, such as `v0.3.0-alpha.1`, makes the workflow mark the GitHub
+release as a prerelease. Publish the npm packages with `--tag alpha` so that
+`latest` is not moved. The VS Code Marketplace rejects prerelease version
+numbers, so alpha extensions ship only as the `.vsix` on the GitHub release.
 
 Publishing and Marketplace upload are external release actions and are not
 performed by the repository checks.

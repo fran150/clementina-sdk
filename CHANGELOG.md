@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.3.0-alpha.1
+
+First alpha release. GitHub releases carry the standalone CLI executables, the VS Code extension (`.vsix`) and `SHA256SUMS`; npm packages are published under the `alpha` dist-tag.
+
 - PRG files carry a 2-byte load-address header with no bank byte. Load plans pick each PRG bank with `BANK n:` and start the program with `BRUN`, `MIALOAD` steps no longer emit a length, and the BASIC tokenizer keeps hex digits after `$` (up to 6) raw instead of crunching `CD` or `DEF`, matching the ROM.
 - Generate `clementina.inc` and `mia.inc` from `specs/` (`npm run generate:includes`) and put them on every assembly build's include path; the asset runtime uses MIA's names from them.
 - Add automated package-content checks and CI for supported Node versions.
@@ -17,5 +21,3 @@
 - Bundle the VS Code extension with its debug adapter and BASIC language server so the `.vsix` packages from the workspace (`npm run package` in `packages/vscode-extension`).
 - Add `clementina project import` to turn a Studio session file into a new portable assembly project.
 - Add `WaitTick`, `ReadPad` and `KeyHeld` to the runtime: frame timing from MIA's 60 Hz count, and held gamepad and keyboard input.
-
-The first distributed release will establish the package release history.

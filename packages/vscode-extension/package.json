@@ -2,7 +2,7 @@
   "name": "clementina",
   "displayName": "Clementina",
   "description": "Debugging and BASIC language support for the Clementina homebrew computer",
-  "version": "0.2.0",
+  "version": "0.3.0-alpha.1",
   "repository": {"type": "git", "url": "git+https://github.com/fran150/clementina-sdk.git", "directory": "packages/vscode-extension"},
   "private": true,
   "license": "GPL-3.0-only",
@@ -78,8 +78,8 @@
     ]
   },
   "devDependencies": {
-    "@clementina/basic-lsp": "0.2.0",
-    "@clementina/debug-adapter": "0.2.0",
+    "@clementina/basic-lsp": "0.3.0-alpha.1",
+    "@clementina/debug-adapter": "0.3.0-alpha.1",
     "@types/node": "^26.6.2",
     "@types/vscode": "^1.138.0",
     "esbuild": "^0.28.2",
