@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add `clementina mcp`, which serves the MCP server over stdio from the CLI, so the standalone executables run it without Node.js.
 - Add `clementina --version`, which names a checkout build and its commit; `doctor` prints it and the path and version of each tool it finds.
 - Add dev installs: `npm run dev:install` puts launchers for this checkout's `clementina` and `clementina-mcp` in `~/.clementina/dev/bin`, and `clementina-dev on|off|status` switches a shell between them and the installed tools.
 - Remove `program.kind`. A project is described by its parts: an optional BASIC `program.entry` and an optional `build.assembly`, which now lists its own `sources`. With both, the load plan `BLOAD`s the PRG and then runs the BASIC program. Build results, `clementina build --json`, MCP and the debugger report `assembly`/`basic` parts instead of a kind; `create-game.mjs init` takes `--template`.

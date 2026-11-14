@@ -10,7 +10,11 @@ import {buildProject} from '@clementina/build';
 import {resolveEmulatorExecutable, startEmulatorProcess, type EmulatorProcess} from '@clementina/emulator-client/node';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 
-const {version} = createRequire(import.meta.url)('../package.json') as {version: string};
+/** Set by `scripts/build-binaries.mjs` when the server is bundled into the standalone CLI. */
+declare const CLEMENTINA_STANDALONE_VERSION: string | undefined;
+const version = typeof CLEMENTINA_STANDALONE_VERSION === 'string'
+  ? CLEMENTINA_STANDALONE_VERSION
+  : (createRequire(import.meta.url)('../package.json') as {version: string}).version;
 
 type Active = {root: string; process: EmulatorProcess; output: string};
 type Data = Record<string, unknown>;

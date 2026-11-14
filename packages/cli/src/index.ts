@@ -22,6 +22,7 @@ export const help = `Usage: clementina <command> [--json]
   run [directory] [options]      Build and run with an owned headless emulator
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
+  mcp                            Serve the SDK's MCP tools over stdio
   --version                      Print the version and which copy is running
 
 Run options:
