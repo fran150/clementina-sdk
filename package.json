@@ -22,7 +22,8 @@
     "generate:runtime": "node scripts/generate-runtime-sources.mjs",
     "generate:basic-keywords": "node scripts/generate-basic-keywords.mjs",
     "generate:asm-grammar": "node scripts/generate-asm-grammar.mjs",
-    "build:binaries": "npm run build && node scripts/build-binaries.mjs"
+    "build:binaries": "npm run build && node scripts/build-binaries.mjs",
+    "dev:install": "npm run build && node scripts/dev-install.mjs"
   },
   "engines": {
     "node": ">=20"

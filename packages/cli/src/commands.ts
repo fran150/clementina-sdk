@@ -8,6 +8,7 @@ import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStud
 import {loadProject, saveProject} from '@clementina/project/node';
 import {isValue, parseDoctorArguments, parseImportArguments, parseRunArguments} from './arguments.js';
 import {probeTool, type ToolProbe} from './doctor.js';
+import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, failure, usageFailure, type Command, type CommandResult} from './types.js';
 
 const MINIMUM_NODE_MAJOR = 20;
@@ -21,6 +22,12 @@ function validationResult(ok: boolean, diagnostics: ClementinaDiagnostic[]): Com
 
 /** True in the single-file executable, which bundles its own JavaScript runtime. */
 const standalone = Boolean(process.versions.bun);
+
+/** One doctor line per tool: whether it is ready, the copy found, and its own version line. */
+function toolLine(name: DoctorTool, probe: ToolProbe): string {
+  if (!probe.found) return `${name}: missing`;
+  return `${name}: ready, ${probe.path}${probe.detail ? ` (${probe.detail})` : ''}`;
+}
 
 /** `doctor`: report the JavaScript runtime, cc65 tools, and the emulator automation executable. */
 const doctor: Command = {
@@ -47,8 +54,11 @@ const doctor: Command = {
     return {
       ok: !failed, diagnostics,
       exitCode: failed ? EXIT_FAILURE : EXIT_OK,
-      message: `${standalone ? 'Standalone executable' : `Node.js ${process.versions.node}`}; ${DOCTOR_TOOLS.map(name => `${name}: ${tools[name].found ? 'ready' : 'missing'}`).join(', ')}.`,
-      data: {...(standalone ? {standalone: true} : {node: process.versions.node}), tools},
+      message: [
+        `${formatCliVersion()}; ${standalone ? 'standalone executable' : `Node.js ${process.versions.node}`}`,
+        ...DOCTOR_TOOLS.map(name => toolLine(name, tools[name])),
+      ].join('\n'),
+      data: {...(standalone ? {standalone: true} : {node: process.versions.node}), cli: cliVersion(), tools},
     };
   },
 };
