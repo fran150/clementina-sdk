@@ -6,14 +6,14 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {checkProject, checkProjectManifest, MIA_FREE_START, MIA_FREE_END} from '../packages/project/dist/index.js';
 import {saveProject} from '../packages/project/dist/node.js';
-import {planAssetBuild, buildProject, runtimeCodeSize} from '../packages/build/dist/index.js';
-import {runtimeDirectory, RUNTIME_DESCRIPTOR, RUNTIME_STATE_SIZE, RUNTIME_ANIM_SIZE} from '../packages/runtime/dist/index.js';
+import {planAssetBuild, buildProject, libraryCodeSize} from '../packages/build/dist/index.js';
+import {libraryDirectory, LIBRARY_DESCRIPTOR, LIBRARY_STATE_SIZE, LIBRARY_ANIM_SIZE} from '../packages/lib/dist/index.js';
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/portable-v1.json', import.meta.url)));
 function project() {
  const assets=structuredClone(fixture);
  const kinds={paletteConfig:'paletteConfigs',tileset:'tilesets',background:'backgrounds',overlay:'overlays',sprites:'tilesets',song:'songs',sound:'sounds'};
- return {assets,manifest:{format:'clementina-project',version:1,name:'Runtime demo',target:{machine:'clementina-6502'},assets:Object.fromEntries(Object.entries(assets).map(([k,a])=>[k,a.map((_,i)=>`assets/${k}/${i}.json`)])),build:{outputDirectory:'build',assembly:{sources:['src/main.s'],linkerConfig:'link.cfg',outputName:'demo',loadAddress:0x1800,entrySymbol:'game_start'},assets:{slots:[{name:'work',mia:0x14000,size:0x10000},{name:'bank',bank:1,address:0x8000,size:0x4000}],include:Object.entries(kinds).map(([kind,list])=>({kind,id:assets[list][0].id,slot:'work'}))}}}};
+ return {assets,manifest:{format:'clementina-project',version:1,name:'Library demo',target:{machine:'clementina-6502'},assets:Object.fromEntries(Object.entries(assets).map(([k,a])=>[k,a.map((_,i)=>`assets/${k}/${i}.json`)])),build:{outputDirectory:'build',assembly:{sources:['src/main.s'],linkerConfig:'link.cfg',outputName:'demo',loadAddress:0x1800,entrySymbol:'game_start'},assets:{slots:[{name:'work',mia:0x14000,size:0x10000},{name:'bank',bank:1,address:0x8000,size:0x4000}],include:Object.entries(kinds).map(([kind,list])=>({kind,id:assets[list][0].id,slot:'work'}))}}}};
 }
 const codes=r=>r.diagnostics.map(d=>d.code);
 test('Builder slots use the MIA RAM programs block from the machine spec', async () => {
@@ -43,7 +43,7 @@ test('Builder emits all descriptor types, item tables, constants and alternative
  assert.deepEqual(plan.assets.map(a=>a.label),['PAL_MAIN','CHR_PLAYER','BG_LEVEL1','OVL_HUD','SPR_PLAYER','SONG_THEME','SFX_JUMP']);
  for(const a of plan.assets) {assert.match(a.file,/^[A-Z0-9_]{1,8}\.[A-Z]{2,3}$/);assert.equal(a.path,`ASSETS/${a.file}`);assert.ok(plan.assetsInc.includes(`${a.label}_SIZE = ${a.bytes.length}`));assert.ok(plan.assetsS.includes(`${a.label}:`));}
  assert.match(plan.assetsInc,/SHAPE_PLAYER_IDLE = 0/);assert.match(plan.assetsInc,/ANIM_PLAYER_IDLE = 0/);
- assert.match(plan.assetsS,/\.faraddr RT_NOT_LOADED, \$014000/);assert.match(plan.assetsS,/SPR_PLAYER_LOCS:/);assert.match(plan.assetsS,/\.repeat 2/);
+ assert.match(plan.assetsS,/\.faraddr CL_NOT_LOADED, \$014000/);assert.match(plan.assetsS,/SPR_PLAYER_LOCS:/);assert.match(plan.assetsS,/\.repeat 2/);
  const slot=plan.report.slots.find(s=>s.name==='work');assert.equal(slot.assets.length,7);assert.equal(slot.used,Math.max(...plan.assets.map(a=>a.bytes.length)));
  assert.equal(plan.report.slots.find(s=>s.name==='bank').location,0x818000);
 });
@@ -82,7 +82,7 @@ test('Builder reserves explicit filenames before allocating generated names',()=
  assert.equal(planned.value.assets[1].file,'MAIN.PAL');
  assert.match(planned.value.assetsS,/GAME\/ASSETS\/MAIN01\.PAL/);
 });
-test('runtime CODE size ignores other segments and includes the last listing row',()=>{
+test('library CODE size ignores other segments and includes the last listing row',()=>{
  const listing=[
   '000000r 1               .segment "CODE"',
   '000000r 1  48                   pha',
@@ -91,31 +91,43 @@ test('runtime CODE size ignores other segments and includes the last listing row
   '000006r 1               .segment "RODATA"',
   '000020r 1  AA                   .byte $AA',
  ].join('\n');
- assert.equal(runtimeCodeSize(listing),6);
+ assert.equal(libraryCodeSize(listing),6);
 });
-test('runtime public constants match the assembly descriptor and state ABI',async()=>{
- const inc=await readFile(join(runtimeDirectory,'runtime.inc'),'utf8');
- for(const [key,value] of Object.entries({...Object.fromEntries(Object.entries(RUNTIME_DESCRIPTOR).map(([k,v])=>[`RT_D_${k}`,v])),RT_STATE_SIZE:RUNTIME_STATE_SIZE,RT_ANIM_SIZE:RUNTIME_ANIM_SIZE})) assert.match(inc,new RegExp(`^${key}\\s*=\\s*${value}\\s*(?:;|$)`,'m'));
+test('library public constants match the assembly descriptor and state ABI',async()=>{
+ const inc=await readFile(join(libraryDirectory,'clementina-lib.inc'),'utf8');
+ for(const [key,value] of Object.entries({...Object.fromEntries(Object.entries(LIBRARY_DESCRIPTOR).map(([k,v])=>[`CL_D_${k}`,v])),CL_STATE_SIZE:LIBRARY_STATE_SIZE,CL_ANIM_SIZE:LIBRARY_ANIM_SIZE})) assert.match(inc,new RegExp(`^${key}\\s*=\\s*${value}\\s*(?:;|$)`,'m'));
 });
 const hasTools=['ca65','ld65','ar65'].every(t=>spawnSync(t,[t==='ar65'?'V':'--version'],{stdio:'ignore'}).status===0);
-test('real toolchain builds the runtime demo, generated descriptors and SD card', {skip:!hasTools},async()=>{
- const root=await mkdtemp(join(tmpdir(),'clementina-runtime-'));
- await cp(new URL('../examples/runtime-demo/',import.meta.url),root,{recursive:true});
+test('real toolchain builds the library demo, generated descriptors and SD card', {skip:!hasTools},async()=>{
+ const root=await mkdtemp(join(tmpdir(),'clementina-library-'));
+ await cp(new URL('../examples/library-demo/',import.meta.url),root,{recursive:true});
  const r=await buildProject(root);assert.equal(r.ok,true,JSON.stringify(r.diagnostics));assert.equal(r.value.sdRoot,'build/sd');assert.equal(r.value.loadPlan.steps.at(-1).path,'DEMO.PRG');
- assert.ok((await readFile(join(root,'build/runtime/runtime.lib'))).length>0);
- const code=r.value.assets.report.runtimeCode;
+ assert.ok((await readFile(join(root,'build/lib/clementina.lib'))).length>0);
+ const code=r.value.assets.report.libraryCode;
  assert.ok(code['core.s']>0 && code['mia-index.s']>0 && code['location.s']>0);
  assert.ok(code['core.s']+code['mia-index.s']+code['location.s']>900);
- assert.equal(r.value.assets.report.runtimeCode['zp.s'],0);
+ assert.equal(r.value.assets.report.libraryCode['zp.s'],0);
  assert.ok((await readFile(join(root,'build/sd/BOOT.BAS'))).length>0);
  assert.deepEqual(await readFile(join(root,'build/sd/DEMO.PRG')),Buffer.from(r.value.assembly.prg));
  // Disabling checks must assemble every library module too. An unreferenced
- // runtime stays out of the final code, even though all assets are described.
+ // library stays out of the final code, even though all assets are described.
  const manifest=JSON.parse(await readFile(join(root,'clementina.yaml'),'utf8'));
- manifest.build.assets.checks=false;
+ manifest.build.assembly.checks=false;
  await writeFile(join(root,'clementina.yaml'),JSON.stringify(manifest));
  await writeFile(join(root,'src/main.s'),'.setcpu "65C02"\n.export game_start\n.segment "CODE"\ngame_start: jmp game_start\n');
  const minimal=await buildProject(root);assert.equal(minimal.ok,true,JSON.stringify(minimal.diagnostics));
  assert.equal(minimal.value.assembly.debug.segments.find(s=>s.name==='CODE').size,3);
- assert.ok(minimal.value.assets.report.runtimeCode['load.s']<r.value.assets.report.runtimeCode['load.s']);
+ assert.ok(minimal.value.assets.report.libraryCode['load.s']<r.value.assets.report.libraryCode['load.s']);
+});
+
+test('real toolchain links the Clementina library into an assembly project without assets', {skip:!hasTools},async()=>{
+ const root=await mkdtemp(join(tmpdir(),'clementina-library-'));
+ await cp(new URL('../templates/asm-game/',import.meta.url),root,{recursive:true});
+ const plain=await buildProject(root);assert.equal(plain.ok,true,JSON.stringify(plain.diagnostics));
+ assert.ok((await readFile(join(root,'build/lib/clementina.lib'))).length>0);
+ // A program that calls nothing from the library links none of it.
+ assert.equal(plain.value.assembly.debug.segments.find(s=>s.name==='CODE').size,8);
+ await writeFile(join(root,'src/main.s'),'.setcpu "65C02"\n.include "clementina-lib.inc"\n.export game_start\n.segment "CODE"\ngame_start:\n WaitTick\n ReadPad #0\n jmp game_start\n');
+ const calling=await buildProject(root);assert.equal(calling.ok,true,JSON.stringify(calling.diagnostics));
+ assert.ok(calling.value.assembly.debug.segments.find(s=>s.name==='CODE').size>plain.value.assembly.debug.segments.find(s=>s.name==='CODE').size+9);
 });

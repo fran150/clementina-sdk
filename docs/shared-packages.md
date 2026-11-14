@@ -113,6 +113,13 @@ source-line stepping, and bounded JSR step-over without depending on the Node
 assembler package. The adapter deliberately does not select addresses or generate
 a linker map on the caller's behalf.
 
+`@clementina/lib` is the Clementina library: the SDK's ca65 routines for
+Clementina programs, from loading and drawing assets to sound, frame timing and
+input, growing as programs need more. It exports the embedded sources
+(`libraryFiles`), their names, and the descriptor constants the builder writes.
+`@clementina/build` archives it into `clementina.lib` and links it into every
+assembly program. See [the Clementina library](gamedev/library.md).
+
 `@clementina/debug` is the editor-neutral orchestration layer. It presents one CPU
 thread, register snapshots, bank-selective source breakpoint ownership,
 execution controls, source stepping, bounded disassembly, verified call and
@@ -145,7 +152,8 @@ renumbering. See [the VS Code extension](vscode-extension.md).
 `@clementina/build` loads and validates a portable project, emits explicitly
 selected asset placements, and writes a validated load plan. With
 `build.assets`, it also writes asset files, generated includes and descriptors,
-a memory report, an SD card folder, and `runtime.lib`. Its result has a field for
+a memory report and an SD card folder. Every assembly build also writes and
+links `clementina.lib`, the Clementina library from `@clementina/lib`. Its result has a field for
 each part the project declares (see [program parts](project-format.md#program-parts)):
 `assembly`, from `build.assembly` through `@clementina/assembler` with
 `clementina.inc` and `mia.inc` on its include path (see

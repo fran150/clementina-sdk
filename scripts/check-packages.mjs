@@ -52,7 +52,7 @@ try {
       if (file.endsWith('.tsbuildinfo')) errors.push(`${directory}: build cache ${file} is included in the npm package`);
     }
     if (!files.has('LICENSE')) errors.push(`${directory}: LICENSE is absent from the npm package`);
-    if (directory === 'runtime' && !files.has('asm/runtime.inc')) errors.push(`${directory}: runtime assembly sources are absent`);
+    if (directory === 'lib' && !files.has('asm/clementina-lib.inc')) errors.push(`${directory}: Clementina library assembly sources are absent`);
     if (directory === 'vscode-extension') {
       for (const path of ['language-configuration.json', 'asm-language-configuration.json', 'syntaxes/clementina-basic.tmLanguage.json', 'syntaxes/clementina-asm.tmLanguage.json']) {
         if (!files.has(path)) errors.push(`${directory}: ${path} is absent`);

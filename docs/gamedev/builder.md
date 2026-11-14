@@ -1,4 +1,4 @@
-# Asset builder and runtime
+# Asset builder
 
 The current hardware contract lives in the [architecture docs](../architecture/overview.md)
 and [specs](../../specs/).
@@ -6,21 +6,18 @@ and [specs](../../specs/).
 ## Purpose
 
 Clementina Studio's Builder tab turns a project's assets into files that a
-Clementina program loads from the SD card. It also supplies a library of 6502
-routines that load and use those files.
+Clementina program loads from the SD card. The program loads and uses them with
+the [Clementina library](library.md), which every assembly build links.
 
 | Who | Responsibility |
 | --- | --- |
 | Studio (Builder tab) | Edits the build settings: which assets are included, the memory slots, and each asset's default slot. Runs the SDK build and the emulator. |
-| SDK (`@clementina/build` and `@clementina/runtime`) | Encodes asset files, generates descriptors and constants, builds the runtime library, checks the layout, and assembles a bootable folder. |
+| SDK (`@clementina/build` and `@clementina/lib`) | Encodes asset files, generates descriptors and constants, builds the Clementina library, checks the layout, and assembles a bootable folder. |
 | The game's programmer | Decides when anything is loaded, drawn, played or ticked, and where it goes. |
-
-The runtime provides primitives and never orchestrates. It has no scenes, no
-level loader and no update loop of its own.
 
 A game is a ca65 assembly program that the BASIC boot program starts. Once the
 game runs, it owns the machine. It may overwrite BASIC's memory, the console
-font in CHR banks 0–1 and the overlay. The runtime talks to MIA directly and
+font in CHR banks 0–1 and the overlay. The library talks to MIA directly and
 needs neither the kernel nor BASIC.
 
 ## Memory
@@ -37,7 +34,7 @@ needs neither the kernel nor BASIC.
 | `$10850–$10D4F` | 1,280 B | OAM: 256 records × 5 B | written by routines |
 | `$11000–$1107F` | 128 B | input state and clock snapshot | reserved |
 | `$12000–$1204F` | 80 B | audio registers | reserved |
-| `$13000–$13BFF` | 3 KiB | SD/FS control block and buffers | reserved; the runtime loads through it |
+| `$13000–$13BFF` | 3 KiB | SD/FS control block and buffers | reserved; the library loads through it |
 | `$14000–$3FFFF` | 176 KiB | free | user slots |
 
 Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
@@ -52,7 +49,7 @@ Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
 
 ### CPU memory
 
-- **Runtime placement.** The runtime's code, descriptors, tables and zero-page
+- **Library placement.** The library's code, descriptors, tables and zero-page
   bytes are ordinary ca65 segments. The game's linker configuration places them;
   the Builder doesn't.
 - **Banks as storage.** Banks 1–31 (the `$8000–$BFFF` window, selected by VIA
@@ -90,10 +87,10 @@ Build checks:
 | MIA → MIA (`COPY_INDEXES`, DMA) | microseconds for kilobytes | free |
 | SD → MIA (`FS_LOAD_TO_MIA_RAM`) | at most 1.5 MB/s, the 12 MHz SPI clock; expect a few hundred KB/s after FAT and MIA's 1 ms service slices. To be measured on hardware. | free; each command has a start-up delay and variable duration |
 | SD → CPU bank | limited by the CPU copy below | busy |
-| CPU bank ↔ MIA (through an index window) | a hand-written loop: 9.4–14 cycles per byte, about 85–130 KB/s at the default 1.2 MHz PHI2 and 0.57–0.85 MB/s at 8 MHz; the runtime's own copies: about 26 cycles per byte, 46 KB/s at 1.2 MHz (see [performance](performance.md)) | busy, but starts at once and always takes the same time |
+| CPU bank ↔ MIA (through an index window) | a hand-written loop: 9.4–14 cycles per byte, about 85–130 KB/s at the default 1.2 MHz PHI2 and 0.57–0.85 MB/s at 8 MHz; the library's own copies: about 26 cycles per byte, 46 KB/s at 1.2 MHz (see [performance](performance.md)) | busy, but starts at once and always takes the same time |
 
 MIA can't write CPU RAM, so every byte of an SD → bank load passes through the
-CPU. The current runtime reads at most 1,984 bytes at a time through FS handle 15
+CPU. The current library reads at most 1,984 bytes at a time through FS handle 15
 and the SD transfer buffer, then copies each chunk into the bank. It handles
 bank boundaries and strided rows. Overlapping SD reads with CPU copies remains
 a future optimization; current bank loads block.
@@ -167,7 +164,7 @@ releases the gate.
     sprite file;
   - overlay placeholder rectangles (column, row, width, height).
 
-  Its macros fill the runtime's argument block and call a routine, for example
+  Its macros fill the library's argument block and call a routine, for example
   `DrawShape HERO_SPRITES, HERO_IDLE, 0, px, py`.
 - **`assets.s`** holds one descriptor per included asset and one location table
   per sprite file, in a data segment the game's linker configuration places.
@@ -190,139 +187,34 @@ location table has one entry per shape and per animation. That lets a game load
 single items wherever it likes, while animations keep referring to shared shapes
 by number.
 
-## Runtime library
+## The Clementina library
 
-### Packaging
-
-- The SDK package is `@clementina/runtime`. Related primitives share modules
-  across 22 ca65 sources. The archive is assembled with `ca65 -D RT_CHECKS=…`
-  and written with `ar65 r`. `ld65` includes referenced modules and their helpers.
-  `runtime/code-sizes.json` and the memory report record CODE bytes per module;
-  these are module sizes, not isolated per-routine costs.
-- The build assembles the sources with the project's defines, archives them into
-  `runtime.lib` with `ar65`, and copies them into the build folder so they can
-  be read and stepped through.
-- `ld65` links only the routines the game references, plus what those call.
-- The `checks` build option (default on) makes routines validate locations and
-  item numbers and report errors. Turning it off removes the checks.
-
-### Conventions
-
-- **Arguments.** Small values go in A, X and Y. The rest go in a zero-page
-  argument block, which the `assets.inc` macros fill. The runtime's argument
-  block and scratch bytes form one `ZEROPAGE` segment (42 bytes).
-- **Initialization.** BLOAD does not clear BSS. The game must zero its BSS
-  before the first runtime call; `examples/runtime-demo/src/main.s` shows this.
-  Link at `$1800` or higher to preserve the resident loader. Keep zero page
-  below `$E0`: `$E0–$FF` belongs to the system, and the kernel IRQ updates
-  `$F7–$F8`.
-- **Results.** Carry is clear on success. On failure carry is set and the
-  reason is in `rt_error`.
-- **MIA resources.** Routines use both index windows, `CFG_SELECT` and the
-  command registers, and leave them changed. They use a block of index
-  descriptors `$40` (window A, reads/source) and `$41` (window B, writes/destination).
-- **Commands.** Before sending a command, each routine waits for the previous
-  MIA command and for any running copy to finish. MIA drops a command when its
-  queue is full (`ERROR_DEFER_CMD_QUEUE_FULL`, `clementina-mia` `sys/mia.c`).
-- **Loads.** Every load has a blocking form and a start/poll pair
-  (`LoadStart`, `LoadBusy`), so a game can stream while it plays. Only one SD
-  job runs at a time.
-
-### Interrupts
-
-- **Default: main loop only.** The recommended pattern is a timer interrupt that
-  only counts ticks, and a main loop that calls `TickAnimation` once per counted
-  tick.
-- **Without an interrupt.** `WaitTick` paces the main loop instead: it waits for
-  MIA's 60 Hz count to move on, at any PHI2 speed, and returns the ticks since it
-  last returned. It keeps that tick in BSS, so call it from one place.
-- **Calling from a handler.** An interrupt handler may also
-  call drawing, animation, sound and copy routines, provided it:
-  1. writes PUSH to `MIA_CTX` on entry and POP before `RTI`;
-  2. calls `RuntimeSave` before its first runtime call and `RuntimeRestore`
-     after its last. These push and pull all 42 runtime zero-page bytes.
-- **Loads are never interrupt-safe.** MIA runs one SD job at a time, and the
-  job's control block lives in MIA RAM.
-- **Shared state is the game's to guard.** That applies when both the main loop
-  and a handler change the same animation or sound voice.
-
-`SetLayers`, `SetChrBanks`, `SetScroll` and `SetViewport` configure video.
-`SetCell` uses `rt_a6` for the tile and `rt_a7` for its attribute.
-`LoadStart` is asynchronous for MIA; bank loads finish before it returns.
-`LoadWait` reports completion and updates the descriptor. `LoadPart` is a raw
-byte transfer and does not reinterpret the asset descriptor; use `LoadRect`,
-`LoadRows`, `LoadColumns`, `LoadShape` or `LoadAnimation` for typed partial loads.
-
-Studio previews animations and sounds at 60 ticks a second. A game that ticks at
-60 Hz matches the previews.
-
-### Functions
-
-Each routine takes the asset's descriptor, and an optional location overrides
-the default slot.
-
-| Type | Routines |
-| --- | --- |
-| Every asset | `Load asset[, location]`; `LoadStart`/`LoadBusy`/`LoadWait`; `LoadPart asset, offset, length, location`; `Relocate asset, location`; `Forget asset` |
-| Global | `HideSprites first, count` (sets the disable bit); `SetSpriteCount n` (the last OAM index the renderer scans); `RuntimeSave`/`RuntimeRestore` |
-| Palette config | `UsePalettes config`; `UsePaletteBank config, bank[, target]` |
-| Tileset | `UseTileset tileset, chrBank`: copies the tileset in unless it's already there, and sets that bank's 1bpp flag |
-| Background | `DrawScreen bg, col, row, table` (40×25 cells); `DrawRect`; `DrawColumn`/`DrawRow` (for scrolling); `GetCell`/`SetCell`; `LoadRect`; `LoadRows bg, row, count[, location]` and `LoadColumns bg, col, count[, location]` |
-| Overlay | `ShowOverlay overlay`; `FillPlaceholder overlay, placeholder, tiles`: writes tile numbers row by row and leaves attributes alone |
-| Sprite file | `LoadSprites file[, location]`; `LoadShape`/`LoadAnimation file, item[, location]`; `LoadAnimationShapes file, anim` (loads whichever of its shapes aren't loaded); `ForgetShape`; `DrawShape file, shape, sprite, x, y, flips` |
-| Animation | `StartAnimation inst, file, anim, sprite, x, y`; `TickAnimation inst`; `MoveAnimation inst, x, y`; `StopAnimation inst` |
-| Song | `PlaySong song` (sets each voice's track address, then loads and starts the voices); `StopSong song`; `SongPosition voice` |
-| Sound | `PlaySound sound, voice` (takes the voice with `AUDIO_VOICE_TAKE`); `TickSound voice` (after the last frame it releases the gate and gives the voice back with `AUDIO_VOICE_RELEASE`); `StopSound voice` |
-| Timing | `WaitTick` (A = the ticks since the last `WaitTick`, 1–255; the first returns at once) |
-| Input | `ReadPad player` (A = the `RT_PAD_*` bits held on gamepad 0–3; a disconnected gamepad reads as 0); `KeyHeld usage` (A = nonzero while that Keyboard/Keypad usage is held) |
-
-Details:
-- **Draw routines** read from an asset at its current location, with the map
-  width as the row stride. They can also read from an explicit location and row
-  stride, so a band loaded with `LoadRows` or `LoadColumns` works too. From MIA
-  they copy by DMA; from a bank, the CPU copies.
-- **Partial sprite loads.** Without a location, an item loads where it would sit
-  if the whole file were at its slot, so separate partial loads never overlap.
-- **Missing shapes.** `DrawShape` and `TickAnimation` look shapes up in the
-  location table. With checks on, a missing shape is skipped and reported in
-  `rt_error`, never drawn from the wrong memory.
-- **`DrawShape`** returns the next free sprite, and raises the sprite count when
-  the shape reaches past it, so the renderer scans those records.
-- **Animation instances** use the `RT_ANIM_*` field constants and are blocks of
-  `RT_ANIM_SIZE` (12) bytes that the game
-  allocates. The runtime keeps one sound state per voice.
-- **`ReadPad` bits.** `RT_PAD_UP`, `RT_PAD_DOWN`, `RT_PAD_LEFT` and `RT_PAD_RIGHT`
-  ($01–$08) come from the d-pad or the left stick's digital directions;
-  `RT_PAD_A` ($10) and `RT_PAD_B` ($20) from buttons 0 and 1; `RT_PAD_SELECT`
-  ($40) and `RT_PAD_START` ($80) from buttons 10 and 11. The other buttons, the
-  right stick and the analog values are left out.
-- **The keyboard as player 0** is the runtime's choice, not the hardware's: the
-  arrows and WASD steer, Z and Space are A, X is B, Tab is Select and Enter is
-  Start. A game that wants other keys reads them with `KeyHeld`, which takes a
-  HID Keyboard/Keypad usage ID (`$04`–`$1D` A–Z, `$28` Enter, `$2C` Space,
-  `$4F`–`$52` the arrows).
+Every assembly build links the [Clementina library](library.md), which has the
+routines that load and use these files: `Load`, `DrawScreen`, `PlaySong` and the
+rest. `assets.inc` includes it, so a game that includes `assets.inc` can call
+them directly.
 
 ## Limits and verification
 
 - Long file names: supported by the bundled TinyUSB FatFs configuration
   (`FF_USE_LFN 1`). Relative paths use the current directory (`FF_FS_RPATH 2`);
-  the runtime leaves it alone, so start the program in its card folder.
+  the library leaves it alone, so start the program in its card folder.
 - Slot alternatives use the largest asset size in the report, not their sum.
   Oversized backgrounds warn because typed partial loads can use a smaller
   window slot; other oversized assets are errors.
 - A song whose later voice begins at offset `$FFFF` or beyond cannot fit the
-  runtime's 16-bit voice descriptor and fails the build with a diagnostic.
-- Runtime bank loads are synchronous; pipelining is not implemented. Runtime
+  library's 16-bit voice descriptor and fails the build with a diagnostic.
+- Library bank loads are synchronous; pipelining is not implemented. Library
   checks catch supported location/item/range errors; the game owns allocation,
   non-overlapping copy destinations and the lifetime of slots and instances.
 
-The checked-in [runtime demo](../../examples/runtime-demo/) exercises every public
+The checked-in [library demo](../../examples/library-demo/) exercises every public
 primitive in the emulator. After building the SDK and the Go automation and
 renderer executables, run:
 
 ```sh
-node scripts/test-runtime-integration.mjs /path/to/clementina-automation /path/to/clementina-render
+node scripts/test-library-integration.mjs /path/to/clementina-automation /path/to/clementina-render
 ```
 
-The script checks runtime memory and OAM state, bank crossings, large transfers,
+The script checks library memory and OAM state, bank crossings, large transfers,
 overlay placeholders, and a rendered 320×200 image.

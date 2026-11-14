@@ -23,7 +23,7 @@ async function stopped(client) {
   throw Error('The emulator did not stop');
 }
 
-// Kernel calls, index-window copies and the IRQ load, added to the runtime
+// Kernel calls, index-window copies and the IRQ load, added to the library
 // demo after its own calls. pm_<name>_b and pm_<name>_a bracket each one.
 const extra = `
  clc
@@ -62,7 +62,7 @@ pm_oam_a:
  sta pm_addr+2
  ldx #pm_addr
  lda #(1 << IDX_FLAG_W_STP_ENA)
-pm_seek_b: jsr rt_seek_a
+pm_seek_b: jsr cl_seek_a
 pm_seek_a:
 pm_write_b:
  ldx #0
@@ -86,7 +86,7 @@ pm_write8_b:
 pm_write8_a:
  ldx #pm_addr
  lda #(1 << IDX_FLAG_R_STP_ENA)
- jsr rt_seek_a
+ jsr cl_seek_a
 pm_read_b:
  ldx #0
 @read: lda IDXA_PORT
@@ -121,7 +121,7 @@ pm_shape_b:
 pm_shape_a:
 `;
 const extraNames = [...extra.matchAll(/^pm_(\w+)_b:/gm)].map(m => m[1]);
-const extraData = `.import rt_seek_a
+const extraData = `.import cl_seek_a
 .segment "ZEROPAGE"
 pm_addr: .res 3
 .segment "RODATA"
@@ -140,11 +140,11 @@ pm_delay:
  rts
 `;
 
-// The runtime demo with labels around every routine call, its player shape
+// The library demo with labels around every routine call, its player shape
 // made of `sprites` sprites.
-async function measureRuntime(sprites) {
+async function measureLibrary(sprites) {
   const root = await mkdtemp(join(tmpdir(), 'clementina-performance-'));
-  await cp(new URL('../examples/runtime-demo/', import.meta.url), root, {recursive: true});
+  await cp(new URL('../examples/library-demo/', import.meta.url), root, {recursive: true});
   const shapeFile = join(root, 'assets/shapes/0.json');
   const shape = JSON.parse(await readFile(shapeFile, 'utf8'));
   const one = shape.sprites[0];
@@ -270,8 +270,8 @@ async function measureBasic() {
   return result;
 }
 
-const one = await measureRuntime(1);
-const four = await measureRuntime(4);
+const one = await measureLibrary(1);
+const four = await measureLibrary(4);
 const basic = await measureBasic();
 // A count that grows with the shape: its fixed part and what each sprite adds.
 const bySprites = (a, b) => a === b ? String(a) : `${a - Math.round((b - a) / 3)} + ${Math.round((b - a) / 3)} per sprite`;
@@ -279,7 +279,7 @@ const print = (title, rows) => {
   console.log(`\n${title}`);
   for (const [name, value] of rows) console.log(`${value.padStart(24)}  ${name}`);
 };
-print('Runtime demo calls', one.calls.map(([call, n], i) => [call, bySprites(n, four.calls[i][1])]));
+print('Library demo calls', one.calls.map(([call, n], i) => [call, bySprites(n, four.calls[i][1])]));
 print('Kernel calls, index windows, drawing', Object.entries(one.extra).map(([name, n]) => [name, name === 'shape' ? bySprites(n, four.extra[name]) : String(n)]));
 const irqs = one.extra.irqs - one.extra.masked;
 console.log(`\nIRQ load: ${irqs} cycles in ${one.extra.irqs}, ${(100 * irqs / one.extra.irqs).toFixed(2)}%`);

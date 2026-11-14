@@ -6,13 +6,13 @@ time is cycles divided by PHI2. No PHI2 is guaranteed yet (see
 [timing and interrupts](../architecture/timing-and-interrupts.md)).
 
 What the emulator can't show is MIA's own time: its commands, DMA copies and SD
-transfers finish at once there. A runtime routine that starts a copy returns
-without waiting for it, and the next runtime call waits until it is done
-(`rt_wait`). On the board those waits come on top of the figures below; they
+transfers finish at once there. A library routine that starts a copy returns
+without waiting for it, and the next library call waits until it is done
+(`cl_wait`). On the board those waits come on top of the figures below; they
 are still to be measured on hardware.
 
 Measured with clementina-6502 `b7ca75e` (ROM `1446d0f`) and this repository's
-runtime. A call's count runs from its `JSR` to the instruction after it, so it
+Clementina library. A call's count runs from its `JSR` to the instruction after it, so it
 includes the macro's argument setup. To measure again, build the SDK and the
 emulator's automation command (see [emulator automation](../emulator-automation.md))
 and run `node scripts/measure-performance.mjs <clementina-automation>`.
@@ -38,7 +38,7 @@ interrupts or points `IRQ_VEC` elsewhere.
 | --- | ---: |
 | Read or write a MIA register (`LDA`/`STA` absolute) | 4 |
 | Write a sprite's 5-byte OAM record through its own index (`$C0`+n): select it, then 5 `LDA`/`STA` pairs | 46 |
-| Point an index at a MIA address through the configuration fields (the runtime's seek) | 147 |
+| Point an index at a MIA address through the configuration fields (the library's seek) | 147 |
 | Copy CPU → MIA through a window, simple loop (`LDA abs,X`, `STA port`, `INX`, `BNE`) | 13 per byte |
 | The same copy unrolled 8 times | 9.4 per byte |
 | Copy MIA → CPU, simple loop | 14 per byte |
@@ -51,9 +51,9 @@ interrupts or points `IRQ_VEC` elsewhere.
 An indexed read that crosses a page boundary takes 1 cycle more, so align the
 buffers a loop reads.
 
-## Runtime routines
+## Library routines
 
-Measured on the runtime demo: a 40 × 25 background (2,000 bytes), a 6,144-byte
+Measured on the library demo: a 40 × 25 background (2,000 bytes), a 6,144-byte
 tileset, a one-frame animation, and its player shape made of 1 and then of 4
 sprites to see what each sprite adds.
 
@@ -86,7 +86,7 @@ sprites to see what each sprite adds.
 | `PlaySong` | 882 |
 | `SongPosition` | 213 |
 | `StopSong` | 252 |
-| `RuntimeSave` / `RuntimeRestore` | 505 / 639 |
+| `LibSave` / `LibRestore` | 505 / 639 |
 | `WaitTick`, when MIA's count has already moved on | 236 |
 | `ReadPad`, players 1–3: the gamepad | 269 |
 | `ReadPad`, player 0: the gamepad and the keyboard | 989 |

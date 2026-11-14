@@ -24,10 +24,10 @@ test('assembly and BASIC sources accept gutter breakpoints for the Clementina de
   assert.deepEqual([...debuggerEntry.languages].sort(), ['clementina-asm', 'clementina-basic']);
 });
 
-test('the assembly grammar names every public runtime macro', () => {
-  const runtime = readFileSync(new URL('../packages/runtime/asm/runtime.inc', import.meta.url), 'utf8');
+test('the assembly grammar names every public library macro', () => {
+  const library = readFileSync(new URL('../packages/lib/asm/clementina-lib.inc', import.meta.url), 'utf8');
   const grammar = JSON.parse(readFileSync(new URL('syntaxes/clementina-asm.tmLanguage.json', extension), 'utf8'));
   const macroPattern = new RegExp(grammar.repository.clementina.patterns.find(entry => entry.name.startsWith('support.function.macro')).match, 'u');
-  const macros = [...runtime.matchAll(/^\s*\.macro\s+(\w+)/gmu)].map(match => match[1]);
-  for (const name of macros) assert.equal(macroPattern.test(name), !name.startsWith('rt__'), name);
+  const macros = [...library.matchAll(/^\s*\.macro\s+(\w+)/gmu)].map(match => match[1]);
+  for (const name of macros) assert.equal(macroPattern.test(name), !name.startsWith('cl__'), name);
 });

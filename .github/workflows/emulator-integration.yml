@@ -43,9 +43,9 @@ jobs:
         working-directory: clementina-sdk
       - run: npm run build
         working-directory: clementina-sdk
-      - name: Emulator and runtime integration
+      - name: Emulator and library integration
         run: |
           node scripts/test-emulator-integration.mjs "$RUNNER_TEMP/clementina-automation" "$RUNNER_TEMP/clementina-render"
-          node scripts/test-runtime-integration.mjs "$RUNNER_TEMP/clementina-automation" "$RUNNER_TEMP/clementina-render"
+          node scripts/test-library-integration.mjs "$RUNNER_TEMP/clementina-automation" "$RUNNER_TEMP/clementina-render"
           CLEMENTINA_EMULATOR="$RUNNER_TEMP/clementina-automation" node --test tests/mcp.test.mjs
         working-directory: clementina-sdk

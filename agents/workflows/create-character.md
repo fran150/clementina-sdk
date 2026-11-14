@@ -45,5 +45,5 @@ flips with emulator OAM records. It writes
 and motion; OAM checks alone cannot establish visual quality. Repeat for
 each important frame by changing `frameIndex` and capturing that frame.
 
-`examples/runtime-demo/checks/character.json` is a working reference after
+`examples/library-demo/checks/character.json` is a working reference after
 stopping the demo at its first `Check 30` line.

@@ -4,19 +4,19 @@
 
 An assembly project with `build.assets` emits a standalone SD folder at
 `<outputDirectory>/sd`: `<NAME>.PRG`, tokenized `BOOT.BAS` and the configured
-asset folder (default `ASSETS`). `assets.inc`, `assets.s`, runtime sources,
-`runtime.lib` and reports stay in the parent output folder. Copy the **contents**
+asset folder (default `ASSETS`). `assets.inc`, `assets.s`, the Clementina library's
+sources, `clementina.lib` and reports stay in the parent output folder. Copy the **contents**
 of `sd` to the card. From that directory, `LOAD "BOOT.BAS"` and `RUN` load the
-program. The game then loads its assets through the runtime.
+program. The game then loads its assets through the Clementina library.
 
 `buildProject().value.sdRoot` is project-relative. CLI `run`, SDK debug sessions
 and Studio mount `resolve(projectRoot, build.sdRoot)`; load-plan paths are
 relative to that mount. Builds without `build.assets` retain `sdRoot: "."`.
-Load runtime games at `$1800` or higher so BRUN's resident loader survives: the
+Load assembly games at `$1800` or higher so BRUN's resident loader survives: the
 kernel, which holds the loader, ends below `$1600`, and `$1800` leaves some room.
 
 
-The common Clementina runtime entry point is a small BASIC bootstrap. It loads
+The common Clementina entry point is a small BASIC bootstrap. It loads
 generated assets into MIA RAM, loads any returning banked CPU images, and finally
 hands control to the main machine-code image. This uses the ROM's filesystem and
 loaders on hardware and in the emulator. A project with assembly and no BASIC

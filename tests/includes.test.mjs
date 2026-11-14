@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {byteNames, duplicateNames, loadSpecs, miaSymbols, programSections} from '../scripts/generate-includes.mjs';
-import {runtimeDirectory} from '../packages/runtime/dist/index.js';
+import {libraryDirectory} from '../packages/lib/dist/index.js';
 
 const specs = loadSpecs();
 const hasCa65 = spawnSync('ca65', ['--version'], {stdio: 'ignore'}).status === 0;
@@ -24,6 +24,6 @@ test('clementina.inc assembles and every symbol has its spec value', {skip: !has
   const symbols = [...miaSymbols(specs), ...programSections(specs).flatMap(s => s.symbols)];
   const source = ['.include "clementina.inc"', '.include "clementina.inc"', ...symbols.map(s => `.assert ${s.name} = ${s.value}, error, "${s.name}"`), ''].join('\n');
   await writeFile(join(dir, 'check.s'), source);
-  const run = spawnSync('ca65', ['--cpu', '65C02', '--include-dir', runtimeDirectory, '-o', join(dir, 'check.o'), join(dir, 'check.s')], {encoding: 'utf8'});
+  const run = spawnSync('ca65', ['--cpu', '65C02', '--include-dir', libraryDirectory, '-o', join(dir, 'check.o'), join(dir, 'check.s')], {encoding: 'utf8'});
   assert.equal(run.status, 0, run.stderr);
 });

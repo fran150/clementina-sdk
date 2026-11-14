@@ -47,8 +47,8 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
   W65C02S, including the Rockwell bit instructions and `WAI`/`STP`), with a
   TextMate grammar and a language configuration (`;` comments, folding of
   `.proc`/`.scope`/`.macro`/`.if` blocks). The grammar also highlights the
-  symbols the SDK's public includes define: the asset runtime macros, routines
-  and zero-page arguments from `runtime.inc`, and the constants that
+  symbols the SDK's public includes define: the Clementina library's macros, routines
+  and zero-page arguments from `clementina-lib.inc`, and the constants that
   `generate-includes.mjs` writes into `clementina.inc` and `mia.inc` from
   `specs/*.json`. It is generated from those files by
   `scripts/generate-asm-grammar.mjs` (`npm run generate:asm-grammar`), and
