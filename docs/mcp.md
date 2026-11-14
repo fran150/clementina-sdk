@@ -1,13 +1,15 @@
 # MCP server
 
 `@clementina/mcp` exposes the shared SDK APIs to local MCP hosts over stdio.
-Build the SDK, then configure a host to launch:
+Configure a host to launch the `clementina` command with one argument:
 
 ```sh
-node /absolute/path/to/clementina-sdk/packages/mcp/bin/clementina-mcp.mjs
+clementina mcp
 ```
 
-The npm binary name is `clementina-mcp`. Standard output is reserved for MCP
+The standalone executables bundle the server, so this needs no Node.js. The
+npm package also installs it as the `clementina-mcp` binary, and in an SDK
+checkout `node packages/mcp/bin/clementina-mcp.mjs` runs it from the build. Standard output is reserved for MCP
 messages. Each tool takes structured arguments and returns a JSON text block
 plus `structuredContent`; validation failures return diagnostics and
 `isError: true`.

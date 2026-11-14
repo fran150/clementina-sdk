@@ -36,6 +36,7 @@ export const help = `Usage: clementina <command> [--json]
                                 Stop at a source line and save CPU, memory, video
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
+  mcp                            Serve the SDK's MCP tools over stdio
   --version                      Print the version and which copy is running
 
 Run options:
