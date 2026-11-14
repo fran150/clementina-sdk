@@ -41,3 +41,19 @@ printf '%s\\n' "$PATH" | tr ':' '\\n' | grep -cxF "${bin}" || true`;
   assert.equal(shell.status, 0, shell.stderr);
   assert.deepEqual(shell.stdout.trim().split('\n'), ['1', `clementina: dev, ${join(bin, 'clementina')}`, '0']);
 });
+
+test('clementina mcp serves the MCP server over stdio', async () => {
+  const {spawn} = await import('node:child_process');
+  const child = spawn(process.execPath, [cli, 'mcp'], {stdio: ['pipe', 'pipe', 'inherit']});
+  let output = '';
+  const answered = new Promise(resolve => child.stdout.on('data', chunk => {
+    output += chunk;
+    if (output.includes('\n')) resolve(JSON.parse(output.split('\n')[0]));
+  }));
+  child.stdin.write(JSON.stringify({jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+    protocolVersion: '2025-06-18', capabilities: {}, clientInfo: {name: 'test', version: '1'}}}) + '\n');
+  const response = await answered;
+  child.stdin.end();
+  await new Promise(resolve => child.on('exit', resolve));
+  assert.equal(response.result.serverInfo.name, 'clementina-sdk');
+});

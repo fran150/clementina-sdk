@@ -78,7 +78,8 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
-`--version` prints the CLI version; a build in an SDK checkout adds its commit
+`mcp` serves the SDK's [MCP server](mcp.md) over stdio until the host closes
+it; standard output then carries only MCP messages. `--version` prints the CLI version; a build in an SDK checkout adds its commit
 and path (see [dev installs](dev-install.md)). `doctor` starts with that line,
 checks Node.js (or reports the standalone executable), and probes `ca65`,
 `ld65`, and `ar65` by running their version commands. It locates the emulator
