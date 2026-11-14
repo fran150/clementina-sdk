@@ -103,7 +103,8 @@ test('BASIC launch commands share the editor limit with numbered bootstraps', ()
     startCommand: 'RUN',
   });
   assert.equal(launch.lines[0].length, 80);
-  assert.equal(checkBootstrapSource(directPlan).diagnostics.some(d => d.code === 'load.basic.bootstrap'), true);
+  // Numbered, the same command gains a line number and no longer fits.
+  assert.equal(checkBootstrapSource(directPlan).diagnostics.some(d => d.code === 'load.basic.line'), true);
   assert.equal(checkLoadPlanLaunch({...directPlan, steps: [
     {...directPlan.steps[0], path: 'A'.repeat(67)}, directPlan.steps[1],
   ]}).diagnostics.some(d => d.code === 'load.basic.line'), true);
@@ -218,4 +219,22 @@ test('compiler and inspector reject the same invalid absolute base address', () 
     assert.throws(() => compileBasicProgram('10 END\n', {baseAddress}), /baseAddress/);
     assert.throws(() => inspectBasicProgram(image, {baseAddress}), /baseAddress/);
   }
+});
+
+test('a memoryTop step lowers MEMSIZ and clears the warning for a PRG wholly above it', () => {
+  const steps = [
+    {kind: 'prg', path: 'CODE.PRG', loadAddress: 0xa000, length: 0x1000},
+    {kind: 'basic', path: 'GAME.BAS', length: 2},
+  ];
+  const warned = plan => checkLoadPlan(plan).diagnostics.some(d => d.code === 'load.prg.return');
+  const base = {format: 'clementina-load-plan', version: 1};
+  assert.equal(warned({...base, steps}), true);
+  assert.equal(warned({...base, steps: [{kind: 'memoryTop', address: 0xa000}, ...steps]}), false);
+  // One byte below the lowered top is still BASIC's.
+  assert.equal(warned({...base, steps: [{kind: 'memoryTop', address: 0xa001}, ...steps]}), true);
+  assert.deepEqual(renderLoadPlanLaunch({...base, steps: [{kind: 'memoryTop', address: 0xa000}, ...steps]}).lines, [
+    'POKE 63,0:POKE 64,160:CLEAR', 'BANK 0:BLOAD "CODE.PRG"', 'LOAD "GAME.BAS"',
+  ]);
+  assert.equal(checkLoadPlan({...base, steps: [{kind: 'memoryTop', address: 0xa000}, {kind: 'memoryTop', address: 0xa000}, ...steps]}).ok, false);
+  assert.equal(checkLoadPlan({...base, steps: [{kind: 'memoryTop', address: 0x1000}, ...steps]}).ok, false);
 });

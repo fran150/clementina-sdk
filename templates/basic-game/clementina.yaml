@@ -4,7 +4,6 @@ name: Catch the Star
 target:
   machine: clementina-6502
 program:
-  kind: basic
   entry: src/main.bas
 assets:
   palettes:

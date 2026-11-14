@@ -1,9 +1,9 @@
 # Edit and check game code
 
 Work in a portable project rooted at `clementina.yaml`. Keep source under the
-manifest's `program.entry`/`program.sources`; keep reusable assets in the
-versioned JSON files. This path works for BASIC and assembly projects. Mixed
-program composition is still undefined.
+manifest's `program.entry` (BASIC) and `build.assembly.sources` (assembly); keep
+reusable assets in the versioned JSON files. This path works for BASIC, assembly,
+and BASIC-with-assembly projects.
 
 1. Read the relevant SDK architecture document and spec before changing
    hardware-dependent behavior.

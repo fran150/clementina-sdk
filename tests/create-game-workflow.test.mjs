@@ -19,7 +19,7 @@ test('BASIC game workflow creates a buildable portable project and checks asset 
     assert.equal(loaded.value.assets.paletteConfigs[0].banks[0], 'palette:main');
     const built = await buildProject(projectRoot);
     assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
-    assert.equal(built.value.kind, 'basic');
+    assert.equal(built.value.assembly, undefined);
     assert.deepEqual(built.value.loadPlan.steps.map(step => step.kind), ['mia', 'basic']);
     assert.ok((await readFile(join(projectRoot, 'build/game.bas'))).length > 0);
 
@@ -43,10 +43,10 @@ test('assembly game workflow creates a buildable portable project with an explic
     const loaded = await loadProject(projectRoot);
     assert.equal(loaded.ok, true, JSON.stringify(loaded.diagnostics));
     assert.equal(loaded.value.manifest.name, 'Assembly Workflow Test');
-    assert.equal(loaded.value.manifest.program.kind, 'assembly');
+    assert.equal(loaded.value.manifest.program, undefined);
     const built = await buildProject(projectRoot);
     assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
-    assert.equal(built.value.kind, 'assembly');
+    assert.equal(built.value.basic, undefined);
     assert.ok((await readFile(join(projectRoot, 'build/load-plan.json'))).length > 0);
     assert.equal(JSON.parse(await readFile(join(projectRoot, 'checks/code.json'), 'utf8')).memory[0].bytes[0], 42);
   } finally {

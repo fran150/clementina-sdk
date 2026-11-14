@@ -47,6 +47,15 @@
               "path": {"type": "string", "minLength": 1, "maxLength": 255},
               "length": {"type": "integer", "minimum": 2, "maximum": 65535}
             }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "address"],
+            "properties": {
+              "kind": {"const": "memoryTop"},
+              "address": {"type": "integer", "minimum": 5632, "maximum": 49152}
+            }
           }
         ]
       }

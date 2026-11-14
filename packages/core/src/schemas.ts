@@ -899,7 +899,6 @@ export const schemas = {
       "version",
       "name",
       "target",
-      "program",
       "assets"
     ],
     "properties": {
@@ -939,28 +938,12 @@ export const schemas = {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "kind",
           "entry"
         ],
         "properties": {
-          "kind": {
-            "enum": [
-              "basic",
-              "assembly",
-              "mixed"
-            ]
-          },
           "entry": {
             "type": "string",
             "minLength": 1
-          },
-          "sources": {
-            "type": "array",
-            "uniqueItems": true,
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
           }
         }
       },
@@ -1096,12 +1079,22 @@ export const schemas = {
             "type": "object",
             "additionalProperties": false,
             "required": [
+              "sources",
               "linkerConfig",
               "outputName",
               "loadAddress",
               "entrySymbol"
             ],
             "properties": {
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "linkerConfig": {
                 "type": "string",
                 "minLength": 1
@@ -1161,6 +1154,11 @@ export const schemas = {
               "outputName": {
                 "type": "string",
                 "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+              },
+              "memoryTop": {
+                "type": "integer",
+                "minimum": 5632,
+                "maximum": 49152
               }
             }
           },
@@ -1409,6 +1407,24 @@ export const schemas = {
                   "type": "integer",
                   "minimum": 2,
                   "maximum": 65535
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "address"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "memoryTop"
+                },
+                "address": {
+                  "type": "integer",
+                  "minimum": 5632,
+                  "maximum": 49152
                 }
               }
             }

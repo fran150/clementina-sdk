@@ -14,8 +14,8 @@ Read the [architecture overview](../../docs/architecture/overview.md),
 behavior. Check the corresponding `specs/machine.json`, `specs/video.json`,
 `specs/input.json`, `specs/basic.json`, `specs/assets.json`, and
 `specs/schema/*.schema.json`. Use the SDK validators and build tools for exact
-limits and references. `program.kind: mixed` build composition is still
-unresolved.
+limits and references. A project is a BASIC `program.entry`, `build.assembly`, or
+both; see [program parts](../../docs/project-format.md#program-parts).
 
 ## 2. Create and edit a portable project
 
@@ -24,7 +24,7 @@ From the SDK root, after `npm ci && npm run build`:
 ```sh
 node agents/workflows/create-game.mjs init /path/to/my-game --name "My Game"
 # For a 65C02 assembly starter instead:
-node agents/workflows/create-game.mjs init /path/to/my-asm-game --kind assembly --name "My Assembly Game"
+node agents/workflows/create-game.mjs init /path/to/my-asm-game --template assembly --name "My Assembly Game"
 ```
 
 The destination must be new. The BASIC starter contains `clementina.yaml`,

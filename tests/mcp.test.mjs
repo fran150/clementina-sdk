@@ -27,7 +27,7 @@ test('MCP stdio server lists tools, validates assets/projects, builds, and retur
     }
     const project = data(await client.callTool({name: 'project_validate', arguments: {projectRoot: root}}));
     assert.equal(project.ok, true);
-    assert.equal(project.programKind, 'basic');
+    assert.deepEqual(project.parts, {basic: true, assembly: false});
     const invalid = await client.callTool({name: 'asset_validate', arguments: {asset: {format: 'wrong'}}});
     assert.equal(invalid.isError, true);
     assert.equal(data(invalid).ok, false);
@@ -35,7 +35,7 @@ test('MCP stdio server lists tools, validates assets/projects, builds, and retur
     assert.equal(inactive.isError, true);
     const built = data(await client.callTool({name: 'project_build', arguments: {projectRoot: root}}));
     assert.equal(built.ok, true);
-    assert.equal(built.kind, 'basic');
+    assert.deepEqual(built.parts, {basic: true, assembly: false});
     assert.ok((await readFile(join(root, 'build/game.bas'))).length > 0);
     assert.equal(data(await client.callTool({name: 'emulator_stop', arguments: {}})).stopped, false);
   } finally {

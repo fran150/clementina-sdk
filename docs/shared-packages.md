@@ -145,18 +145,16 @@ renumbering. See [the VS Code extension](vscode-extension.md).
 `@clementina/build` loads and validates a portable project, emits explicitly
 selected asset placements, and writes a validated load plan. With
 `build.assets`, it also writes asset files, generated includes and descriptors,
-a memory report, an SD card folder, and `runtime.lib`. Its result
-is discriminated on `program.kind`: an assembly project (`build.assembly`) delegates
-to `@clementina/assembler` with `clementina.inc` and `mia.inc` on its include path
-(see [machine includes](assembly.md#machine-includes)) and also writes a generated
-numbered BASIC bootstrap;
-a BASIC project (`build.basic`) compiles `program.entry` through `@clementina/basic`
-and produces a load plan whose terminal step is the compiled program itself (no
-bootstrap file, since the emulator client launches it with direct ROM commands —
-see [program loading](program-loading.md)). The assembly build's generated BASIC
-bootstrap covers the normal BASIC-to-assembly startup. `program.kind: mixed` is a
-reserved enum rejected during project validation and is not needed for that path.
-This is the API used by CLI `build`/`run`; other consumers should call it instead
+a memory report, an SD card folder, and `runtime.lib`. Its result has a field for
+each part the project declares (see [program parts](project-format.md#program-parts)):
+`assembly`, from `build.assembly` through `@clementina/assembler` with
+`clementina.inc` and `mia.inc` on its include path (see
+[machine includes](assembly.md#machine-includes)), and `basic`, from
+`program.entry` through `@clementina/basic`. Every build writes a numbered
+`bootstrap.bas`, `load-plan.json` and `memory-layout.json` (`memoryLayout`). A plan
+ending in the BASIC program launches in the emulator with direct ROM commands (see
+[program loading](program-loading.md)); one ending in the PRG's `BRUN`, with the
+numbered bootstrap. This is the API used by CLI `build`/`run`; other consumers should call it instead
 of reproducing the artifact ordering or filenames.
 
 `@clementina/mcp` is a stdio server that exposes project and asset validation,

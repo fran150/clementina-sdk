@@ -56,10 +56,9 @@ test('project build emits explicit video placements, terminal PRG, load plan, an
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Build Test',
     'target:', '  machine: clementina-6502',
-    'program:', '  kind: assembly', '  entry: src/main.s', '  sources:', '    - src/player.s',
     'assets:', '  palettes: [assets/palette.json]', '  paletteConfigs: [assets/palette-config.json]',
     '  tilesets: [assets/tileset.json]', '  backgrounds: []', '  overlays: []', '  shapes: []', '  animations: []',
-    'build:', '  outputDirectory: build', '  assembly:', '    linkerConfig: config/game.cfg',
+    'build:', '  outputDirectory: build', '  assembly:', '    sources: [src/main.s, src/player.s]', '    linkerConfig: config/game.cfg',
     '    outputName: game', '    loadAddress: 24576', '    entrySymbol: game_start',
     '  video:', '    paletteConfigId: palette-config:main', '    tilesets:',
     '      - tilesetId: tileset:main', '        bank: 3', '',
@@ -99,7 +98,7 @@ test('BASIC project build compiles the entry source and emits a direct-launch lo
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Basic Build Test',
     'target:', '  machine: clementina-6502',
-    'program:', '  kind: basic', '  entry: main.bas',
+    'program:', '  entry: main.bas',
     'assets:', '  palettes: []', '  paletteConfigs: []',
     '  tilesets: []', '  backgrounds: []', '  overlays: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
@@ -107,11 +106,12 @@ test('BASIC project build compiles the entry source and emits a direct-launch lo
 
   const built = await buildProject(root);
   assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
-  assert.equal(built.value.kind, 'basic');
+  assert.equal(built.value.assembly, undefined);
   const expectedBytes = compileBasicProgram(source);
   assert.deepEqual(built.value.loadPlan.steps, [{kind: 'basic', path: 'build/game.bas', length: expectedBytes.length}]);
   assert.deepEqual(built.value.basic, {source: 'main.bas', artifact: 'build/game.bas', bytes: expectedBytes, lines: 2});
-  assert.deepEqual(built.value.files.map(file => file.kind), ['basic', 'load-plan']);
+  assert.deepEqual(built.value.files.map(file => file.kind), ['basic', 'bootstrap', 'load-plan', 'memory-layout']);
+  assert.equal(built.value.bootstrapSource, '10 LOAD "build/game.bas"\n');
   assert.deepEqual(Array.from(await readFile(join(root, 'build', 'game.bas'))), Array.from(expectedBytes));
   assert.deepEqual(JSON.parse(await readFile(join(root, 'build', 'load-plan.json'), 'utf8')), built.value.loadPlan);
 });
@@ -120,9 +120,8 @@ test('project build configuration rejects duplicate banks and implicit banked CP
   const root = await mkdtemp(join(tmpdir(), 'clementina-build-invalid-'));
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Invalid', 'target: {machine: clementina-6502}',
-    'program: {kind: mixed, entry: main.s}',
     'assets: {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: []}',
-    'build:', '  outputDirectory: build', '  assembly:', '    linkerConfig: game.cfg',
+    'build:', '  outputDirectory: build', '  assembly:', '    sources: [main.s]', '    linkerConfig: game.cfg',
     '    outputName: game', '    loadAddress: 32768', '    entrySymbol: start',
     '  video:', '    tilesets:', '      - {tilesetId: tileset:a, bank: 1}', '      - {tilesetId: tileset:b, bank: 1}', '',
   ].join('\n'));
@@ -130,5 +129,64 @@ test('project build configuration rejects duplicate banks and implicit banked CP
   assert.equal(built.ok, false);
   assert.ok(built.diagnostics.some(item => item.code === 'project.build.bank'));
   assert.ok(built.diagnostics.some(item => item.code === 'project.build.chr-bank'));
-  assert.ok(built.diagnostics.some(item => item.code === 'project.build.kind'));
+});
+
+/** Write a BASIC entry plus one assembly part, linked at $6000 by deterministicTools. */
+async function basicWithAssembly(basic) {
+  const root = await mkdtemp(join(tmpdir(), 'clementina-basic-asm-build-'));
+  await writeFile(join(root, 'main.bas'), '10 SYS 24576\n20 END\n');
+  await writeFile(join(root, 'code.s'), '; code\n');
+  await writeFile(join(root, 'link.cfg'), '# linker\n');
+  await writeFile(join(root, 'clementina.yaml'), [
+    'format: clementina-project', 'version: 1', 'name: Basic And Assembly',
+    'target: {machine: clementina-6502}', 'program: {entry: main.bas}',
+    'assets: {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: []}',
+    'build:', '  outputDirectory: build', `  basic: ${JSON.stringify(basic)}`,
+    '  assembly: {sources: [code.s], linkerConfig: link.cfg, outputName: code, loadAddress: 24576, entrySymbol: game_start}', '',
+  ].join('\n'));
+  return root;
+}
+
+test('a BASIC program with assembly BLOADs the PRG above a lowered MEMSIZ, then loads and runs the program', async () => {
+  const root = await basicWithAssembly({outputName: 'game', memoryTop: 0x6000});
+  const built = await buildProject(root, deterministicTools);
+  assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+  assert.equal(built.value.assembly.entryAddress, 0x6000);
+  assert.equal(built.value.basic.artifact, 'build/game.bas');
+  assert.deepEqual(built.value.loadPlan.steps, [
+    {kind: 'memoryTop', address: 0x6000},
+    {kind: 'prg', path: 'build/code.prg', loadAddress: 0x6000, length: 3},
+    {kind: 'basic', path: 'build/game.bas', length: compileBasicProgram('10 SYS 24576\n20 END\n').length},
+  ]);
+  assert.equal(built.value.bootstrapSource, [
+    '10 POKE 63,0:POKE 64,96:CLEAR', '20 BANK 0:BLOAD "build/code.prg"', '30 LOAD "build/game.bas"', '',
+  ].join('\n'));
+  // Above MEMSIZ the PRG is out of BASIC's way, so nothing overlaps.
+  assert.deepEqual(built.diagnostics, []);
+  const layout = JSON.parse(await readFile(join(root, 'build', 'memory-layout.json'), 'utf8'));
+  assert.deepEqual(layout, built.value.memoryLayout);
+  assert.deepEqual(layout.cpu.find(region => region.owner === 'basic'), {name: 'BASIC', owner: 'basic', bank: 0, start: 0x1600, size: 0x6000 - 0x1600,
+    note: 'The interpreter, then the program, variables and strings up to MEMSIZ ($6000); where the interpreter ends moves with each ROM build'});
+  assert.deepEqual(layout.cpu.find(region => region.owner === 'program'), {name: 'build/code.prg', owner: 'program', bank: 0, start: 0x6000, size: 3, file: 'build/code.prg'});
+});
+
+test('the layout warns, without failing, when assembly lands in the RAM a BASIC program uses', async () => {
+  const root = await basicWithAssembly({outputName: 'game'});
+  const built = await buildProject(root, deterministicTools);
+  assert.equal(built.ok, true, JSON.stringify(built.diagnostics));
+  assert.deepEqual(built.diagnostics.map(d => [d.severity, d.code, d.message]), [
+    ['warning', 'build.layout.overlap', 'build/code.prg ($6000-$6002) overlaps BASIC ($1600-$BFFF)'],
+  ]);
+  assert.deepEqual(built.value.memoryLayout.diagnostics, built.diagnostics);
+});
+
+test('a BASIC entry needs build.basic, and build.basic needs a BASIC entry', async () => {
+  const root = await basicWithAssembly({outputName: 'game'});
+  const manifest = (await readFile(join(root, 'clementina.yaml'), 'utf8'));
+  await writeFile(join(root, 'clementina.yaml'), manifest.replace(/  basic: .*\n/u, ''));
+  let built = await buildProject(root, deterministicTools);
+  assert.ok(built.diagnostics.some(d => d.code === 'project.build.basic' && d.path === '/build'));
+  await writeFile(join(root, 'clementina.yaml'), manifest.replace('program: {entry: main.bas}\n', ''));
+  built = await buildProject(root, deterministicTools);
+  assert.ok(built.diagnostics.some(d => d.code === 'project.build.basic' && d.path === '/build/basic'));
 });

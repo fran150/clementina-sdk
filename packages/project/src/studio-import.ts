@@ -50,11 +50,10 @@ export function importStudioProject(session: StudioSessionV2, name: string): Por
  const manifest: ClementinaProjectManifest = {
   format: "clementina-project", version: 1, name: name.trim() || "Game",
   target: {machine: "clementina-6502"},
-  program: {kind: "assembly", entry: "src/main.s"},
   assets: {palettes: [], paletteConfigs: [], tilesets: [], backgrounds: [], overlays: [], shapes: [], animations: [], instruments: [], sounds: [], songs: []},
   build: {
    outputDirectory: "build",
-   assembly: {linkerConfig: "link.cfg", outputName: "game", loadAddress: ASSEMBLY_STARTER_LOAD_ADDRESS, entrySymbol: "game_start"},
+   assembly: {sources: ["src/main.s"], linkerConfig: "link.cfg", outputName: "game", loadAddress: ASSEMBLY_STARTER_LOAD_ADDRESS, entrySymbol: "game_start"},
    assets: session.builder ? structuredClone(session.builder) : {slots: [], include: []},
   },
  };

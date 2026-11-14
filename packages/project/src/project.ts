@@ -1,7 +1,7 @@
 import {assetKinds, checkAssetSet, type AssetKind, type PortableAsset, type PortableAssetSet} from '@clementina/assets';
 import {assertValid, diagnostic, result, type ValidationResult} from '@clementina/core';
 import {checkProjectManifest} from './validate.js';
-import {assetPaths, type ClementinaProjectManifest, type ProjectAssetBuildKind} from './types.js';
+import {assetPaths, programSources, type ClementinaProjectManifest, type ProjectAssetBuildKind} from './types.js';
 export interface PortableProject { manifest: ClementinaProjectManifest; assets: PortableAssetSet }
 /** The asset list each kind of build entry names; a sprite file is named by its tileset. */
 const includeKinds: Record<ProjectAssetBuildKind, AssetKind> = {paletteConfig: 'paletteConfigs', tileset: 'tilesets', background: 'backgrounds', overlay: 'overlays', sprites: 'tilesets', song: 'songs', sound: 'sounds'};
@@ -10,11 +10,11 @@ export function checkProject(value: PortableProject): ValidationResult<PortableP
   const m = checkProjectManifest(value.manifest), a = checkAssetSet(value.assets);
   const diagnostics = [...m.diagnostics, ...a.diagnostics];
   if (m.ok && a.ok) {
-    const sources = new Set([m.value.program.entry, ...(m.value.program.sources ?? []), 'clementina.yaml']);
+    const sources = new Set([...programSources(m.value), 'clementina.yaml']);
     if (m.value.build) {
-      if ('assembly' in m.value.build && m.value.build.assembly) sources.add(m.value.build.assembly.linkerConfig);
+      if (m.value.build.assembly) sources.add(m.value.build.assembly.linkerConfig);
       const output = m.value.build.outputDirectory;
-      const includes = 'assembly' in m.value.build && m.value.build.assembly ? m.value.build.assembly.includeDirectories ?? [] : [];
+      const includes = m.value.build.assembly?.includeDirectories ?? [];
       const buildInputs = [...sources, ...includes, ...assetKinds.flatMap(kind => assetPaths(m.value, kind))];
       for (const path of buildInputs) if (path === output || path.startsWith(output + '/')) diagnostics.push(diagnostic('project.build.output-collision', '/build/outputDirectory', `Build output contains project input: ${path}`));
       const paletteConfigId = m.value.build.video?.paletteConfigId;
