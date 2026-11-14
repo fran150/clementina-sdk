@@ -11,6 +11,7 @@ From this folder:
 clementina project validate
 clementina build
 clementina run
+clementina check
 ```
 
 Edit `src/main.s` and `link.cfg` deliberately as the game grows. The

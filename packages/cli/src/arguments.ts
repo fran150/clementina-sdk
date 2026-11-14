@@ -71,3 +71,58 @@ export function parseNewArguments(args: readonly string[]): NewArguments | undef
   if (directory === undefined) return undefined;
   return {directory, ...(template !== undefined ? {template} : {}), ...(name !== undefined ? {name} : {})};
 }
+
+/** Options accepted by `clementina check`. */
+export interface CheckArguments {directory: string; emulator?: string; renderer?: string}
+
+/** Parse `check [directory] [--emulator <path>] [--renderer <path>]`. */
+export function parseCheckArguments(args: readonly string[]): CheckArguments | undefined {
+  let directory: string | undefined, emulator: string | undefined, renderer: string | undefined;
+  for (let index = 1; index < args.length; index++) {
+    if (args[index] === '--emulator' && emulator === undefined && isValue(args[index + 1])) emulator = args[++index];
+    else if (args[index] === '--renderer' && renderer === undefined && isValue(args[index + 1])) renderer = args[++index];
+    else if (isValue(args[index]) && directory === undefined) directory = args[index];
+    else return undefined;
+  }
+  return {directory: directory ?? '.', ...(emulator !== undefined ? {emulator} : {}), ...(renderer !== undefined ? {renderer} : {})};
+}
+
+/** Options accepted by `clementina debug`. */
+export interface DebugArguments {
+  directory: string; line: number; source?: string; emulator?: string; timeoutMs?: number;
+  memory?: {address: number; count: number};
+}
+
+/** A CPU address or byte count: decimal, `$hex`, or `0xhex`. */
+function parseNumber(text: string): number | undefined {
+  const match = /^(?:\$([0-9A-Fa-f]{1,4})|0[xX]([0-9A-Fa-f]{1,4})|(0|[1-9][0-9]{0,4}))$/u.exec(text);
+  if (!match) return undefined;
+  return match[3] !== undefined ? Number(match[3]) : parseInt(match[1] ?? match[2], 16);
+}
+
+/** Parse `debug [directory] --line <n> [--source <path>] [--memory <address>:<count>] [--emulator <path>] [--timeout <ms>]`. */
+export function parseDebugArguments(args: readonly string[]): DebugArguments | undefined {
+  let directory: string | undefined, line: number | undefined, source: string | undefined, emulator: string | undefined;
+  let timeoutMs: number | undefined, memory: DebugArguments['memory'];
+  for (let index = 1; index < args.length; index++) {
+    const flag = args[index], next = args[index + 1];
+    if (flag === '--line' && line === undefined && next !== undefined && /^[1-9][0-9]{0,5}$/u.test(next)) { line = Number(next); index++; }
+    else if (flag === '--source' && source === undefined && isValue(next)) { source = next; index++; }
+    else if (flag === '--emulator' && emulator === undefined && isValue(next)) { emulator = next; index++; }
+    else if (flag === '--timeout' && timeoutMs === undefined && next !== undefined && /^[1-9][0-9]{0,6}$/u.test(next)) { timeoutMs = Number(next); index++; }
+    else if (flag === '--memory' && memory === undefined && next !== undefined) {
+      const [address, count, extra] = next.split(':').map(parseNumber);
+      if (address === undefined || count === undefined || extra !== undefined || next.split(':').length !== 2) return undefined;
+      if (address > 0xffff || count < 1 || address + count > 0x10000) return undefined;
+      memory = {address, count}; index++;
+    }
+    else if (isValue(flag) && directory === undefined) directory = flag;
+    else return undefined;
+  }
+  if (line === undefined) return undefined;
+  return {
+    directory: directory ?? '.', line,
+    ...(source !== undefined ? {source} : {}), ...(emulator !== undefined ? {emulator} : {}),
+    ...(timeoutMs !== undefined ? {timeoutMs} : {}), ...(memory ? {memory} : {}),
+  };
+}

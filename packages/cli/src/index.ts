@@ -1,13 +1,17 @@
 import {buildProject} from '@clementina/build';
+import {createProjectDebugSession} from '@clementina/debug/node';
+import {createHttpEmulatorClient} from '@clementina/emulator-client';
 import {startEmulatorProcess} from '@clementina/emulator-client/node';
 import {commands} from './commands.js';
 import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, type CommandResult, type RunSession} from './types.js';
 
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
+export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
+export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
 export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
-const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess};
+const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
 const HELP_FLAGS = ['--help', '-h', 'help'];
 const VERSION_FLAGS = ['--version', '-V', 'version'];
 
@@ -23,6 +27,11 @@ export const help = `Usage: clementina <command> [--json]
   basic compile <source> <file>  Compile numbered source to a LOAD-ready BASIC file
   build [directory]              Compile and emit project load artifacts
   run [directory] [options]      Build and run with an owned headless emulator
+  check [directory] [--emulator <path>] [--renderer <path>]
+                                Build, run headless, and test checks/*.json
+  debug [directory] --line <n> [--source <path>] [--memory <address>:<count>]
+        [--emulator <path>] [--timeout <ms>]
+                                Stop at a source line and save CPU, memory, video
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   --version                      Print the version and which copy is running

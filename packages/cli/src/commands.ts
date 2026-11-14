@@ -6,7 +6,9 @@ import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
 import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
 import {loadProject, saveProject} from '@clementina/project/node';
-import {isValue, parseDoctorArguments, parseImportArguments, parseNewArguments, parseRunArguments} from './arguments.js';
+import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseNewArguments, parseRunArguments} from './arguments.js';
+import {CheckError, checkDiagnostics, checkProject} from './check.js';
+import {debugProject} from './debug.js';
 import {probeTool, type ToolProbe} from './doctor.js';
 import {createProject, NewProjectError} from './new.js';
 import {cliVersion, formatCliVersion} from './version.js';
@@ -228,5 +230,70 @@ const assetValidate: Command = {
   },
 };
 
+/** Turn an error from `check` or `debug` into a failed command result. */
+function inspectionFailure(error: unknown, code: string): CommandResult {
+  if (error instanceof CheckError) return {ok: false, diagnostics: error.diagnostics, exitCode: EXIT_FAILURE};
+  return failure(code, errorMessage(error));
+}
+
+const hex4 = (value: number) => `$${value.toString(16).toUpperCase().padStart(4, '0')}`;
+
+/** `check [directory]`: validate, build, run headless, and test checks/smoke.json and checks/code.json. */
+const check: Command = {
+  matches: args => args[0] === 'check',
+  async run(args, {cwd, dependencies}) {
+    const options = parseCheckArguments(args);
+    if (!options) return usageFailure('check');
+    let outcome;
+    try {
+      outcome = await checkProject(resolve(cwd, options.directory), options, dependencies);
+    } catch (error) { return inspectionFailure(error, 'check.emulator'); }
+    const {report, output, passed, checked} = outcome;
+    const diagnostics = checkDiagnostics(report);
+    const screen = (rows: string[]) => rows.filter(Boolean).map(row => `  ${row}`).join('\n');
+    const reportPath = join(output, 'report.json');
+    const lines = [
+      !checked ? `Ran ${report.project}; it has no checks/smoke.json or checks/code.json to test.`
+        : passed ? `Checks passed for ${report.project}.` : `Checks failed for ${report.project}.`,
+      `CPU: PC=${hex4(report.before.state.pc)}, cycles=${report.before.state.cycles}`,
+      `Screen:\n${screen(report.before.overlayRows)}`,
+      ...(report.after ? [`After input:\n${screen(report.after.overlayRows)}`] : []),
+      `Report: ${reportPath}`,
+    ];
+    return {
+      ok: passed, diagnostics, exitCode: passed ? EXIT_OK : EXIT_FAILURE,
+      message: lines.join('\n'),
+      data: {report: reportPath, checked, passed, inspection: report},
+    };
+  },
+};
+
+/** `debug [directory] --line <n>`: stop at a source line and save CPU, memory, and video evidence. */
+const debug: Command = {
+  matches: args => args[0] === 'debug',
+  async run(args, {cwd, dependencies}) {
+    const options = parseDebugArguments(args);
+    if (!options) return usageFailure('debug');
+    let inspected;
+    try {
+      inspected = await debugProject(resolve(cwd, options.directory), options, {
+        createProjectDebugSession: dependencies.createProjectDebugSession,
+        createHttpEmulatorClient: dependencies.createHttpEmulatorClient,
+      });
+    } catch (error) { return inspectionFailure(error, 'debug.emulator'); }
+    const {report, output} = inspected;
+    const stop = report.stop as {state: {pc: number}; frame?: {name?: string}};
+    const reportPath = join(output, 'debug-report.json');
+    const memory = report.memory
+      ? [`Memory ${hex4(report.memory.address)}: ${report.memory.bytes.map(byte => byte === null ? '??' : byte.toString(16).toUpperCase().padStart(2, '0')).join(' ')}`]
+      : [];
+    return {
+      ok: true, diagnostics: [], exitCode: EXIT_OK,
+      message: [`Stopped at ${stop.frame?.name ?? `${report.source}:${report.requestedLine}`} (PC=${hex4(stop.state.pc)}).`, ...memory, `Report: ${reportPath}`].join('\n'),
+      data: {report: reportPath, inspection: report},
+    };
+  },
+};
+
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, newProject, projectValidate, projectImport, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];

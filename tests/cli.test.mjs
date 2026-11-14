@@ -146,3 +146,94 @@ test('new writes an embedded template that validates and refuses to overwrite',a
  const {help}=await import('../packages/cli/dist/index.js');
  assert.match(help,/new <directory> \[--template basic\|assembly\]/);
 });
+test('check runs smoke and code checks through an owned emulator and reports failures as diagnostics',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'clementina-check-'));
+ const root=join(dir,'game');
+ assert.equal(run('new',root).status,0);
+ await writeFile(join(root,'checks/code.json'),JSON.stringify({format:'clementina-code-check',version:1,settleCycles:10,memory:[{address:0x200,bytes:[42]},{address:0x201,bytes:[7],phase:'after'}]}));
+ const start=65664,columns=40; // specs/video.json OV_NT and overlay.columns
+ const screen=async rows=>{
+  const image=Buffer.alloc(68944);
+  image.set(await readFile(join(root,'build/asset-palette.bin')),256);
+  rows.forEach((text,row)=>image.write(text,start+row*columns,'ascii'));
+  return [...image];
+ };
+ let typed='',closed=0,memory=[42];
+ const dependencies={
+  buildProject:(await import('@clementina/build')).buildProject,
+  startEmulatorProcess:async options=>{assert.equal(options.executable,'/tools/automation');return{
+   client:{
+    launchLoadPlan:async()=>({}),pause:async()=>({}),
+    step:async()=>({pc:0x1234,cycles:'10'}),
+    video:async()=>screen(typed?['CATCH THE STAR','CAUGHT! SCORE 1']:['CATCH THE STAR','PRESS A TO CATCH IT']),
+    input:async bytes=>{typed=String.fromCharCode(...bytes);},
+    readMemory:async(address)=>address===0x200?memory:[7],
+   },
+   close:async()=>{closed++;},
+  };},
+ };
+ const passed=await executeCommand(['check',root,'--emulator','/tools/automation'],dir,dependencies);
+ assert.equal(passed.ok,true,JSON.stringify(passed.diagnostics));
+ assert.equal(typed,'A');assert.equal(closed,1);
+ assert.match(passed.message,/^Checks passed for /);
+ assert.match(passed.message,/CPU: PC=\$1234/);
+ assert.match(passed.message,/After input:\n  CATCH THE STAR\n  CAUGHT! SCORE 1/);
+ const report=JSON.parse(await readFile(join(root,'build/inspection/report.json'),'utf8'));
+ assert.deepEqual([report.checks.loadedPalette.found,report.checks.afterText.found,report.checks.memory.length],[true,true,2]);
+ assert.equal((await readFile(join(root,'build/inspection/after.video.bin'))).length,68944);
+ typed='';memory=[41];
+ const failed=await executeCommand(['check',root,'--emulator','/tools/automation'],dir,dependencies);
+ assert.equal(failed.exitCode,1);assert.equal(closed,2);
+ assert.deepEqual(failed.diagnostics.map(d=>d.code),['check.memory']);
+ assert.match(failed.diagnostics[0].message,/\$0200 \(before\): expected 2A, found 29/);
+ await writeFile(join(root,'checks/smoke.json'),'{"settleCycles":0}');
+ const bad=await executeCommand(['check',root],dir,dependencies);
+ assert.deepEqual([bad.exitCode,bad.diagnostics[0].code],[1,'check.smoke']);
+ for(const args of [['check','a','b'],['check','--renderer'],['debug',root],['debug','--line','0'],['debug','--line','2','--memory','$10000:1'],['debug','--line','2','--memory','512']]){
+  assert.equal((await executeCommand(args,dir,dependencies)).exitCode,2,args.join(' '));
+ }
+});
+test('check mirrors the video sizes in specs',async()=>{
+ const {overlayRows}=await import('../packages/cli/dist/index.js');
+ const video=JSON.parse(await readFile('specs/video.json','utf8'));
+ const map=JSON.parse(await readFile('specs/mia-ram-map.json','utf8'));
+ const size=map.blocks.find(b=>b.name==='VIDEO').size;
+ const ov=video.regions.find(r=>r.name==='OV_NT');
+ assert.equal(ov.size,video.overlay.columns*video.overlay.rows);
+ const image=Array(size).fill(32);image[ov.start]=65;image[ov.start+ov.size-1]=90;
+ const rows=overlayRows(image);
+ assert.equal(rows.length,video.overlay.rows);assert.equal(rows[0],'A');assert.equal(rows.at(-1),' '.repeat(video.overlay.columns-1)+'Z');
+ assert.throws(()=>overlayRows(Array(size-1).fill(0)),/expected/);
+ const {DISPLAY}=await import('../packages/cli/dist/check.js');
+ assert.deepEqual(DISPLAY,{width:video.display.width,height:video.display.height});
+});
+test('debug stops at a source line and reports memory given in hex',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'clementina-debug-'));
+ const root=join(dir,'game');
+ assert.equal(run('new',root).status,0);
+ let closed=0,read;
+ const dependencies={
+  createProjectDebugSession:async(projectRoot,options)=>{assert.equal(options.executable,'clementina-automation');return{ok:true,diagnostics:[],value:{
+   build:{basic:{},files:[{kind:'load-plan',path:'build/load-plan.json'}]},endpoint:'http://127.0.0.1:1/v1',
+   session:{
+    setSourceBreakpoints:async(path,lines)=>lines[0]===99?[{verified:false,message:'no code on line 99'}]:[{verified:true}],
+    waitForStop:async()=>({state:{stopReason:'breakpoint',pc:0xC123},frame:{name:'main.bas:20'}}),
+    readMemory:async(address,count)=>{read=[address,count];return [42,null];},
+   },
+   launch:async()=>({}),close:async()=>{closed++;},
+  }};},
+  createHttpEmulatorClient:()=>({video:async()=>Array(68944).fill(0)}),
+ };
+ const env=process.env.CLEMENTINA_EMULATOR;delete process.env.CLEMENTINA_EMULATOR;
+ try{
+  const r=await executeCommand(['debug',root,'--line','20','--memory','$0200:2'],dir,dependencies);
+  assert.equal(r.ok,true,JSON.stringify(r.diagnostics));
+  assert.deepEqual(read,[0x200,2]);assert.equal(closed,1);
+  assert.match(r.message,/^Stopped at main\.bas:20 \(PC=\$C123\)\.\nMemory \$0200: 2A \?\?\nReport: /);
+  const report=JSON.parse(await readFile(join(root,'build/inspection/debug-report.json'),'utf8'));
+  assert.equal(report.source,'src/main.bas');assert.equal(report.video.bytes,68944);
+  const missing=await executeCommand(['debug',root,'--line','99'],dir,dependencies);
+  assert.deepEqual([missing.exitCode,missing.diagnostics[0].code,missing.diagnostics[0].message],[1,'debug.breakpoint','no code on line 99']);
+  assert.equal(closed,2);
+ }finally{if(env!==undefined)process.env.CLEMENTINA_EMULATOR=env;}
+});

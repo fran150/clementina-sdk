@@ -2,6 +2,8 @@ import type {buildProject} from '@clementina/build';
 import type {ClementinaDiagnostic} from '@clementina/core';
 import type {ExecutionState} from '@clementina/emulator-client';
 import type {EmulatorProcess, EmulatorProcessOptions} from '@clementina/emulator-client/node';
+import type {createProjectDebugSession} from '@clementina/debug/node';
+import type {DebugDependencies} from './debug.js';
 import type {probeTool} from './doctor.js';
 
 /** An emulator left running by `clementina run` for the terminal host to supervise. */
@@ -15,6 +17,8 @@ export interface CommandDependencies {
   buildProject: typeof buildProject;
   startEmulatorProcess: (options: EmulatorProcessOptions) => Promise<EmulatorProcess>;
   probeTool?: typeof probeTool;
+  createProjectDebugSession: typeof createProjectDebugSession;
+  createHttpEmulatorClient: DebugDependencies['createHttpEmulatorClient'];
 }
 
 /** Inputs shared by every command handler. */

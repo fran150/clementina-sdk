@@ -4,7 +4,7 @@
 playable input loop: press `A` to catch the star, then `R` to play again.
 The palette and palette config are portable assets; the build loads the config
 before the BASIC program. `checks/smoke.json` describes the input response to
-verify.
+verify; `clementina check` runs it.
 
 Edit the source and assets, then from this folder:
 
@@ -12,4 +12,5 @@ Edit the source and assets, then from this folder:
 clementina project validate
 clementina build
 clementina run
+clementina check
 ```

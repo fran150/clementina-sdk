@@ -46,8 +46,8 @@ limits, not gameplay timing or a claim about hardware speed. See the
 ## 3. Validate and build
 
 ```sh
-node packages/cli/bin/clementina.mjs project validate /path/to/my-game
-node packages/cli/bin/clementina.mjs build /path/to/my-game
+clementina project validate /path/to/my-game
+clementina build /path/to/my-game
 ```
 
 Project validation checks every listed asset against its schema, cross-asset IDs,
@@ -61,8 +61,7 @@ and JSON assets remain the editable project.
 For a live session, run:
 
 ```sh
-node packages/cli/bin/clementina.mjs run /path/to/my-game \
-  --emulator /path/to/clementina-automation
+clementina run /path/to/my-game
 ```
 
 This builds and launches the same plan, then prints an automation endpoint.
@@ -71,14 +70,12 @@ launches the emulator and records evidence.
 
 ## 4. Run and inspect
 
-Build `clementina-automation` from the emulator repository as described in
-[emulator automation](../../docs/emulator-automation.md). For PNGs, build the
-optional `clementina-render` command from `clementina-video-client`.
+Install `clementina-automation` from the emulator release (see
+[emulator automation](../../docs/emulator-automation.md)). For PNGs, install
+the optional `clementina-render` command from `clementina-video-client`.
 
 ```sh
-node agents/workflows/create-game.mjs check /path/to/my-game \
-  --emulator /path/to/clementina-automation \
-  --renderer /path/to/clementina-render
+clementina check /path/to/my-game --renderer clementina-render
 ```
 
 `check` repeats project validation and build, mounts the generated SD root,
@@ -89,7 +86,8 @@ snapshot, and compares loaded palette bytes with the generated asset. For the
 assembly starter, it checks CPU RAM `$0200`. It exits nonzero if a declared
 check fails. The emulator process is closed after inspection. `--emulator` defaults to
 `CLEMENTINA_EMULATOR` or `clementina-automation` on `PATH`; `--renderer` can be
-omitted when only state and overlay text are needed.
+omitted when only state and overlay text are needed. From an SDK checkout,
+`node agents/workflows/create-game.mjs check` does the same.
 
 Open `build/inspection/report.json` for CPU registers, cycle count, overlay rows,
 snapshot hashes, and check results. `before.video.bin` and `after.video.bin` are
