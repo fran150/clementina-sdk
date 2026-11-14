@@ -33,6 +33,7 @@
     "@clementina/assets": "0.3.0-alpha.1",
     "@clementina/build": "0.3.0-alpha.1",
     "@clementina/emulator-client": "0.3.0-alpha.1",
-    "@clementina/project": "0.3.0-alpha.1"
+    "@clementina/project": "0.3.0-alpha.1",
+    "yaml": "^2.9.1"
   }
 }

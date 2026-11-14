@@ -1,16 +1,15 @@
 #!/usr/bin/env node
-import {cp, lstat, mkdir, readFile, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
-import {parseDocument} from 'yaml';
 import {buildProject} from '@clementina/build';
+import {createProject} from '@clementina/cli';
 import {startEmulatorProcess} from '@clementina/emulator-client/node';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const templates = {basic: join(sdkRoot, 'templates/basic-game'), assembly: join(sdkRoot, 'templates/asm-game')};
 const videoSpec = JSON.parse(await readFile(join(sdkRoot, 'specs/video.json'), 'utf8'));
 const videoBytes = JSON.parse(await readFile(join(sdkRoot, 'specs/mia-ram-map.json'), 'utf8'))
   .blocks.find(block => block.name === 'VIDEO').size;
@@ -35,19 +34,9 @@ function options(args, names) {
   return values;
 }
 
+/** Same as `clementina new`; kept for agents that import the workflow module. */
 export async function initGame(destination, name = 'Catch the Star', template = 'basic') {
-  const root = resolve(destination);
-  if (typeof name !== 'string' || !name.trim() || name.length > 80) throw new Error('Project name must be 1..80 characters');
-  if (!templates[template]) throw new Error('Template must be basic or assembly');
-  try { await lstat(root); throw new Error(`Destination already exists: ${root}`); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; }
-  await mkdir(dirname(root), {recursive: true});
-  await cp(templates[template], root, {recursive: true, errorOnExist: true, force: false});
-  const manifestPath = join(root, 'clementina.yaml');
-  const document = parseDocument(await readFile(manifestPath, 'utf8'));
-  document.set('name', name);
-  await writeFile(manifestPath, String(document));
-  return root;
+  return (await createProject(destination, {name, template})).root;
 }
 
 function requireResult(result, phase) {

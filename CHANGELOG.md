@@ -4,6 +4,7 @@
 
 - Remove `program.kind`. A project is described by its parts: an optional BASIC `program.entry` and an optional `build.assembly`, which now lists its own `sources`. With both, the load plan `BLOAD`s the PRG and then runs the BASIC program. Build results, `clementina build --json`, MCP and the debugger report `assembly`/`basic` parts instead of a kind; `create-game.mjs init` takes `--template`.
 - Add `build.basic.memoryTop` and the `memoryTop` load-plan step, which lower BASIC's `MEMSIZ` so bank-0 RAM above it is free for code a BASIC program calls.
+- Add `clementina new <directory> [--template basic|assembly] [--name <name>]`, which creates a project from templates embedded in the CLI, including the standalone executable. `create-game.mjs init` now uses it, and the starters' READMEs use `clementina` commands.
 - Every build writes `memory-layout.json`: each part's place in CPU memory and MIA RAM next to the machine's areas, with overlaps as `build.layout.overlap` warnings. Overlapping asset slots are now a warning too.
 - A load plan ending in a BASIC program also renders as a numbered bootstrap, ending with its `LOAD`.
 

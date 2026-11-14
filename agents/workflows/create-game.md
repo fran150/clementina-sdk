@@ -19,15 +19,16 @@ both; see [program parts](../../docs/project-format.md#program-parts).
 
 ## 2. Create and edit a portable project
 
-From the SDK root, after `npm ci && npm run build`:
-
 ```sh
-node agents/workflows/create-game.mjs init /path/to/my-game --name "My Game"
+clementina new /path/to/my-game --name "My Game"
 # For a 65C02 assembly starter instead:
-node agents/workflows/create-game.mjs init /path/to/my-asm-game --template assembly --name "My Assembly Game"
+clementina new /path/to/my-asm-game --template assembly --name "My Assembly Game"
 ```
 
-The destination must be new. The BASIC starter contains `clementina.yaml`,
+`node agents/workflows/create-game.mjs init <directory> [--name <name>] [--template basic|assembly]`
+does the same from an SDK checkout.
+
+The destination must be new or an empty directory. The BASIC starter contains `clementina.yaml`,
 `src/main.bas`, JSON palette assets, and `checks/smoke.json`. Its input loop
 accepts `A` to score and `R` to restart. The assembly starter contains
 `src/main.s`, an explicit `link.cfg`, and `checks/code.json`; it writes 42 to CPU

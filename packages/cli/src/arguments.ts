@@ -55,3 +55,19 @@ export function parseImportArguments(args: readonly string[]): ImportArguments |
   if (positional.length !== 2) return undefined;
   return {source: positional[0], directory: positional[1], ...(name !== undefined ? {name} : {})};
 }
+
+/** Options accepted by `clementina new`. */
+export interface NewArguments {directory: string; template?: string; name?: string}
+
+/** Parse `new <directory> [--template <name>] [--name <name>]`, rejecting repeats and unknown flags. */
+export function parseNewArguments(args: readonly string[]): NewArguments | undefined {
+  let directory: string | undefined, template: string | undefined, name: string | undefined;
+  for (let index = 1; index < args.length; index++) {
+    if (args[index] === '--template' && template === undefined && isValue(args[index + 1])) template = args[++index];
+    else if (args[index] === '--name' && name === undefined && isValue(args[index + 1])) name = args[++index];
+    else if (isValue(args[index]) && directory === undefined) directory = args[index];
+    else return undefined;
+  }
+  if (directory === undefined) return undefined;
+  return {directory, ...(template !== undefined ? {template} : {}), ...(name !== undefined ? {name} : {})};
+}

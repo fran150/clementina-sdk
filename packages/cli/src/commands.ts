@@ -6,9 +6,10 @@ import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
 import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
 import {loadProject, saveProject} from '@clementina/project/node';
-import {isValue, parseDoctorArguments, parseImportArguments, parseRunArguments} from './arguments.js';
+import {isValue, parseDoctorArguments, parseImportArguments, parseNewArguments, parseRunArguments} from './arguments.js';
 import {probeTool, type ToolProbe} from './doctor.js';
-import {EXIT_FAILURE, EXIT_OK, failure, usageFailure, type Command, type CommandResult} from './types.js';
+import {createProject, NewProjectError} from './new.js';
+import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, usageFailure, type Command, type CommandResult} from './types.js';
 
 const MINIMUM_NODE_MAJOR = 20;
 const DOCTOR_TOOLS = ['ca65', 'ld65', 'ar65', 'emulator'] as const;
@@ -49,6 +50,28 @@ const doctor: Command = {
       exitCode: failed ? EXIT_FAILURE : EXIT_OK,
       message: `${standalone ? 'Standalone executable' : `Node.js ${process.versions.node}`}; ${DOCTOR_TOOLS.map(name => `${name}: ${tools[name].found ? 'ready' : 'missing'}`).join(', ')}.`,
       data: {...(standalone ? {standalone: true} : {node: process.versions.node}), tools},
+    };
+  },
+};
+
+/** `new <directory> [--template basic|assembly] [--name <name>]`: start a project from an embedded template. */
+const newProject: Command = {
+  matches: args => args[0] === 'new',
+  async run(args, {cwd}) {
+    const options = parseNewArguments(args);
+    if (!options) return usageFailure('new');
+    let created;
+    try {
+      created = await createProject(resolve(cwd, options.directory), options);
+    } catch (error) {
+      const code = error instanceof NewProjectError ? error.code : 'project.new.io';
+      return failure(code, errorMessage(error), code === 'project.new.template' ? EXIT_USAGE : EXIT_FAILURE, options.directory);
+    }
+    const loaded = await loadProject(created.root);
+    return {
+      ok: loaded.ok, diagnostics: loaded.diagnostics, exitCode: loaded.ok ? EXIT_OK : EXIT_FAILURE,
+      message: `Created ${created.root} from the ${created.template} template.`,
+      data: {directory: created.root, template: created.template, name: created.name, files: created.files},
     };
   },
 };
@@ -196,4 +219,4 @@ const assetValidate: Command = {
 };
 
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, projectValidate, projectImport, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, newProject, projectValidate, projectImport, basicCompile, build, run, assetValidate];

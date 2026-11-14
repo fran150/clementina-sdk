@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,mkdtemp,readFile,writeFile} from 'node:fs/promises';
+import {loadProject} from '@clementina/project/node';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {executeCommand,runCli} from '../packages/cli/dist/index.js';
@@ -112,4 +113,36 @@ test('project import turns a Studio session into a validating assembly project',
  assert.equal(run('project','import','tests/fixtures/studio-v2.json','--json').status,2);
  const bad=run('project','import','package.json',join(dir,'bad'),'--json');
  assert.equal(bad.status,1);assert.equal(JSON.parse(bad.stdout).diagnostics[0].code,'project.import.studio');
+});
+test('new writes an embedded template that validates and refuses to overwrite',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'clementina-new-'));
+ const basic=join(dir,'star-game');
+ const r=run('new',basic,'--json');
+ assert.equal(r.status,0,r.stdout+r.stderr);
+ const out=JSON.parse(r.stdout);
+ assert.deepEqual([out.ok,out.data.template,out.data.name,out.data.directory],[true,'basic','star-game',basic]);
+ assert.match(await readFile(join(basic,'src/main.bas'),'utf8'),/CATCH THE STAR/);
+ assert.match(await readFile(join(basic,'clementina.yaml'),'utf8'),/^name: star-game$/m);
+ assert.equal(run('project','validate',basic,'--json').status,0);
+ const again=run('new',basic,'--json');
+ assert.equal(again.status,1);assert.equal(JSON.parse(again.stdout).diagnostics[0].code,'project.new.exists');
+ const asm=join(dir,'asm');
+ await mkdir(asm);
+ const made=run('new',asm,'--template','assembly','--name','Ruben\'s Underworld: "1"');
+ assert.equal(made.status,0,made.stdout+made.stderr);
+ assert.equal(made.stdout,`Created ${asm} from the assembly template.\n`);
+ const loaded=await loadProject(asm);
+ assert.equal(loaded.ok,true,JSON.stringify(loaded.diagnostics));
+ assert.equal(loaded.value.manifest.name,'Ruben\'s Underworld: "1"');
+ assert.equal(loaded.value.manifest.build.assembly.entrySymbol,'game_start');
+ if(hasTools){const built=run('build',asm,'--json');assert.equal(built.status,0,built.stdout+built.stderr);}
+ for(const [args,status,code] of [
+  [['new'],2,'cli.usage'],
+  [['new','a','b'],2,'cli.usage'],
+  [['new',join(dir,'x'),'--template'],2,'cli.usage'],
+  [['new',join(dir,'x'),'--template','mixed'],2,'project.new.template'],
+  [['new',join(dir,'x'),'--name','a'.repeat(81)],1,'project.new.name'],
+ ]){const f=run(...args,'--json');assert.equal(f.status,status,f.stdout);assert.equal(JSON.parse(f.stdout).diagnostics[0].code,code);}
+ const {help}=await import('../packages/cli/dist/index.js');
+ assert.match(help,/new <directory> \[--template basic\|assembly\]/);
 });

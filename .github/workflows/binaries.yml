@@ -69,6 +69,8 @@ jobs:
           "$cli" doctor --json
           "$cli" project validate examples/minimal-game
           "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json
+          # Templates are embedded: `new` must work with no SDK files beside the executable.
+          (cd "$RUNNER_TEMP" && "$cli" new new-game && "$cli" project validate new-game)
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

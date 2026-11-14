@@ -4,11 +4,14 @@ import {commands} from './commands.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, type CommandResult, type RunSession} from './types.js';
 
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
+export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess};
 const HELP_FLAGS = ['--help', '-h', 'help'];
 
 export const help = `Usage: clementina <command> [--json]
+  new <directory> [--template basic|assembly] [--name <name>]
+                                Create a project from a template (default: basic)
   project validate [directory]   Validate manifest, assets, references, and sources
   project import <file.cstudio> <directory> [--name <name>]
                                 Turn a Studio session into a new assembly project
