@@ -66,6 +66,10 @@ jobs:
           done
           if command -v node; then echo "Node.js is still on PATH"; exit 1; fi
           "$cli" --help
+          "$cli" --version | tee version.txt
+          # A release executable reports the plain version, never a dev build.
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' packages/cli/package.json)"
+          grep -qx "clementina $version" version.txt
           "$cli" doctor --json
           "$cli" project validate examples/minimal-game
           "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json

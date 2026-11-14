@@ -90,9 +90,13 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
-`doctor` checks Node.js (or reports the standalone executable) and probes `ca65`, `ld65`, and `ar65` by running their
-version commands. It checks whether the emulator automation executable is
-available without starting it. Missing optional tools produce warnings; use
+`--version` prints the CLI version; a build in an SDK checkout adds its commit
+and path (see [dev installs](dev-install.md)). `doctor` starts with that line,
+checks Node.js (or reports the standalone executable), and probes `ca65`,
+`ld65`, and `ar65` by running their version commands. It locates the emulator
+automation executable and asks it for `--version` without starting a machine;
+an emulator too old to answer still counts as found. Each tool line shows the
+path found and the tool's own version line. Missing optional tools produce warnings; use
 `doctor --strict` to require all four tools and return a nonzero exit code.
 `doctor --emulator /path/to/clementina-automation` checks an explicit binary,
 and `--json` includes machine-readable tool paths and results. `build`/`run`

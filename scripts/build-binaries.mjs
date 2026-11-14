@@ -12,6 +12,10 @@ const entry = join(root, 'packages', 'cli', 'bin', 'clementina.mjs');
 const output = join(root, 'dist', 'bin');
 const targets = ['linux-x64', 'linux-arm64', 'darwin-x64', 'darwin-arm64', 'windows-x64'];
 
+const {version} = JSON.parse(await readFile(join(root, 'packages', 'cli', 'package.json'), 'utf8'));
+// `clementina --version` reads this to tell a release executable from a dev build.
+const define = `--define=CLEMENTINA_STANDALONE_VERSION=${JSON.stringify(version)}`;
+
 const requested = process.argv.slice(2);
 const unknown = requested.filter(target => !targets.includes(target));
 if (unknown.length) throw Error(`Unknown target ${unknown.join(', ')}; expected ${targets.join(', ')}`);
@@ -21,7 +25,7 @@ await mkdir(output, {recursive: true});
 const sums = [];
 for (const target of requested.length ? requested : targets) {
   const outfile = join(output, `clementina-${target}${target.startsWith('windows') ? '.exe' : ''}`);
-  execFileSync('bun', ['build', entry, '--compile', '--minify', `--target=bun-${target}`, '--outfile', outfile], {cwd: root, stdio: 'inherit'});
+  execFileSync('bun', ['build', entry, '--compile', '--minify', define, `--target=bun-${target}`, '--outfile', outfile], {cwd: root, stdio: 'inherit'});
   sums.push(`${createHash('sha256').update(await readFile(outfile)).digest('hex')}  ${basename(outfile)}`);
 }
 await writeFile(join(output, 'SHA256SUMS'), sums.join('\n') + '\n');
