@@ -12,7 +12,9 @@ generated BASIC bootstrap to load assets and start machine code.
 See [shared packages](docs/shared-packages.md) for APIs and versioning.
 The `@clementina/*` packages are configured for public npm distribution under
 [GPLv3](LICENSE); the VS Code extension is distributed separately.
-See [releasing](docs/releasing.md) for package and CI gates.
+See [releasing](docs/releasing.md) for package and CI gates, and
+[dev installs](docs/dev-install.md) for running local builds in place of the
+installed tools.
 
 Start with:
 

@@ -1,12 +1,14 @@
 import {buildProject} from '@clementina/build';
 import {startEmulatorProcess} from '@clementina/emulator-client/node';
 import {commands} from './commands.js';
+import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, type CommandResult, type RunSession} from './types.js';
 
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess};
 const HELP_FLAGS = ['--help', '-h', 'help'];
+const VERSION_FLAGS = ['--version', '-V', 'version'];
 
 export const help = `Usage: clementina <command> [--json]
   project validate [directory]   Validate manifest, assets, references, and sources
@@ -20,6 +22,7 @@ export const help = `Usage: clementina <command> [--json]
   run [directory] [options]      Build and run with an owned headless emulator
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
+  --version                      Print the version and which copy is running
 
 Run options:
   --emulator <path>              Automation executable (default: clementina-automation)
@@ -32,6 +35,7 @@ Standalone assets are checked structurally; use project validate for references.
 /** CLI operations are reusable and do not write terminal output or terminate the process. */
 export async function executeCommand(args: string[], cwd = process.cwd(), dependencies: CommandDependencies = defaultDependencies): Promise<CommandResult> {
   if (args.length === 0 || args.length === 1 && HELP_FLAGS.includes(args[0])) return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: help};
+  if (args.length === 1 && VERSION_FLAGS.includes(args[0])) return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: formatCliVersion(), data: {...cliVersion()}};
   const command = commands.find(candidate => candidate.matches(args));
   if (!command) return failure('cli.usage', 'Unknown command or invalid arguments. Run clementina --help.', EXIT_USAGE);
   return command.run(args, {cwd, dependencies});
