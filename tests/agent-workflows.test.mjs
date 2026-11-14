@@ -53,7 +53,7 @@ test('debug workflow records a verified source stop and closes the owned session
     await cp(join(sdkRoot, 'templates/basic-game'), root, {recursive: true});
     const result = await inspectBreakpoint(root, {line: 2, memory: {address: 512, count: 1}}, {
       createProjectDebugSession: async () => ({ok: true, diagnostics: [], value: {
-        build: {kind: 'basic', files: [{kind: 'load-plan', path: 'build/load-plan.json'}]},
+        build: {basic: {source: 'src/main.bas'}, files: [{kind: 'load-plan', path: 'build/load-plan.json'}]},
         endpoint: 'http://127.0.0.1:1/v1',
         session: {
           setSourceBreakpoints: async (path) => {breakpointPath = path; return [{verified: true, addresses: [0x1234]}];},

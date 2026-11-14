@@ -1,9 +1,13 @@
-export type ProgramKind="basic"|"assembly"|"mixed";
 export interface ProjectAssemblyBuild {
- linkerConfig:string;outputName:string;loadAddress:number;bank?:number;entrySymbol:string;
+ /** ca65 sources, assembled and linked into one PRG. */
+ sources:string[];linkerConfig:string;outputName:string;loadAddress:number;bank?:number;entrySymbol:string;
  includeDirectories?:string[];defines?:Record<string,string|number>;
 }
-export interface ProjectBasicBuild {outputName:string}
+export interface ProjectBasicBuild {
+ outputName:string;
+ /** MEMSIZ to set before the program runs: BASIC keeps bank-0 RAM from here to $BFFF free. */
+ memoryTop?:number;
+}
 export interface ProjectVideoBuild {
  paletteConfigId?:string;tilesets?:Array<{tilesetId:string;bank:number}>;
 }
@@ -16,15 +20,21 @@ export type ProjectAssetBuildKind="paletteConfig"|"tileset"|"background"|"overla
 /** An asset the build writes to the card. A sprite file names its tileset's id. */
 export interface ProjectAssetInclude {kind:ProjectAssetBuildKind;id:string;slot:string;file?:string}
 export interface ProjectAssetsBuild {folder?:string;checks?:boolean;slots:ProjectAssetSlot[];include:ProjectAssetInclude[]}
+/** Settings for each part the project has: `assembly`, `basic` for program.entry, or both. */
 export type ProjectBuild = {outputDirectory:string;video?:ProjectVideoBuild;assets?:ProjectAssetsBuild}&(
  {assembly:ProjectAssemblyBuild;basic?:ProjectBasicBuild}|{basic:ProjectBasicBuild;assembly?:ProjectAssemblyBuild}
 );
 export interface ClementinaProjectManifest {
  format:"clementina-project";version:1;name:string;description?:string;
  target:{machine:"clementina-6502";phi2Hz?:number};
- program:{kind:ProgramKind;entry:string;sources?:string[]};
+ /** The BASIC program that runs last. Without one, the generated loader BRUNs build.assembly. */
+ program?:{entry:string};
  assets:{palettes:string[];paletteConfigs:string[];tilesets:string[];backgrounds:string[];overlays:string[];shapes:string[];animations:string[];instruments?:string[];sounds?:string[];songs?:string[]};
  build?:ProjectBuild;
 }
 /** A kind's asset paths; the audio kinds may be left out of a manifest. */
 export function assetPaths(manifest:Pick<ClementinaProjectManifest,"assets">,kind:keyof ClementinaProjectManifest["assets"]):string[]{return manifest.assets[kind]??[]}
+/** Every source file the project compiles: the BASIC entry, then the assembly sources. */
+export function programSources(manifest:Pick<ClementinaProjectManifest,"program"|"build">):string[]{
+ return [...(manifest.program?[manifest.program.entry]:[]),...(manifest.build?.assembly?.sources??[])];
+}

@@ -17,13 +17,13 @@ export async function inspectBreakpoint(projectDirectory, options, dependencies 
   const root = resolve(projectDirectory);
   if (!Number.isInteger(options.line) || options.line < 1) throw Error('line must be a positive physical source line');
   const project = value(await loadProject(root), 'Project');
-  const source = options.source ?? project.manifest.program.entry;
+  const source = options.source ?? project.manifest.program?.entry ?? project.manifest.build.assembly.sources[0];
   const path = await resolveProjectPath(root, source);
   const runtime = value(await (dependencies.createProjectDebugSession ?? createProjectDebugSession)(root, {
     executable: options.emulator ?? process.env.CLEMENTINA_EMULATOR ?? 'clementina-automation',
   }), 'Debug session');
   try {
-    const breakpointPath = runtime.build.kind === 'basic' ? path : source;
+    const breakpointPath = runtime.build.basic ? path : source;
     const [breakpoint] = await runtime.session.setSourceBreakpoints(breakpointPath, [options.line]);
     if (!breakpoint.verified) throw Error(breakpoint.message ?? 'Source line did not resolve to executable code');
     await runtime.launch();

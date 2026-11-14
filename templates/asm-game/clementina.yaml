@@ -3,9 +3,6 @@ version: 1
 name: Assembly Starter
 target:
   machine: clementina-6502
-program:
-  kind: assembly
-  entry: src/main.s
 assets:
   palettes: []
   paletteConfigs: []
@@ -17,6 +14,8 @@ assets:
 build:
   outputDirectory: build
   assembly:
+    sources:
+      - src/main.s
     linkerConfig: link.cfg
     outputName: game
     loadAddress: 6144

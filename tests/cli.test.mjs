@@ -52,21 +52,21 @@ test('run composes project build, owned emulator lifecycle, and load-plan launch
  const exited=new Promise(resolve=>resolveExit=resolve);
  const emulator={endpoint:'http://127.0.0.1:1234/v1',pid:42,exited,client:{launchLoadPlan:async value=>(launched=value,state)},close:async()=>{closed++;const value={code:0,signal:null};resolveExit(value);return value;}};
  const result=await executeCommand(['run','game','--emulator','/tools/emulator','--port','6503'],'/workspace',{
-  buildProject:async root=>{buildRoot=root;return {ok:true,value:{kind:'assembly',sdRoot:'build/sd',diagnostics:[],loadPlan:plan,assembly:{entryAddress:0x6000},files:[]},diagnostics:[]}},
+  buildProject:async root=>{buildRoot=root;return {ok:true,value:{sdRoot:'build/sd',diagnostics:[],loadPlan:plan,assembly:{entryAddress:0x6000},files:[]},diagnostics:[]}},
   startEmulatorProcess:async value=>(options=value,emulator),
  });
  assert.equal(result.ok,true);assert.equal(result.session.emulator,emulator);assert.deepEqual(launched,plan);
  assert.equal(buildRoot,'/workspace/game');assert.deepEqual(options,{executable:'/tools/emulator',sdRoot:'/workspace/game/build/sd',port:6503});
- assert.deepEqual(result.data,{endpoint:emulator.endpoint,pid:42,kind:'assembly',entryAddress:0x6000});
+ assert.deepEqual(result.data,{endpoint:emulator.endpoint,pid:42,assembly:{entryAddress:0x6000}});
  await result.session.emulator.close();assert.equal(closed,1);
 });
-test('build and run compose a BASIC project through the same discriminated contract',async()=>{
- const basicBuild={kind:'basic',sdRoot:'.',diagnostics:[],loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'basic',path:'build/game.bas',length:2}]},
+test('build and run compose a BASIC project through the same parts contract',async()=>{
+ const basicBuild={sdRoot:'.',diagnostics:[],loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'basic',path:'build/game.bas',length:2}]},
   basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:0},
-  files:[{kind:'basic',path:'build/game.bas',length:2},{kind:'load-plan',path:'build/load-plan.json',length:0}]};
+  files:[{kind:'basic',path:'build/game.bas',length:2},{kind:'bootstrap',path:'build/bootstrap.bas',length:0},{kind:'load-plan',path:'build/load-plan.json',length:0},{kind:'memory-layout',path:'build/memory-layout.json',length:0}]};
  const built=await executeCommand(['build','game'],'/workspace',{buildProject:async()=>({ok:true,value:basicBuild,diagnostics:[]})});
  assert.equal(built.ok,true);
- assert.deepEqual(built.data,{kind:'basic',program:'build/game.bas',loadPlan:'build/load-plan.json',lines:0});
+ assert.deepEqual(built.data,{sdRoot:'.',loadPlan:'build/load-plan.json',bootstrap:'build/bootstrap.bas',memoryLayout:'build/memory-layout.json',basic:{program:'build/game.bas',lines:0}});
 
  const state={cycles:'1',pc:0,a:0,x:0,y:0,sp:0xff,p:0x30,paused:false,running:true,stopReason:'running',instructionBoundary:true};
  let launched,resolveExit;
@@ -77,7 +77,7 @@ test('build and run compose a BASIC project through the same discriminated contr
   startEmulatorProcess:async()=>emulator,
  });
  assert.equal(ran.ok,true);assert.deepEqual(launched,basicBuild.loadPlan);
- assert.deepEqual(ran.data,{endpoint:emulator.endpoint,pid:7,kind:'basic',program:'build/game.bas'});
+ assert.deepEqual(ran.data,{endpoint:emulator.endpoint,pid:7,basic:{program:'build/game.bas'}});
  await ran.session.emulator.close();
 });
 test('wrong asset kind is rejected and help documents reference scope',async()=>{

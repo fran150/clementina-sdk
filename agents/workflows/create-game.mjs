@@ -16,7 +16,7 @@ const videoBytes = JSON.parse(await readFile(join(sdkRoot, 'specs/mia-ram-map.js
   .blocks.find(block => block.name === 'VIDEO').size;
 const overlay = videoSpec.regions.find(region => region.name === 'OV_NT');
 const usage = `Usage:
-  node agents/workflows/create-game.mjs init <new-directory> [--name <name>] [--kind basic|assembly]
+  node agents/workflows/create-game.mjs init <new-directory> [--name <name>] [--template basic|assembly]
   node agents/workflows/create-game.mjs check <project-directory> [--emulator <path>] [--renderer <path>]
 
 check validates assets and references, builds, launches the ROM, captures video
@@ -35,14 +35,14 @@ function options(args, names) {
   return values;
 }
 
-export async function initGame(destination, name = 'Catch the Star', kind = 'basic') {
+export async function initGame(destination, name = 'Catch the Star', template = 'basic') {
   const root = resolve(destination);
   if (typeof name !== 'string' || !name.trim() || name.length > 80) throw new Error('Project name must be 1..80 characters');
-  if (!templates[kind]) throw new Error('Project kind must be basic or assembly');
+  if (!templates[template]) throw new Error('Template must be basic or assembly');
   try { await lstat(root); throw new Error(`Destination already exists: ${root}`); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   await mkdir(dirname(root), {recursive: true});
-  await cp(templates[kind], root, {recursive: true, errorOnExist: true, force: false});
+  await cp(templates[template], root, {recursive: true, errorOnExist: true, force: false});
   const manifestPath = join(root, 'clementina.yaml');
   const document = parseDocument(await readFile(manifestPath, 'utf8'));
   document.set('name', name);
@@ -171,7 +171,7 @@ export async function checkGame(projectDirectory, settings = {}, dependencies = 
     const visible = rows => rows.join('\n');
     report = {
       format: 'clementina-game-inspection', version: 1,
-      project: root, kind: build.kind, loadPlan: `${project.manifest.build.outputDirectory}/load-plan.json`,
+      project: root, parts: {assembly: build.assembly !== undefined, basic: build.basic !== undefined}, loadPlan: `${project.manifest.build.outputDirectory}/load-plan.json`,
       before, ...(after ? {after} : {}),
       checks: {
         ...(loadedPalette ? {loadedPalette} : {}),
@@ -200,9 +200,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const [command, directory, ...rest] = process.argv.slice(2);
     if (!directory || !['init', 'check'].includes(command)) throw new Error(usage);
     if (command === 'init') {
-      const args = options(rest, ['--name', '--kind']);
-      const kind = args['--kind'] ?? 'basic';
-      const root = await initGame(directory, args['--name'] ?? (kind === 'assembly' ? 'Assembly Starter' : 'Catch the Star'), kind);
+      const args = options(rest, ['--name', '--template']);
+      const template = args['--template'] ?? 'basic';
+      const root = await initGame(directory, args['--name'] ?? (template === 'assembly' ? 'Assembly Starter' : 'Catch the Star'), template);
       console.log(`Created ${root}`);
     } else {
       const args = options(rest, ['--emulator', '--renderer']);

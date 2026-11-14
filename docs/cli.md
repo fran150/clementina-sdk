@@ -88,14 +88,15 @@ path found and the tool's own version line. Missing optional tools produce warni
 `doctor --strict` to require all four tools and return a nonzero exit code.
 `doctor --emulator /path/to/clementina-automation` checks an explicit binary,
 and `--json` includes machine-readable tool paths and results. `build`/`run`
-support a `program.kind: assembly` project
-(`build.assembly`, requires ca65 and ld65; asset builds also require ar65) or
-a `program.kind: basic` project (`build.basic`, compiled through
-`@clementina/basic`). Assembly builds already generate a BASIC loader, so this
-startup does not require `program.kind: mixed`; the reserved `mixed` enum is
-rejected during project validation. `--json` `data` distinguishes the two with
-`kind: "assembly"` or `kind: "basic"`. Both kinds can be launched by the source
-debugger; see [the debugger](debugger.md).
+build whichever [program parts](project-format.md#program-parts) the project has:
+`build.assembly` (requires ca65 and ld65; asset builds also require ar65), a BASIC
+`program.entry` (`build.basic`, compiled through `@clementina/basic`), or both.
+`build --json` `data` has `sdRoot`, `loadPlan`, `bootstrap` and `memoryLayout`
+paths, plus `assembly: {prg, entryAddress}` and `basic: {program, lines}` for the
+parts that exist; `run` reports `assembly: {entryAddress}` and `basic: {program}`.
+Layout overlaps are reported as warnings. Any project can be launched by the
+source debugger, which debugs the BASIC program when there is one; see
+[the debugger](debugger.md).
 
 A reusable headless emulator client is available; see
 [emulator automation](emulator-automation.md). CLI `build` uses the shared project

@@ -35,7 +35,17 @@ export interface BasicLoadStep {
   length: number;
 }
 
-export type LoadStep = MiaLoadStep | PrgLoadStep | BasicLoadStep;
+/**
+ * Lower BASIC's MEMSIZ before later steps: `POKE 63,lo:POKE 64,hi:CLEAR`.
+ * BASIC then keeps its program, variables and strings below `address`, so
+ * bank-0 RAM from there to $BFFF is free for code the program calls with SYS.
+ */
+export interface MemoryTopStep {
+  kind: 'memoryTop';
+  address: number;
+}
+
+export type LoadStep = MiaLoadStep | PrgLoadStep | BasicLoadStep | MemoryTopStep;
 export interface LoadPlan {
   format: 'clementina-load-plan';
   version: 1;
@@ -54,6 +64,8 @@ const MIA_SIZE = 0x40000;
 const SDFS_RESERVED_START = 0x13000;
 const SDFS_RESERVED_END = 0x13c00;
 const KERNEL_BASE = 0x0400;
+/** MEMSIZ at cold start, one past the top of bank 0's window (specs/cpu-memory-map.json image.heapEndExclusive). */
+const BASIC_TOP = 0xc000;
 
 /** Check whether a path can be safely emitted inside a ROM BASIC quoted argument. */
 function portablePath(path: string): boolean {
@@ -66,6 +78,11 @@ function portablePath(path: string): boolean {
 function prgCapacity(step: Pick<PrgLoadStep, 'loadAddress' | 'bank'>): number {
   const banks = (32 - (step.bank ?? 0)) * 0x4000;
   return step.loadAddress < 0x8000 ? 0x8000 - step.loadAddress + banks : banks - (step.loadAddress - 0x8000);
+}
+
+/** Whether a bank-0 PRG lies wholly in the RAM a lowered MEMSIZ keeps from BASIC. */
+function aboveMemoryTop(step: PrgLoadStep, memoryTop: number | undefined): boolean {
+  return memoryTop !== undefined && step.loadAddress >= memoryTop && step.loadAddress + step.length <= BASIC_TOP;
 }
 
 /** A diagnostic that reports a likely mistake without failing the plan. */
@@ -82,10 +99,15 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
   const diagnostics = schemaDiagnostics('load-plan', value);
   if (diagnostics.length) return result(value, diagnostics);
   const plan = value as LoadPlan;
-  let terminal = -1;
+  let terminal = -1, memoryTop: number | undefined;
 
   plan.steps.forEach((step, index) => {
     const base = `/steps/${index}`;
+    if (step.kind === 'memoryTop') {
+      if (memoryTop !== undefined) diagnostics.push(diagnostic('load.memoryTop.multiple', base, 'Only one memoryTop step is allowed'));
+      memoryTop = step.address;
+      return;
+    }
     if (!portablePath(step.path)) {
       diagnostics.push(diagnostic('load.path', `${base}/path`, 'Expected a relative portable path without traversal, quotes, or control characters'));
     }
@@ -109,7 +131,7 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
     if (step.runAddress !== undefined) {
       if (terminal !== -1) diagnostics.push(diagnostic('load.run.multiple', `${base}/runAddress`, 'Only one terminal run step is allowed'));
       terminal = index;
-    } else if (!banked || !step.bank) {
+    } else if ((!banked || !step.bank) && !aboveMemoryTop(step, memoryTop)) {
       diagnostics.push(warning('load.prg.return', base, `This BLOAD returns to BASIC: below $${KERNEL_BASE.toString(16).toUpperCase()} is system RAM, and from there up through bank 0 it may overwrite the kernel or BASIC unless the program lowered MEMSIZ; banks 1-31 are always safe`));
     }
   });
@@ -143,6 +165,7 @@ function editorLine(statement: string, diagnostics: ClementinaDiagnostic[], path
 function loadStatements(steps: readonly LoadStep[]): string[] {
   let bank: number | undefined;
   return steps.map(step => {
+    if (step.kind === 'memoryTop') return `POKE 63,${step.address & 0xff}:POKE 64,${step.address >> 8}:CLEAR`;
     if (step.kind === 'mia') return `MIALOAD "${step.path}",${step.address}`;
     const wanted = step.kind === 'prg' ? step.bank ?? 0 : bank === undefined ? undefined : 0;
     const select = wanted === undefined || wanted === bank ? '' : `BANK ${wanted}:`;
@@ -153,16 +176,15 @@ function loadStatements(steps: readonly LoadStep[]): string[] {
   });
 }
 
-/** Render numbered lines after the shared load-plan validation has passed. */
+/**
+ * Render numbered lines after the shared load-plan validation has passed. A
+ * plan ending in a BASIC program ends with its LOAD, which stops at READY: the
+ * program then starts with a second RUN.
+ */
 function numberedBootstrap(plan: LoadPlan): ValidationResult<string[]> {
   const diagnostics: ClementinaDiagnostic[] = [];
   const statements = loadStatements(plan.steps);
-  const lines = plan.steps.map((step, index) => {
-    if (step.kind === 'basic') {
-      diagnostics.push(diagnostic('load.basic.bootstrap', `/steps/${index}`, 'A BASIC terminal program uses direct launch commands, not a numbered bootstrap'));
-    }
-    return editorLine(statements[index]!, diagnostics, `/steps/${index}/path`, (index + 1) * 10);
-  });
+  const lines = plan.steps.map((_, index) => editorLine(statements[index]!, diagnostics, `/steps/${index}/path`, (index + 1) * 10));
   return result(lines, diagnostics);
 }
 
@@ -172,12 +194,12 @@ export function checkBootstrapSource(value: unknown): ValidationResult<string[]>
   return checked.ok ? numberedBootstrap(checked.value) : checked as ValidationResult<string[]>;
 }
 
-/** Render a numbered assembly bootstrap, ending with a newline. */
+/** Render a numbered bootstrap, ending with a newline. */
 export function renderBootstrapSource(value: unknown): string {
   return assertValid(checkBootstrapSource(value)).join('\n') + '\n';
 }
 
-/** Validate and render the exact editor commands used to launch either program kind. */
+/** Validate and render the exact editor commands that launch a plan. */
 export function checkLoadPlanLaunch(value: unknown): ValidationResult<LoadPlanLaunch> {
   const checked = checkLoadPlan(value);
   if (!checked.ok) return checked as ValidationResult<LoadPlanLaunch>;

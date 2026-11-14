@@ -59,7 +59,8 @@ Sources: `clementina-mia` `video/video_dirty.h`, `input/input.h`,
   port A bits 0–4) can hold slots. Each bank is 16 KiB. A slot may span
   consecutive banks through bank 31; the routines switch banks as they read.
 - **Bank 0.** It holds BASIC's heap while BASIC runs. After a game takes over,
-  the game's linker configuration decides what goes there.
+  the game's linker configuration decides what goes there. A BASIC program can
+  free its top with `build.basic.memoryTop`.
 
 ### Slots
 
@@ -74,9 +75,10 @@ A slot is a named range, either in MIA RAM or in CPU banks.
   places a file can load straight into.
 
 Build checks:
-- **Errors:** a slot overlapping a reserved range or another slot; an asset
-  larger than its slot, except a background that can use partial loads.
-- **Warnings:** an asset whose default slot can't be used directly, such as a
+- **Errors:** a slot overlapping a reserved range; an asset larger than its
+  slot, except a background that can use partial loads.
+- **Warnings:** a slot overlapping another slot or the program (see the
+  [memory layout](../project-format.md#memory-layout)); an asset whose default slot can't be used directly, such as a
   song in a CPU bank. The sequencer only reads MIA RAM, so that song must be
   copied into MIA before `PlaySong`. An oversized background also warns because
   typed partial loads can use the slot.

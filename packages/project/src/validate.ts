@@ -7,24 +7,25 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
   if (diagnostics.length) return result(value, diagnostics);
   const m = value as ClementinaProjectManifest;
   if (!m.name.trim()) diagnostics.push(diagnostic('project.name', '/name', 'Name must not be blank'));
-  if (m.program.kind === 'mixed') diagnostics.push(diagnostic('project.build.kind', '/program/kind', 'Mixed-project composition is not defined yet'));
   if (m.target.phi2Hz !== undefined && m.target.phi2Hz !== 1200000) diagnostics.push(diagnostic('project.target.phi2Hz', '/target/phi2Hz', 'Project builds and launches cannot apply a non-default PHI2 speed yet'));
-  const paths: [string, string][] = [['/program/entry', m.program.entry], ...(m.program.sources ?? []).map((p, i): [string, string] => [`/program/sources/${i}`, p])];
-  if (m.program.sources?.includes(m.program.entry)) diagnostics.push(diagnostic('project.source.duplicate', '/program/sources', 'The entry source must not also appear in program.sources'));
+  if (!m.program && !m.build?.assembly) diagnostics.push(diagnostic('project.program', '', 'A project needs a BASIC program (program.entry), assembly (build.assembly), or both'));
+  const paths: [string, string][] = m.program ? [['/program/entry', m.program.entry]] : [];
   if (m.build) {
     paths.push(['/build/outputDirectory', m.build.outputDirectory]);
-    if (m.build.assembly && m.build.basic) diagnostics.push(diagnostic('project.build.configuration', '/build', 'Choose either assembly or BASIC build settings'));
-    if ('assembly' in m.build && m.build.assembly) {
-      paths.push(['/build/assembly/linkerConfig', m.build.assembly.linkerConfig]);
-      paths.push(...(m.build.assembly.includeDirectories ?? []).map((p, i): [string, string] => [`/build/assembly/includeDirectories/${i}`, p]));
-      if (m.program.kind !== 'assembly') diagnostics.push(diagnostic('project.build.kind', '/build/assembly', 'Assembly build settings require program.kind assembly'));
-      const banked = m.build.assembly.loadAddress >= 0x8000;
-      if (banked && m.build.assembly.bank === undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is required for an image linked at $8000-$BFFF'));
-      if (!banked && m.build.assembly.bank !== undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is only valid for an image linked at $8000-$BFFF'));
-    } else if (m.program.kind !== 'basic') diagnostics.push(diagnostic('project.build.kind', '/build/basic', 'BASIC build settings require program.kind basic'));
-    if (m.program.kind === 'basic' && (m.program.sources?.length ?? 0) > 0) diagnostics.push(diagnostic('project.basic.sources', '/program/sources', 'BASIC builds currently compile the entry source only'));
+    if (m.build.assembly) {
+      const assembly = m.build.assembly;
+      paths.push(...assembly.sources.map((p, i): [string, string] => [`/build/assembly/sources/${i}`, p]));
+      if (m.program && assembly.sources.includes(m.program.entry)) diagnostics.push(diagnostic('project.source.duplicate', '/build/assembly/sources', 'The BASIC entry must not also be an assembly source'));
+      paths.push(['/build/assembly/linkerConfig', assembly.linkerConfig]);
+      paths.push(...(assembly.includeDirectories ?? []).map((p, i): [string, string] => [`/build/assembly/includeDirectories/${i}`, p]));
+      const banked = assembly.loadAddress >= 0x8000;
+      if (banked && assembly.bank === undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is required for an image linked at $8000-$BFFF'));
+      if (!banked && assembly.bank !== undefined) diagnostics.push(diagnostic('project.build.bank', '/build/assembly/bank', 'A bank is only valid for an image linked at $8000-$BFFF'));
+    }
+    if (m.program && !m.build.basic) diagnostics.push(diagnostic('project.build.basic', '/build', 'A project with a BASIC program (program.entry) needs build.basic settings'));
+    if (!m.program && m.build.basic) diagnostics.push(diagnostic('project.build.basic', '/build/basic', 'BASIC build settings need a BASIC program (program.entry)'));
     if (m.build.assets) {
-      if (m.program.kind !== 'assembly') diagnostics.push(diagnostic('project.build.assets.kind', '/build/assets', 'Asset builds need an assembly program: the runtime library is ca65 code'));
+      if (!m.build.assembly) diagnostics.push(diagnostic('project.build.assets.assembly', '/build/assets', 'Asset builds need build.assembly: the runtime library is ca65 code'));
       diagnostics.push(...assetBuildDiagnostics(m.build.assets));
     }
     const ids = new Set<string>(), banks = new Set<number>();
@@ -57,6 +58,11 @@ export const BUILTIN_SLOTS: readonly Required<Pick<ProjectAssetSlot, 'name' | 'm
 /** A bank slot's place in the 512 KiB of banked RAM, as if the banks were one run. */
 export const bankLinear = (slot: Pick<ProjectAssetSlot, 'bank' | 'address'>): number => slot.bank! * 0x4000 + (slot.address! - 0x8000);
 
+/** A likely mistake that the programmer may intend: placement is theirs to decide. */
+function warning(code: string, path: string, message: string): ClementinaDiagnostic {
+  return {...diagnostic(code, path, message), severity: 'warning'};
+}
+
 function assetBuildDiagnostics(a: ProjectAssetsBuild): ClementinaDiagnostic[] {
   const diagnostics: ClementinaDiagnostic[] = [];
   const names = new Map(BUILTIN_SLOTS.map(slot => [slot.name.toLowerCase(), slot.name]));
@@ -84,7 +90,7 @@ function assetBuildDiagnostics(a: ProjectAssetsBuild): ClementinaDiagnostic[] {
     }
   });
   ranges.forEach((r, i) => ranges.slice(0, i).forEach(q => {
-    if (q.space === r.space && r.start < q.end && q.start < r.end) diagnostics.push(diagnostic('project.build.slot.overlap', `/build/assets/slots/${r.index}`, `${r.name} overlaps ${q.name}`));
+    if (q.space === r.space && r.start < q.end && q.start < r.end) diagnostics.push(warning('project.build.slot.overlap', `/build/assets/slots/${r.index}`, `${r.name} overlaps ${q.name}`));
   }));
   const included = new Set<string>(), files = new Map<string, string>();
   a.include.forEach((entry, i) => {

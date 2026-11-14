@@ -13,7 +13,7 @@ const fixture = JSON.parse(await readFile(new URL('./fixtures/portable-v1.json',
 function project() {
  const assets=structuredClone(fixture);
  const kinds={paletteConfig:'paletteConfigs',tileset:'tilesets',background:'backgrounds',overlay:'overlays',sprites:'tilesets',song:'songs',sound:'sounds'};
- return {assets,manifest:{format:'clementina-project',version:1,name:'Runtime demo',target:{machine:'clementina-6502'},program:{kind:'assembly',entry:'src/main.s'},assets:Object.fromEntries(Object.entries(assets).map(([k,a])=>[k,a.map((_,i)=>`assets/${k}/${i}.json`)])),build:{outputDirectory:'build',assembly:{linkerConfig:'link.cfg',outputName:'demo',loadAddress:0x1800,entrySymbol:'game_start'},assets:{slots:[{name:'work',mia:0x14000,size:0x10000},{name:'bank',bank:1,address:0x8000,size:0x4000}],include:Object.entries(kinds).map(([kind,list])=>({kind,id:assets[list][0].id,slot:'work'}))}}}};
+ return {assets,manifest:{format:'clementina-project',version:1,name:'Runtime demo',target:{machine:'clementina-6502'},assets:Object.fromEntries(Object.entries(assets).map(([k,a])=>[k,a.map((_,i)=>`assets/${k}/${i}.json`)])),build:{outputDirectory:'build',assembly:{sources:['src/main.s'],linkerConfig:'link.cfg',outputName:'demo',loadAddress:0x1800,entrySymbol:'game_start'},assets:{slots:[{name:'work',mia:0x14000,size:0x10000},{name:'bank',bank:1,address:0x8000,size:0x4000}],include:Object.entries(kinds).map(([kind,list])=>({kind,id:assets[list][0].id,slot:'work'}))}}}};
 }
 const codes=r=>r.diagnostics.map(d=>d.code);
 test('Builder slots use the MIA RAM programs block from the machine spec', async () => {
@@ -26,7 +26,7 @@ test('Builder validates slot placement, bounds, overlap and include references',
   [a=>a.slots.push({name:'work',mia:0x30000,size:16}),'project.build.slot.name'],
   [a=>a.slots.push({name:'bad',mia:0x100,size:16}),'project.build.slot.reserved'],
   [a=>a.slots.push({name:'bad',mia:0x3ffff,size:2}),'project.build.slot.reserved'],
-  [a=>a.slots.push({name:'bad',mia:0x14001,size:16}),'project.build.slot.overlap'],
+  [a=>a.slots.push({name:'bad',mia:0x14001,size:16}),'project.build.slot.overlap'],  // a warning: placement is the programmer's
   [a=>a.slots.push({name:'bad',bank:31,address:0xbfff,size:2}),'project.build.slot.banks'],
   [a=>a.slots.push({name:'bad',bank:1,address:0x8000,size:2}),'project.build.slot.overlap'],
   [a=>a.slots.push({name:'bad',mia:0x30000,bank:2,address:0x8000,size:2}),'project.build.slot.place'],

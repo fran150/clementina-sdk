@@ -5,10 +5,6 @@
   "target": {
     "machine": "clementina-6502"
   },
-  "program": {
-    "kind": "assembly",
-    "entry": "src/main.s"
-  },
   "assets": {
     "palettes": [
       "assets/palettes/0.json"
@@ -45,6 +41,9 @@
   "build": {
     "outputDirectory": "build",
     "assembly": {
+      "sources": [
+        "src/main.s"
+      ],
       "linkerConfig": "link.cfg",
       "outputName": "demo",
       "loadAddress": 6144,

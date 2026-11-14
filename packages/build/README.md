@@ -11,7 +11,7 @@ The manifest and assets remain portable project files. Generated files belong in
 - For assembly builds, `ca65`, `ld65`, and an ld65 linker configuration. Asset builds also require `ar65`. Install these tools from cc65 and put them on `PATH`.
 - BASIC builds use the SDK compiler and do not invoke the external assembler tools.
 
-The project manifest selects the program source, build kind, output directory, and any video or asset placements. The SDK validates those choices; it does not choose memory addresses or a linker layout for the game.
+The project manifest declares the program's parts (a BASIC `program.entry`, `build.assembly`, or both), the output directory, and any video or asset placements. The SDK validates those choices; it does not choose memory addresses or a linker layout for the game, and reports overlaps between parts in `memory-layout.json` as warnings.
 
 ## Use
 
@@ -28,7 +28,6 @@ name: Hello
 target:
   machine: clementina-6502
 program:
-  kind: basic
   entry: main.bas
 assets:
   palettes: []
@@ -58,7 +57,7 @@ if (!built.ok) {
 }
 ```
 
-`buildProject` returns a `ValidationResult`. On success, `value.kind` is `basic` or `assembly`; `value.files` lists files written by this package, and `value.loadPlan` contains ordered load steps. `diagnostics` may contain asset build warnings. If the manifest has no asset build, `sdRoot` is `.` and load-plan paths include the build directory. With an asset build, `sdRoot` is `<outputDirectory>/sd` and load-plan paths are relative to that folder.
+`buildProject` returns a `ValidationResult`. On success, `value.basic` and `value.assembly` are set for the parts the project has; `value.memoryLayout` maps every part in CPU memory and MIA RAM; `value.files` lists files written by this package, and `value.loadPlan` contains ordered load steps. `diagnostics` may contain asset build and memory layout warnings. If the manifest has no asset build, `sdRoot` is `.` and load-plan paths include the build directory. With an asset build, `sdRoot` is `<outputDirectory>/sd` and load-plan paths are relative to that folder.
 
 For an assembly project with assets, see the [runtime demo](../../examples/runtime-demo/clementina.yaml). Its build produces `assets.inc`, `assets.s`, a `runtime/` library, `memory-report.json`, a card folder containing asset files and a PRG, `BOOT.BAS`, `bootstrap.bas`, and `load-plan.json`. The generated asset declarations and file formats are described in the [builder guide](../../docs/gamedev/builder.md). The [loading guide](../../docs/program-loading.md) describes how to use the load plan.
 

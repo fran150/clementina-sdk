@@ -5,7 +5,6 @@ target:
   machine: clementina-6502
   phi2Hz: 1200000
 program:
-  kind: basic
   entry: src/main.bas
 assets:
   palettes:

@@ -7,7 +7,7 @@ loops. Its `checks/code.json` makes that behavior repeatable in the emulator.
 From the SDK root:
 
 ```sh
-node agents/workflows/create-game.mjs init /path/to/new-game --kind assembly
+node agents/workflows/create-game.mjs init /path/to/new-game --template assembly
 node agents/workflows/code-game.mjs /path/to/new-game --emulator /path/to/clementina-automation
 ```
 
