@@ -1,25 +1,39 @@
 import {buildProject} from '@clementina/build';
+import {createProjectDebugSession} from '@clementina/debug/node';
+import {createHttpEmulatorClient} from '@clementina/emulator-client';
 import {startEmulatorProcess} from '@clementina/emulator-client/node';
 import {commands} from './commands.js';
 import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, type CommandResult, type RunSession} from './types.js';
 
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
+export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
+export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
+export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
-const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess};
+const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
 const HELP_FLAGS = ['--help', '-h', 'help'];
 const VERSION_FLAGS = ['--version', '-V', 'version'];
 
 export const help = `Usage: clementina <command> [--json]
+  new <directory> [--template basic|assembly] [--name <name>]
+                                Start a project from a starter: a BASIC program
+                                (default) or an assembly program; either can add
+                                the other part later
   project validate [directory]   Validate manifest, assets, references, and sources
   project import <file.cstudio> <directory> [--name <name>]
-                                Turn a Studio session into a new assembly project
+                                Turn a Studio session into a new project
   asset validate <file>          Validate any portable asset
   sprite validate <file>         Validate a portable shape (one or more sprites)
   animation validate <file>      Validate a portable animation
   basic compile <source> <file>  Compile numbered source to a LOAD-ready BASIC file
   build [directory]              Compile and emit project load artifacts
   run [directory] [options]      Build and run with an owned headless emulator
+  check [directory] [--emulator <path>] [--renderer <path>]
+                                Build, run headless, and test checks/*.json
+  debug [directory] --line <n> [--source <path>] [--memory <address>:<count>]
+        [--emulator <path>] [--timeout <ms>]
+                                Stop at a source line and save CPU, memory, video
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   mcp                            Serve the SDK's MCP tools over stdio

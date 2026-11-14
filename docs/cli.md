@@ -24,6 +24,7 @@ library runtime: Studio, the MCP server, and the VS Code extension consume the
 npm packages unchanged.
 
 ```sh
+npx clementina new path/to/my-game --template basic --name "My Game"
 npx clementina project validate examples/minimal-game
 npx clementina project import "My game.cstudio" path/to/new-project --name "My Game"
 npx clementina asset validate examples/minimal-game/assets/palettes/main.palette.json
@@ -32,8 +33,44 @@ npx clementina animation validate examples/minimal-game/assets/animations/player
 npx clementina basic compile src/main.bas build/game.bas
 npx clementina build path/to/project
 npx clementina run path/to/project --emulator /path/to/clementina-automation
+npx clementina check path/to/project --renderer clementina-render
+npx clementina debug path/to/project --line 20 --memory '$0200:16'
 npx clementina doctor
 ```
+
+`new <directory>` starts a project from a starter built into the CLI, so it
+needs no SDK checkout. The starters differ only in the code they begin with:
+`--template basic` (the default) has a BASIC `program.entry` with a palette and
+an input loop, and `--template assembly` has a `build.assembly` part with an
+explicit `link.cfg`. Either project can add the other
+[program part](project-format.md#program-parts) later. Both include a `README.md`
+and the `checks/` files used by the [agent workflows](../agents/workflows/create-game.md).
+The destination must not exist or must be an empty directory, and no file is
+overwritten. `--name` sets the manifest `name` (1..80 characters); it defaults
+to the directory's name. The new project validates as created, and `--json`
+`data` lists its `directory`, `template`, `name` and `files`. The templates are
+generated from `templates/` by `npm run generate:templates`.
+
+`check [directory]` validates and builds the project, runs it in an owned
+headless emulator like `run`, and tests its `checks/smoke.json` (overlay text
+before and after typed input, and that the video changed) and
+`checks/code.json` (CPU memory bytes); the formats are in the
+[code workflow](../agents/workflows/code-game.md). It also checks that a built
+palette config reached MIA palette memory. It writes
+`<outputDirectory>/inspection/report.json` and the raw video snapshots
+`before.video.bin` and `after.video.bin`; `--renderer clementina-render` adds
+320×200 `before.png` and `after.png`. It prints the CPU state and overlay text,
+exits 1 with one `check.*` diagnostic per failed check, and closes the
+emulator either way. A project without check files is run and reported only.
+
+`debug [directory] --line <n>` sets a verified source breakpoint on physical
+line `n` of `--source` (default: `program.entry`, else the first assembly
+source), launches the project, waits for the stop (`--timeout`, milliseconds,
+default 30000), and writes `<outputDirectory>/inspection/debug-report.json`
+with registers, source frame and the optional `--memory <address>:<count>`
+bytes (address decimal, `$hex` or `0xhex`), plus `debug.video.bin`. A line
+without executable code fails with `debug.breakpoint`. `check` and `debug` take
+`--emulator` like `run`.
 
 `project import` turns a Clementina Studio session file (`.cstudio`, format
 version 2) into a new portable assembly project. It refuses to overwrite any
