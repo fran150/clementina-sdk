@@ -38,10 +38,12 @@ npx clementina debug path/to/project --line 20 --memory '$0200:16'
 npx clementina doctor
 ```
 
-`new <directory>` starts a project from a template built into the CLI, so it
-needs no SDK checkout. `--template basic` (the default) is a BASIC
-`program.entry` with a palette and an input loop; `--template assembly` is a
-`build.assembly` program with an explicit `link.cfg`. Both include a `README.md`
+`new <directory>` starts a project from a starter built into the CLI, so it
+needs no SDK checkout. The starters differ only in the code they begin with:
+`--template basic` (the default) has a BASIC `program.entry` with a palette and
+an input loop, and `--template assembly` has a `build.assembly` part with an
+explicit `link.cfg`. Either project can add the other
+[program part](project-format.md#program-parts) later. Both include a `README.md`
 and the `checks/` files used by the [agent workflows](../agents/workflows/create-game.md).
 The destination must not exist or must be an empty directory, and no file is
 overwritten. `--name` sets the manifest `name` (1..80 characters); it defaults

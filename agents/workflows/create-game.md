@@ -1,6 +1,6 @@
 # Create a game
 
-This workflow starts a BASIC or assembly game from an SDK template, validates
+This workflow starts a game from an SDK starter, validates
 its portable assets and references, builds a ROM-loadable program, and checks
 observable behavior in a headless emulator. It uses SDK commands and files, so
 it works with any agent or shell.
@@ -21,14 +21,16 @@ both; see [program parts](../../docs/project-format.md#program-parts).
 
 ```sh
 clementina new /path/to/my-game --name "My Game"
-# For a 65C02 assembly starter instead:
-clementina new /path/to/my-asm-game --template assembly --name "My Assembly Game"
+# To begin with 65C02 assembly code instead of a BASIC program:
+clementina new /path/to/my-game --template assembly --name "My Game"
 ```
 
 `node agents/workflows/create-game.mjs init <directory> [--name <name>] [--template basic|assembly]`
 does the same from an SDK checkout.
 
-The destination must be new or an empty directory. The BASIC starter contains `clementina.yaml`,
+The destination must be new or an empty directory. Either starter can later
+add the other [program part](../../docs/project-format.md#program-parts). The
+default starter contains `clementina.yaml`,
 `src/main.bas`, JSON palette assets, and `checks/smoke.json`. Its input loop
 accepts `A` to score and `R` to restart. The assembly starter contains
 `src/main.s`, an explicit `link.cfg`, and `checks/code.json`; it writes 42 to CPU

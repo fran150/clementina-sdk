@@ -17,10 +17,12 @@ const VERSION_FLAGS = ['--version', '-V', 'version'];
 
 export const help = `Usage: clementina <command> [--json]
   new <directory> [--template basic|assembly] [--name <name>]
-                                Create a project from a template (default: basic)
+                                Start a project from a starter: a BASIC program
+                                (default) or an assembly program; either can add
+                                the other part later
   project validate [directory]   Validate manifest, assets, references, and sources
   project import <file.cstudio> <directory> [--name <name>]
-                                Turn a Studio session into a new assembly project
+                                Turn a Studio session into a new project
   asset validate <file>          Validate any portable asset
   sprite validate <file>         Validate a portable shape (one or more sprites)
   animation validate <file>      Validate a portable animation
