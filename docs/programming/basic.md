@@ -12,7 +12,8 @@ messages in the ROM's table order with what raises each, plus `?EXTRA IGNORED`,
 their codes with a ROM build.
 
 The SDK tokenizer and binary `SAVE`/`LOAD` file APIs are documented in
-[BASIC tooling](../basic-tooling.md).
+[BASIC tooling](../basic-tooling.md), including the `{…}` tags that write glyphs
+and per-character colors, flips and reverse into strings in portable source.
 
 ## Video
 BASIC exposes video/layer switches, background modes/scrolling, CHR bank selection,

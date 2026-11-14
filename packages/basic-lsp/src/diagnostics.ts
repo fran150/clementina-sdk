@@ -1,17 +1,10 @@
 import {BasicProgramError, compileBasicProgram, parseBasicSource, tokenizeBasicLineWithSpans} from '@clementina/basic';
 import {basicFunctionKeywords, basicSignatureByKeyword} from './catalog.js';
 import {functionCallOpen} from './calls.js';
+import {consoleControlAction} from './glyphs.js';
 import {analyzeProgramLines, splitPhysicalLines, type ProgramLine} from './source.js';
+import {analyzeStrings} from './strings.js';
 import type {BasicLspDiagnostic} from './types.js';
-
-/** Check whether every character is printable 7-bit ASCII. */
-function isPrintableAscii(line: string): boolean {
-  for (let index = 0; index < line.length; index++) {
-    const code = line.charCodeAt(index);
-    if (code < 0x20 || code > 0x7e) return false;
-  }
-  return true;
-}
 
 /**
  * Collect every numbered-line format/length/range error in the document, plus
@@ -33,14 +26,13 @@ export function analyzeDiagnostics(text: string): BasicLspDiagnostic[] {
       break;
     } catch (error) {
       if (!(error instanceof BasicProgramError)) throw error;
-      let index = error.sourceLine === undefined ? -1 : error.sourceLine - 1;
-      if (index === -1) {
-        // A non-ASCII character throws without line attribution; recover it ourselves.
-        index = lines.findIndex((line, candidateIndex) => !blanked.has(candidateIndex) && !isPrintableAscii(line));
-      }
+      const index = error.sourceLine === undefined ? -1 : error.sourceLine - 1;
       if (index === -1 || blanked.has(index)) throw error;
       blanked.add(index);
-      diagnostics.push({line: index + 1, message: error.message, code: 'basic.parse'});
+      diagnostics.push({
+        line: index + 1, message: error.message, code: 'basic.parse',
+        ...(error.columns ? {startCharacter: error.columns.start, endCharacter: error.columns.end} : {}),
+      });
     }
   }
 
@@ -65,6 +57,7 @@ export function analyzeDiagnostics(text: string): BasicLspDiagnostic[] {
     }
   }
   for (const line of document.definitions.values()) diagnostics.push(...syntaxDiagnosticsForLine(line));
+  diagnostics.push(...controlCodeWarnings(text, new Set([...document.definitions.values()].map(line => line.physicalLine))));
 
   return diagnostics.sort((a, b) => a.line - b.line || (a.startCharacter ?? 0) - (b.startCharacter ?? 0));
 }
@@ -112,6 +105,24 @@ function syntaxDiagnosticsForLine(line: ProgramLine): BasicLspDiagnostic[] {
         line: line.physicalLine, startCharacter: line.bodyStart + lexeme.start, endCharacter: line.bodyStart + close + 1,
         message: `${lexeme.keyword.replace(/\($/u, '')} expects ${required === signature.parameters.length ? required : `${required}..${signature.parameters.length}`} argument(s), found ${count}`,
         code: 'basic.syntax',
+      });
+    }
+  }
+  return diagnostics;
+}
+
+/** Warn where an unstyled string PRINT prints holds a tagged control code, which KERN_CHROUT acts on instead of drawing. */
+function controlCodeWarnings(text: string, effectiveLines: ReadonlySet<number>): BasicLspDiagnostic[] {
+  const diagnostics: BasicLspDiagnostic[] = [];
+  for (const string of analyzeStrings(text).strings) {
+    if (string.styled || string.data || !effectiveLines.has(string.line)) continue;
+    for (const cell of string.cells) {
+      const action = cell.tagged ? consoleControlAction(cell.code) : undefined;
+      if (action === undefined) continue;
+      const tag = `{$${cell.code.toString(16).toUpperCase().padStart(2, '0')}}`;
+      diagnostics.push({
+        line: cell.line, startCharacter: cell.startCharacter, endCharacter: cell.endCharacter, severity: 'warning', code: 'basic.glyph',
+        message: `${tag} is a console control code: an unstyled string prints through CHROUT, which does "${action}" instead of drawing the tile; add a style tag such as {c0} to draw it`,
       });
     }
   }

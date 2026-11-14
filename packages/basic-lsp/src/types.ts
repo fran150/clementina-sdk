@@ -1,12 +1,13 @@
 /** ROM tokenizer table containing a keyword. */
 export type BasicKeywordCategory = 'primary' | 'extension' | 'extension2' | 'extensionFunction' | 'special';
 
-/** A source diagnostic using one-based physical line numbers. */
+/** A source diagnostic using one-based physical line numbers; an error unless `severity` says otherwise. */
 export interface BasicLspDiagnostic {
   /** 1-based physical source line, matching BasicProgramError.sourceLine. */
   line: number;
   message: string;
-  code: 'basic.parse' | 'basic.compile' | 'basic.target' | 'basic.syntax';
+  code: 'basic.parse' | 'basic.compile' | 'basic.target' | 'basic.syntax' | 'basic.glyph';
+  severity?: 'warning';
   /** Zero-based source columns when the diagnostic covers a specific token. */
   startCharacter?: number;
   endCharacter?: number;
@@ -108,4 +109,82 @@ export interface BasicKeywordEntry {
   arguments: readonly BasicKeywordArgument[];
   returns?: BasicKeywordResult;
   summary: string;
+}
+
+/** A `{…}` tag at its physical source location. */
+export interface BasicTagSpan extends BasicSourceLocation {
+  kind: 'style' | 'character';
+  /** The byte a character tag stores. */
+  code?: number;
+  /** The attribute a style tag selects. */
+  attribute?: number;
+}
+
+/** One stored character of a quoted string, written directly or as a character tag. */
+export interface BasicStringCell extends BasicSourceLocation {
+  code: number;
+  /** The overlay attribute it prints with, without the raw-tile bit; absent in an unstyled string, which prints at the BASIC pen. */
+  attribute?: number;
+  tagged: boolean;
+}
+
+/** A quoted string's content, between its quotes, and the characters it stores. */
+export interface BasicStringSpan extends BasicSourceLocation {
+  /** True when the string has a style record: a style tag and at least one character. */
+  styled: boolean;
+  /** True for a quoted DATA item, which READ copies instead of PRINT printing it from the program. */
+  data: boolean;
+  cells: BasicStringCell[];
+  tags: BasicTagSpan[];
+}
+
+/** Quoted strings and every tag, including those in DATA and REM. */
+export interface BasicStringAnalysis {
+  strings: BasicStringSpan[];
+  tags: BasicTagSpan[];
+}
+
+/** Hover facts for a tag or a quoted string at a source position. */
+export type BasicStringHover =
+  | {kind: 'character'; code: number; location: BasicSourceLocation; string?: BasicStringSpan}
+  | {kind: 'style'; attribute: number; location: BasicSourceLocation; styled: BasicStringCell[]}
+  | {kind: 'string'; string: BasicStringSpan};
+
+/** A tag word offered while a tag is being typed; `newText` replaces the columns from `startCharacter` to `endCharacter`. */
+export interface BasicTagCompletion {
+  label: string;
+  kind: 'color' | 'flag' | 'character';
+  detail: string;
+  newText: string;
+  startCharacter: number;
+  endCharacter: number;
+  code?: number;
+  attribute?: number;
+}
+
+/** A one-based line and zero-based column. */
+export interface BasicSourcePosition {line: number; character: number}
+
+/** An end-exclusive source range, possibly spanning physical lines. */
+export interface BasicSourceRange {start: BasicSourcePosition; end: BasicSourcePosition}
+
+/** One overlay cell of a screen preview; `placeholder` numbers the run-time value whose source text it shows. */
+export interface BasicScreenCell {code: number; attribute: number; placeholder?: number}
+
+/** Something a screen preview could not run, on a one-based physical line with BASIC line number `number`. */
+export interface BasicScreenNote {line: number; number: number; message: string}
+
+/** A run of cells on one row that show a run-time value's source text instead of the value. */
+export interface BasicScreenPlaceholder {row: number; startColumn: number; endColumn: number}
+
+/** The overlay text screen after running some lines' output statements from a cleared screen. */
+export interface BasicScreenPreview {
+  /** BASIC line numbers of the lines that ran, in source order. */
+  lines: number[];
+  /** Screen rows from the top through the last one drawn on; empty when nothing is left drawn. */
+  rows: BasicScreenCell[][];
+  /** Palette bank whose ink BCOLOR made the backdrop; absent for the startup backdrop. */
+  backdrop?: number;
+  placeholders: BasicScreenPlaceholder[];
+  notes: BasicScreenNote[];
 }

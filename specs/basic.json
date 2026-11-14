@@ -5,7 +5,37 @@
   "sourceLimits": {
     "maxLineNumber": 63999,
     "maxInputCharacters": 80,
-    "encoding": "7-bit ASCII for portable source"
+    "inputCharacters": "characters typed on the screen editor, line number included; in portable source a character tag counts as one and a style tag as none",
+    "encoding": "printable 7-bit ASCII for portable source; other stored bytes and string attributes are written as sourceNotation tags"
+  },
+  "sourceNotation": {
+    "status": "SDK portable-source format, not ROM input: compiling turns tags into stored bytes and style sidecar records, and detokenizing writes them back",
+    "where": "inside quoted strings (quoted DATA items included), unquoted DATA text and REM text; elsewhere { is an ordinary character",
+    "open": "{",
+    "close": "}",
+    "characterTag": {
+      "syntax": "{$hh}",
+      "stores": "the byte $hh (two hex digits, either case), drawn as charset tile $hh; it behaves as that byte typed, so {$3A} ends unquoted DATA text",
+      "rejected": [
+        {"code": 0, "reason": "$00 ends a tokenized line"},
+        {"code": 34, "reason": "the quote character: typed as \" (inside a quoted string it ends the string)"}
+      ],
+      "canonical": "printable $20-$7E other than { is written as itself; { ($7B) and every other byte as {$hh}, uppercase"
+    },
+    "styleTag": {
+      "syntax": "{word ...}",
+      "where": "quoted strings only",
+      "words": [
+        {"word": "c0..c15", "bits": [0, 3], "meaning": "palette bank, as COLOR and ESC 0-F pick it"},
+        {"word": "fx", "bit": 4, "meaning": "flip X, as FLIPX and ESC H"},
+        {"word": "fy", "bit": 5, "meaning": "flip Y, as FLIPY and ESC V"},
+        {"word": "rev", "bit": 7, "meaning": "reverse (CHR_ALT), as ALT and ESC R"}
+      ],
+      "semantics": "sets the whole attribute of the characters after it until the next style tag: an omitted color is c0 and omitted flags are off; words are case-insensitive and separated by spaces, each at most once"
+    },
+    "styledString": "a quoted string with a style tag and at least one character gets a sidecar record holding every character's attribute: characters before its first tag take styleSidecar.defaultAttribute, and the compiler adds rawTileBit as the screen editor does; a string with no style tag gets no record",
+    "canonical": "a styled string starts with a style tag and has one wherever the attribute changes, its words ordered color, fx, fy, rev, with the color always written",
+    "unrepresentable": "a stored attribute that breaks the raw-tile rule (the bit set on a printable character, as POKE 770 can make the editor pen do, or clear on another one) cannot be detokenized"
   },
   "runtimeDebug": {
     "statementBoundaryAddress": 7825,
@@ -22,12 +52,21 @@
     "loadBehavior": "LOAD rebuilds every forward link before entering READY",
     "relocatableLink": [255, 255],
     "styleSidecar": {
+      "source": "clementina-rom docs/styled-strings.md; program.s style_side_* and mark_raw_tile_attr; clementina_extra.s styled_outc; defines_clementina.s",
       "magic": [206, 255],
       "layout": ["magic0", "magic1", "totalLength", "recordCount", "records"],
       "record": ["literalOffset", "literalLength", "oneAttributeBytePerLiteralCharacter"],
       "literalOffsetBase": "first tokenized-text byte after the four-byte line header",
       "maxBytes": 42,
-      "plainSourceCompiler": "does not emit sidecars because text source has no per-cell attributes"
+      "overflow": "the screen editor stores a line whose records exceed maxBytes with no sidecar",
+      "editorRecords": "every non-empty quoted literal of an entered line, quoted DATA items and a string left open at the end of the line included; each record covers its whole literal; REM and unquoted DATA text get none",
+      "attribute": "the overlay attribute byte (video.json attributes.backgroundOverlay) the character was typed with, plus rawTileBit",
+      "rawTileBit": 64,
+      "rawTileRule": "the editor sets rawTileBit on a character outside $20-$7E; it reuses the overlay priority bit, which the editor never sets, and PRINT draws a tagged character as a raw glyph, so a stored $0D draws its tile instead of ending the line",
+      "defaultAttribute": 0,
+      "unrecordedLiteral": "has no attributes and prints through KERN_CHROUT at the BASIC pen, which acts on kernel-abi.json consoleControlCodes",
+      "unstorableTile": 0,
+      "plainSourceCompiler": "emits a record for each quoted string with a style tag and at least one character (sourceNotation) and none for the others"
     }
   },
   "tokens": {
