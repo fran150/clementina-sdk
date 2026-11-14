@@ -3,7 +3,7 @@
 Shared, vendor-neutral development SDK for the Clementina homebrew computer.
 
 The SDK provides portable `clementina.yaml` projects and versioned assets;
-validation and build APIs; assembly and BASIC tooling; a 6502 asset runtime;
+validation and build APIs; assembly and BASIC tooling; the Clementina library of 6502 routines;
 headless emulator automation; and editor-neutral debugging. Studio uses the
 SDK for portable projects and its Builder tab. Assembly and BASIC projects
 share the [load-plan contract](docs/program-loading.md). Assembly builds use a

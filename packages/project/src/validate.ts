@@ -25,7 +25,7 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
     if (m.program && !m.build.basic) diagnostics.push(diagnostic('project.build.basic', '/build', 'A project with a BASIC program (program.entry) needs build.basic settings'));
     if (!m.program && m.build.basic) diagnostics.push(diagnostic('project.build.basic', '/build/basic', 'BASIC build settings need a BASIC program (program.entry)'));
     if (m.build.assets) {
-      if (!m.build.assembly) diagnostics.push(diagnostic('project.build.assets.assembly', '/build/assets', 'Asset builds need build.assembly: the runtime library is ca65 code'));
+      if (!m.build.assembly) diagnostics.push(diagnostic('project.build.assets.assembly', '/build/assets', 'Asset builds need build.assembly: the Clementina library that loads them is ca65 code'));
       diagnostics.push(...assetBuildDiagnostics(m.build.assets));
     }
     const ids = new Set<string>(), banks = new Set<number>();

@@ -20,5 +20,7 @@ clementina check
 
 Edit `src/main.s` and `link.cfg` deliberately as the game grows. The
 linker configuration chooses CPU placement; the SDK verifies it but does
-not choose a memory map. Add portable assets to the manifest and use
-`build.assets` with the SDK runtime to load them.
+not choose a memory map. Its segments already have room for the Clementina
+library, which every build links: `.include "clementina-lib.inc"` and call
+its routines, after clearing BSS. Add portable assets to the manifest and
+`build.assets` to load them through the library.

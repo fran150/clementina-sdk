@@ -35,7 +35,7 @@ Configuration: `$FFE2/$FFE3`. Field ids: `specs/mia-config.json`.
 
 | Ids | Owner |
 | --- | --- |
-| `$00-$4F` | Programs (the SDK runtime takes `$40-$41`) |
+| `$00-$4F` | Programs (the Clementina library takes `$40-$41`) |
 | `$50-$6F` | MIA input |
 | `$70-$DF` | MIA video |
 | `$E0-$E5` | MIA SD/FS |

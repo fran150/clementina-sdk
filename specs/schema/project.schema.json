@@ -192,7 +192,8 @@
                   {"type": "integer"}
                 ]
               }
-            }
+            },
+            "checks": {"type": "boolean"}
           }
         },
         "basic": {
@@ -210,7 +211,6 @@
           "required": ["slots", "include"],
           "properties": {
             "folder": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$"},
-            "checks": {"type": "boolean"},
             "slots": {
               "type": "array",
               "maxItems": 64,

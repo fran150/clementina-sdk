@@ -13,7 +13,7 @@ export const ASSEMBLY_STARTER_MAIN = `.setcpu "65C02"
 .export game_start
 .segment "CODE"
 game_start:
- ; Add Load, DrawScreen and the other runtime calls here.
+ ; Add Load, DrawScreen and the other Clementina library calls here.
  jmp game_start
 `;
 

@@ -86,7 +86,7 @@ A project needs at least one of them:
 
 `program.entry` needs `build.basic` settings, and `build.basic` needs
 `program.entry`. Asset builds (`build.assets`) need `build.assembly`, because the
-runtime library is ca65 code.
+Clementina library that loads them is ca65 code.
 
 ## Build declaration
 
@@ -109,6 +109,7 @@ build:
       - src/include
     defines:
       DEBUG: 1
+    checks: true             # the Clementina library's argument checks
   video:
     paletteConfigId: palette-config:main
     tilesets:
@@ -175,7 +176,6 @@ build:
     entrySymbol: game_start
   assets:
     folder: ASSETS
-    checks: true
     slots:
       - {name: maps, mia: 0x14000, size: 32768}
       - {name: actors, bank: 1, address: 0x8000, size: 16384}
@@ -188,20 +188,21 @@ build:
 
 Kinds are `paletteConfig`, `tileset`, `background`, `overlay`, `sprites`, `song`
 and `sound`. A sprite file uses its **tileset ID**. `file` overrides the generated
-8.3 name; names are unique ignoring case. `folder` defaults to `ASSETS` and
-`checks` defaults to true. Built-in slots are `palettes`, `chr0`–`chr7` and
+8.3 name; names are unique ignoring case. `folder` defaults to `ASSETS`. Built-in slots are `palettes`, `chr0`–`chr7` and
 `overlay`; user MIA slots stay inside `$14000–$3FFFF`. CPU slots name a bank
 1–31 and address `$8000–$BFFF`, and may span consecutive banks through bank 31.
 Duplicate or unresolved includes, reserved locations and invalid assembly
 constants are rejected. Overlapping slots are a warning
 (`project.build.slot.overlap`). Assets sharing a slot are alternatives.
 
-Output includes `assets.inc`, `assets.s`, `memory-report.json`, the runtime
-sources/library/listings and `runtime/code-sizes.json`. The deployable card is
+Output includes `assets.inc`, `assets.s` and `memory-report.json`, next to the
+Clementina library's sources, listings, `lib/clementina.lib` and
+`lib/code-sizes.json`, which every assembly build writes. The deployable card is
 `build/sd`, containing `BOOT.BAS`, `GAME.PRG` and `ASSETS/`, plus the compiled
-`<NAME>.BAS` when the project has a BASIC program. Runtime calls own
+`<NAME>.BAS` when the project has a BASIC program. Library calls own
 loading and playback; merely including an asset does not load or use it.
-See [the Builder](gamedev/builder.md) and `examples/runtime-demo`.
+See [the Builder](gamedev/builder.md), [the Clementina library](gamedev/library.md)
+and `examples/library-demo`.
 
 ## Portable asset envelopes
 

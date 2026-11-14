@@ -13,6 +13,6 @@
     {"path": "../basic"},
     {"path": "../core"},
     {"path": "../project"},
-    {"path": "../runtime"}
+    {"path": "../lib"}
   ]
 }

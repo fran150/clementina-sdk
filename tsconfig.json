@@ -13,7 +13,7 @@
     {"path": "packages/emulator-client"},
     {"path": "packages/mcp"},
     {"path": "packages/project"},
-    {"path": "packages/runtime"},
+    {"path": "packages/lib"},
     {"path": "packages/vscode-extension"}
   ]
 }
