@@ -1,6 +1,17 @@
 {
   "format":"clementina-kernel-abi","version":1,"base":1024,"entrySize":3,
-  "notes":["BAS_* entries jump to the BASIC routine named by target. They work only while BASIC is in memory, not in a program that has loaded over it."],
+  "notes":["BAS_* entries jump to the BASIC routine named by target. They work only while BASIC is in memory, not in a program that has loaded over it.","KERN_CHROUT acts on consoleControlCodes instead of drawing their tiles, and draws every other code as its glyph; KERN_CHROUT_GLYPH draws any code as its glyph. Source: clementina-rom src/kernel/console.s chrout and kernel.inc."],
+  "consoleControlCodes":[
+    {"code":8,"symbol":"CHR_BS","action":"cursor left one cell and erase"},
+    {"code":10,"symbol":"CHR_LF","action":"ignored; CR does the newline"},
+    {"code":12,"symbol":"CHR_FF","action":"clear the screen and home the cursor"},
+    {"code":13,"symbol":"CHR_CR","action":"newline"},
+    {"code":17,"symbol":"CHR_CRSR_DOWN","action":"cursor down one row"},
+    {"code":19,"symbol":"CHR_HOME","action":"cursor to the top-left cell"},
+    {"code":29,"symbol":"CHR_CRSR_RIGHT","action":"cursor right one cell"},
+    {"code":145,"symbol":"CHR_CRSR_UP","action":"cursor up one row"},
+    {"code":157,"symbol":"CHR_CRSR_LEFT","action":"cursor left one cell"}
+  ],
   "entries":[
     {"address":1024,"hex":"$0400","symbol":"KERN_COLDSTART","description":"Reset entry (MIA points RESET here): sets up the machine and the console, prints the banner and starts BASIC."},
     {"address":1027,"hex":"$0403","symbol":"KERN_WARMSTART","description":"Re-enters BASIC at READY, keeping the program and variables; resets the stack, IRQ_VEC, bank 0 and the VIA (every interrupt source off but Timer 1, which restarts at 6250) first."},

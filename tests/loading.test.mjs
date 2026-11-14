@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BASIC_STYLE_RAW_TILE,
   basicRuntimeDebug,
+  basicSourceLineLength,
+  basicStyleFlags,
   basicTokenTables,
+  BasicProgramError,
   checkBootstrapSource,
   checkLoadPlan,
   checkLoadPlanLaunch,
@@ -208,9 +212,98 @@ test('BASIC inspector validates and exposes Clementina styled-literal sidecars',
     0,0,
   );
   assert.deepEqual(inspectBasicProgram(styled).lines[0].styles,[{literalOffset:2,attributes:[5]}]);
-  assert.equal(detokenizeBasicProgram(styled),'10 PRINT"A"\n');
+  assert.equal(detokenizeBasicProgram(styled),'10 PRINT"{c5}A"\n');
   const invalid=styled.slice();invalid[13]=1;
   assert.throws(()=>inspectBasicProgram(invalid),/quoted literal/);
+  // A record must cover its whole string, not bytes that merely sit between quotes.
+  const between=Uint8Array.of(0xff,0xff,10,0,0x9d,0x22,0x41,0x22,0x3b,0x22,0x42,0x22,0,0xce,0xff,7,1,4,1,0,0,0);
+  assert.throws(()=>inspectBasicProgram(between),/quoted literal/);
+  // The editor never sets the raw-tile bit on a printable character, and source notation cannot say it.
+  const raw=styled.slice();raw[15]=5|BASIC_STYLE_RAW_TILE;
+  assert.throws(()=>detokenizeBasicProgram(raw),/line 10: .*raw-tile rule/);
+});
+
+test('BASIC source notation compiles glyph and style tags into stored bytes and sidecars', () => {
+  const source = '10 PRINT "{c2 fy}F{c3}r{c4}a{c5}n"\n20 PRINT "{$81}{$0D} BOX";"{c1 rev}H{$91}"\n';
+  const file = compileBasicProgram(source);
+  const [first, second] = inspectBasicProgram(file).lines;
+  assert.deepEqual(first.styles, [{literalOffset: 3, attributes: [0x22, 0x03, 0x04, 0x05]}]);
+  assert.deepEqual(Array.from(file.slice(first.offset + 4 + first.tokens.length, second.offset)), [0, 0xce, 0xff, 10, 1, 3, 4, 0x22, 3, 4, 5]);
+  // An unstyled string stores its glyph bytes with no record; a styled one marks glyphs with the raw-tile bit.
+  assert.deepEqual(second.tokens, [0x9d, 0x20, 0x22, 0x81, 0x0d, 0x20, ...Buffer.from('BOX'), 0x22, 0x3b, 0x22, 0x48, 0x91, 0x22]);
+  assert.deepEqual(second.styles, [{literalOffset: 12, attributes: [0x81, 0xc1]}]);
+  assert.equal(detokenizeBasicProgram(file), source);
+  // Canonical form: a styled string opens with its tag, printable tags become characters, { stays a tag.
+  assert.equal(detokenizeBasicProgram(compileBasicProgram('10 ?"ab{FY C3}x{$41}{$7B}{c3 fy}y{c0}"\n')), '10 PRINT"{c0}ab{c3 fy}xA{$7B}y"\n');
+  // A string left open at the end of the line keeps its record, as the ROM's tokenizer does.
+  const open = compileBasicProgram('10 PRINT "{c7}OPEN\n');
+  assert.deepEqual(inspectBasicProgram(open).lines[0].styles, [{literalOffset: 3, attributes: [7, 7, 7, 7]}]);
+  assert.equal(detokenizeBasicProgram(open), '10 PRINT "{c7}OPEN\n');
+});
+
+test('BASIC source notation follows the ROM tokenizer in DATA and REM', () => {
+  // A quote starts a string before DATA is checked, so its colon does not end DATA.
+  assert.deepEqual(Array.from(tokenizeBasicLine('data "a:print",b')), [0x83, 0x20, 0x22, ...Buffer.from('a:print'), 0x22, 0x2c, 0x62]);
+  assert.equal(detokenizeBasicProgram(compileBasicProgram('10 DATA "A:PRINT",B:PRINT\n')), '10 DATA "A:PRINT",B:PRINT\n');
+  // A character tag is the byte typed, so {$3A} ends DATA like a colon.
+  assert.deepEqual(Array.from(tokenizeBasicLine('data {$3A}print')), [0x83, 0x20, 0x3a, 0x9d]);
+  assert.deepEqual(Array.from(tokenizeBasicLine('rem {$91}{$7B}')), [0x8e, 0x20, 0x91, 0x7b]);
+  assert.equal(detokenizeBasicProgram(compileBasicProgram('10 REM {$91}{$7B}"\n20 DATA {$81},"{c1}X"\n')), '10 REM {$91}{$7B}"\n20 DATA {$81},"{c1}X"\n');
+  // Outside strings, DATA and REM a brace is an ordinary character.
+  assert.deepEqual(Array.from(tokenizeBasicLine('x{')), [0x58, 0x7b]);
+});
+
+test('BASIC source limits count typed characters and the ROM sidecar size', () => {
+  const styled = `10 ?"${'{c1}A'.repeat(18)}"`;
+  assert.ok(styled.length > 80);
+  assert.equal(basicSourceLineLength(styled), 24);
+  assert.doesNotThrow(() => compileBasicProgram(styled));
+  assert.doesNotThrow(() => compileBasicProgram(`10 REM ${'{$41}'.repeat(73)}`));
+  assert.throws(() => compileBasicProgram(`10 REM ${'{$41}'.repeat(74)}`), /80-character input limit/);
+  // A sidecar holds 4 bytes plus 2 and one per character for each styled string, at most 42.
+  assert.doesNotThrow(() => compileBasicProgram(`10 ?"{c1}${'A'.repeat(36)}"`));
+  assert.throws(() => compileBasicProgram(`10 ?"{c1}${'A'.repeat(37)}"`), /need 43 style bytes .* at most 42/);
+  assert.throws(() => compileBasicProgram(`10 ?"{c1}${'A'.repeat(18)}";"{c2}${'B'.repeat(17)}"`), /need 43 style bytes/);
+});
+
+test('BASIC source notation rejects malformed tags with their source columns', () => {
+  // Columns are zero-based in the physical line, from the { to the end of the tag or line.
+  const cases = [
+    ['10 PRINT "{c16}"', /c0\.\.c15/, 10, 15],
+    ['10 PRINT "{$00}"', /\$00 ends a tokenized line/, 10, 15],
+    ['10 PRINT "{$22}"', /quote character/, 10, 15],
+    ['10 PRINT "{c2 c3}"', /one color/, 10, 17],
+    ['10 PRINT "{fx fx}"', /repeated style word 'fx'/, 10, 17],
+    ['10 PRINT "{zz}"', /unknown style word 'zz'/, 10, 14],
+    ['10 PRINT "{}"', /empty \{\} tag/, 10, 12],
+    ['10 PRINT "{$8}"', /two hex digits/, 10, 14],
+    ['10 PRINT "{c2 $81}"', /not both/, 10, 18],
+    ['10 REM {c2}', /only apply inside quoted strings/, 7, 11],
+    ['10 DATA {c2}', /only apply inside quoted strings/, 8, 12],
+    ['10 PRINT "{c2', /unterminated/, 10, 13],
+    ['10 PRINT "{c2"', /unterminated/, 10, 13],
+  ];
+  for (const [source, message, start, end] of cases) {
+    assert.throws(() => parseBasicSource(source), error => {
+      assert.ok(error instanceof BasicProgramError);
+      assert.match(error.message, message);
+      assert.equal(error.sourceLine, 1);
+      assert.deepEqual(error.columns, {start, end}, source);
+      return true;
+    });
+  }
+  assert.throws(() => parseBasicSource('10 PRINT "é"'), error => error.sourceLine === 1 && error.columns.start === 10);
+});
+
+test('BASIC source notation words and sidecar facts match specs/basic.json', async () => {
+  const spec = JSON.parse(await readFile(new URL('../specs/basic.json', import.meta.url), 'utf8'));
+  const words = spec.sourceNotation.styleTag.words;
+  assert.deepEqual(basicStyleFlags.map(flag => [flag.word, flag.bit]), words.filter(word => 'bit' in word).map(word => [word.word, 1 << word.bit]));
+  assert.equal(BASIC_STYLE_RAW_TILE, spec.savedProgram.styleSidecar.rawTileBit);
+  const file = compileBasicProgram(`10 ?"{c1}${'A'.repeat(36)}"\n`);
+  const sidecar = 4 + inspectBasicProgram(file).lines[0].tokens.length + 1;
+  assert.deepEqual(Array.from(file.slice(sidecar, sidecar + 2)), spec.savedProgram.styleSidecar.magic);
+  assert.equal(file[sidecar + 2], spec.savedProgram.styleSidecar.maxBytes);
 });
 
 test('compiler and inspector reject the same invalid absolute base address', () => {

@@ -58,6 +58,63 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
   from the gutter in `.bas`, `.s` and `.inc` files; the debugger resolves
   assembly breakpoints through the ld65 source map.
 
+## Glyphs and styled strings
+
+The extension draws the language server's view of
+[glyph and style tags](basic-tooling.md#glyphs-and-styled-strings):
+
+- Tags are dimmed, so the text around them reads first. The **Clementina
+  Screen** panel (below) shows how strings print.
+- Typing `{` in a string closes the tag and opens completion. It lists every
+  glyph, with its picture in the item details, and in a quoted string the colors
+  (with swatches) and the `fx`, `fy` and `rev` flags. Hovering a tag or a styled
+  string shows it enlarged.
+- **Clementina BASIC: Insert Glyph…** picks a tile from a list showing every glyph
+  and inserts its `{$hh}` tag. **Clementina BASIC: Style Selected Text…** picks a
+  color and flags, or removing all styles, for the selected characters, or for
+  the string under the cursor. Both are also on the editor's context menu.
+
+## Screen preview
+
+The **Clementina Screen** tab in the bottom panel shows what lines print, drawn
+with the default charset and palette. It follows the active BASIC editor:
+
+- With the cursor on a line and nothing selected, it shows that line, including
+  every statement after a `:`.
+- With a selection, it shows every line the selection touches, in source order.
+  A selection that ends at the start of a line leaves that line out. With
+  several cursors or selections, it shows all the lines they touch.
+- The header names the lines (`Line 100`, `Lines 20–30`). Moving to the terminal
+  or to another kind of file keeps the last preview, and nothing is computed
+  while the tab is hidden.
+
+**Clementina BASIC: Show Screen Preview**, in the command palette and the
+editor's context menu, opens the tab and leaves the focus in the editor.
+
+Each preview starts from a cleared screen in the startup pens and runs the
+lines' `PRINT`, `CLS`, `CRSR`, `COLOR`, `FLIPX`, `FLIPY`, `ALT`, `STYLE` and
+`BCOLOR` statements the way the ROM does:
+
+- A comma moves to the next 14-column zone, `TAB(` and `SPC(` print spaces, and a
+  `PRINT` that ends in `;`, `,`, `TAB(` or `SPC(` keeps the cursor on the line.
+- A number gets a sign before it (a space when positive) and a space after it.
+- Numbers and unstyled strings print in the BASIC pen, and control codes such as
+  `{$0D}` in them act. Styled strings print every character as a glyph in its
+  own style, except for the fields `STYLE` takes from the pen.
+- Output wraps at column 40 without ending the BASIC line, so comma zones and
+  `TAB(` keep counting from where the line started, and the screen scrolls
+  after row 25.
+
+Control flow is ignored: a `PRINT` after `THEN` always runs, and `GOTO` does not
+jump. `INPUT` prompts are not drawn. A value only the running program knows,
+such as a variable, an expression or `CHR$(…)`, prints as its source text in a
+dashed box, with a number's spaces around it. A statement whose argument is not
+a constant, or is out of range, is skipped, and a note below the screen says so.
+
+The extension only paints what the server returns and forwards the pickers'
+choices to it, so all notation and layout rules stay in `@clementina/basic` and
+`@clementina/basic-lsp`.
+
 Launch configuration:
 
 ```json

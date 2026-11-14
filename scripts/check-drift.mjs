@@ -575,6 +575,7 @@ export function checkRom(report, specs, rom) {
   const kern = new Map(rom.symbols.filter(s => s.module === 'kernel' && s.type === 'equ' && /^(KERN|BAS)_/.test(s.name) && s.name !== 'KERN_BASE' && s.value >= abi.base && s.value < tableEnd).map(s => [s.name, 'kernel.inc']));
   table(report, 'kernel-abi.json', abi.entries, e => e.symbol, e => e.address, kern, name => rom.value(name, 'kernel'), 'kernel.inc');
   // A BAS_* entry is a JMP to the BASIC routine its target names.
+  for (const c of abi.consoleControlCodes) report.same('kernel-abi.json', `consoleControlCodes ${c.symbol}`, c.code, () => rom.value(c.symbol, 'kernel'), 'kernel.inc');
   for (const e of abi.entries.filter(e => e.target)) report.same('kernel-abi.json', `${e.symbol} target`, e.target, () => {
     const to = jmpOperand(rom.bin, rom.segments, e.address);
     return rom.find(e.target, 'basic')?.value === to ? e.target : `$${to.toString(16).toUpperCase()}`;
@@ -612,6 +613,11 @@ export function checkRom(report, specs, rom) {
   for (const [key, name] of [['extensionPrefix', 'TOKEN_EXT'], ['extension2Prefix', 'TOKEN_EXT2'], ['extensionFunctionPrefix', 'TOKEN_EXTFN']]) report.same('basic.json', `tokens.${key}`, t[key], () => rom.value(name, 'basic'), `token.s ${name}`);
   report.same('basic.json', 'tokens.special.MON', t.special.MON, () => rom.value('TOKEN_MON', 'basic'), 'token.s TOKEN_MON');
   for (const [key, name] of [['statementBoundaryAddress', 'NEWSTT2'], ['currentLineAddress', 'CURLIN'], ['variableTablePointerAddress', 'VARTAB']]) report.same('basic.json', `runtimeDebug.${key}`, basic.runtimeDebug[key], () => rom.value(name, 'basic'), `the ROM build (${name})`);
+
+  const sidecar = basic.savedProgram.styleSidecar;
+  for (const [key, value, name] of [['magic[0]', sidecar.magic[0], 'STYLE_SIDE_MAGIC0'], ['magic[1]', sidecar.magic[1], 'STYLE_SIDE_MAGIC1'], ['maxBytes', sidecar.maxBytes, 'STYLE_SIDE_BUF_SIZE'], ['rawTileBit', sidecar.rawTileBit, 'STRING_RAW_TILE'], ['defaultAttribute', sidecar.defaultAttribute, 'DEFAULT_ATTR']]) {
+    report.same('basic.json', `savedProgram.styleSidecar.${key}`, value, () => rom.value(name, 'basic'), `defines_clementina.s ${name}`);
+  }
 
   const errors = basic.errors, text = name => () => cString(rom.bin, rom.segments, rom.value(name, 'basic')).replace(/[\r\n]/g, '');
   report.same('basic.json', 'errors.entries messages', errors.entries.map(e => e.message), names('ERROR_MESSAGES'), 'the ROM build (ERROR_MESSAGES)');

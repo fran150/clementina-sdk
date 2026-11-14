@@ -5,20 +5,31 @@ import {once} from 'node:events';
 import {readFile} from 'node:fs/promises';
 import {
   analyzeDiagnostics,
+  analyzeStrings,
+  backdropColor,
   basicKeywordByName,
+  cellColors,
   basicKeywordEntries,
   completionsFor,
   completionsAt,
   definitionAt,
   documentSymbols,
   formatBasicSource,
+  glyphKeyFor,
   hoverAt,
   basicSignatureByKeyword,
+  previewScreen,
   referencesAt,
   renameAt,
+  renderCellsSvg,
+  renderScreenSvg,
   renumberBasicSource,
+  restyleStrings,
+  rgb565ToCss,
   semanticSpans,
   signatureHelpAt,
+  stringHoverAt,
+  tagCompletionsAt,
 } from '../packages/basic-lsp/dist/index.js';
 import {basicTokenTables, tokenizeBasicLine, tokenizeBasicLineWithSpans} from '../packages/basic/dist/index.js';
 
@@ -236,6 +247,157 @@ test('completionsFor filters by prefix and covers every table exactly once', () 
     ['extension', 'extension2', 'extensionFunction', 'primary', 'special']);
 });
 
+test('string analysis reports styled cells, tags, and quoted DATA items', () => {
+  const source = '10 PRINT "{c2 fy}F{c3}r";"{$81}X"\n20 DATA "{c1}A",{$82}:REM {$83}\n';
+  const {strings, tags} = analyzeStrings(source);
+  assert.deepEqual(strings.map(string => [string.line, source.split('\n')[string.line - 1].slice(string.startCharacter, string.endCharacter), string.styled, string.data]), [
+    [1, '{c2 fy}F{c3}r', true, false], [1, '{$81}X', false, false], [2, '{c1}A', true, true],
+  ]);
+  assert.deepEqual(strings[0].cells.map(cell => [cell.code, cell.attribute]), [[0x46, 0x22], [0x72, 0x03]]);
+  // An unstyled string's cells have no attribute: they print at the BASIC pen.
+  assert.deepEqual(strings[1].cells.map(cell => [cell.code, cell.attribute, cell.tagged]), [[0x81, undefined, true], [0x58, undefined, false]]);
+  assert.deepEqual(tags.map(tag => [tag.line, tag.kind, tag.code ?? tag.attribute]), [
+    [1, 'style', 0x22], [1, 'style', 3], [1, 'character', 0x81], [2, 'style', 1], [2, 'character', 0x82], [2, 'character', 0x83],
+  ]);
+});
+
+test('string hover describes tags and the characters a style tag covers', () => {
+  const source = '10 PRINT "{c2 fy}FR{c3}A";"{$0D}"\n';
+  const style = stringHoverAt(source, 1, 12);
+  assert.equal(style.kind, 'style');
+  assert.equal(style.attribute, 0x22);
+  assert.deepEqual(style.styled.map(cell => cell.code), [0x46, 0x52]);
+  const glyph = stringHoverAt(source, 1, 29);
+  assert.equal(glyph.kind, 'character');
+  assert.equal(glyph.code, 0x0d);
+  assert.equal(glyph.string.styled, false);
+  assert.equal(stringHoverAt(source, 1, 18).kind, 'string');
+  assert.equal(stringHoverAt('10 PRINT "PLAIN"\n', 1, 12), undefined);
+});
+
+test('tag completion offers glyph codes and, in quoted strings, the style words', () => {
+  const all = tagCompletionsAt('10 ?"{', 1, 6);
+  assert.equal(all.filter(item => item.kind === 'character').length, 254);
+  assert.ok(!all.some(item => item.code === 0 || item.code === 0x22));
+  assert.deepEqual(all.filter(item => item.kind !== 'character').map(item => item.label),
+    [...Array.from({length: 16}, (_, bank) => `c${bank}`), 'fx', 'fy', 'rev']);
+  assert.deepEqual(tagCompletionsAt('10 ?"{c1 f', 1, 10).map(item => item.label), ['fx', 'fy', 'rev']);
+  // A character completion closes the tag unless a } already follows.
+  const typed = tagCompletionsAt('10 ?"{$8', 1, 8).find(item => item.code === 0x81);
+  assert.deepEqual([typed.newText, typed.startCharacter, typed.endCharacter], ['$81}', 6, 8]);
+  assert.equal(tagCompletionsAt('10 ?"{$8}"', 1, 8).find(item => item.code === 0x81).newText, '$81');
+  assert.ok(tagCompletionsAt('10 REM {', 1, 8).every(item => item.kind === 'character'));
+  assert.equal(tagCompletionsAt('10 X={', 1, 6), undefined);
+  assert.equal(tagCompletionsAt('10 ?"{c1}A', 1, 10), undefined);
+});
+
+test('restyling rewrites whole strings canonically', () => {
+  const source = '10 PRINT "{c2 fy}F{c3}r{c4}a";"AB"\n';
+  const select = (start, end) => [{start: {line: 1, character: start}, end: {line: 1, character: end}}];
+  assert.deepEqual(restyleStrings(source, select(17, 18), 0x87).map(edit => edit.newText), ['{c7 rev}F{c3}r{c4}a']);
+  // Styling part of an unstyled string gives the rest color 0, since a string is styled whole.
+  assert.deepEqual(restyleStrings(source, select(32, 33), 0x05), [{line: 1, startCharacter: 31, endCharacter: 33, newText: '{c0}A{c5}B'}]);
+  // An empty selection is the string it is in; null removes every style.
+  assert.deepEqual(restyleStrings(source, select(20, 20), null).map(edit => edit.newText), ['Fra']);
+  assert.deepEqual(restyleStrings(source, select(3, 8), 1), []);
+});
+
+test('string diagnostics, semantic spans and transforms keep tags', () => {
+  const diagnostics = analyzeDiagnostics('10 PRINT "{$0D}{$81}";"{c0}{$0D}"\n20 DATA "{$0D}"\n30 PRINT "{c9"\n');
+  assert.deepEqual(diagnostics.map(item => [item.line, item.code, item.severity, item.startCharacter, item.endCharacter]), [
+    [1, 'basic.glyph', 'warning', 10, 15], [3, 'basic.parse', undefined, 10, 13],
+  ]);
+  assert.match(diagnostics[0].message, /does "newline"/);
+  const spans = semanticSpans('10 PRINT "A{c1}B"\n').filter(span => span.type === 'string').map(span => [span.startCharacter, span.endCharacter]);
+  assert.ok(!spans.some(([start]) => start >= 11 && start < 15));
+  assert.equal(formatBasicSource('20 ? "{FY c2}x"\n10 rem {$91}\n'), '10 REM {$91}\n20 PRINT "{c2 fy}x"\n');
+  assert.equal(renumberBasicSource('5 ?"{c1}A":GOTO 5\n', {start: 10, step: 10}), '10 ?"{c1}A":GOTO 10\n');
+  // Formatting measures typed characters, so tags do not push a line over the input limit.
+  const long = `10 ?"${'{c1}A{c2}B'.repeat(8)}"\n`;
+  assert.equal(formatBasicSource(long), long.replace('?', 'PRINT'));
+});
+
+test('glyph rendering draws the default charset, palette, flips and reverse', () => {
+  assert.equal(rgb565ToCss(0xffff), '#ffffff');
+  assert.equal(rgb565ToCss(0xf800), '#ff0000');
+  assert.deepEqual(cellColors(0x01), {ink: '#ff0000', background: '#1941ff'});
+  assert.deepEqual(cellColors(0x81), {ink: '#1941ff', background: '#ff0000'});
+  assert.deepEqual(glyphKeyFor(0x41), {mode: 0, key: 'A'});
+  assert.deepEqual(glyphKeyFor(0x81), {mode: 1, key: '!'});
+  assert.deepEqual(glyphKeyFor(0x00), {mode: 2, key: '@'});
+  assert.equal(glyphKeyFor(0x7f), undefined);
+  assert.equal(glyphKeyFor(0xdf), undefined);
+  // L: a stem on the left and a foot on the bottom row, mirrored by the flips.
+  const ink = svg => /<path fill="#ffffff" d="([^"]*)"/u.exec(svg)[1];
+  assert.match(ink(renderCellsSvg([{code: 0x4c, attribute: 0}])), /^M1 0h2v1h-2z.*M1 6h6v1h-6z$/u);
+  assert.match(ink(renderCellsSvg([{code: 0x4c, attribute: 0x30}])), /^M1 1h6v1h-6z.*M5 7h2v1h-2z$/u);
+  assert.match(renderCellsSvg([{code: 0x41, attribute: 0}, {code: 0x42, attribute: 0}], 10), /width="20" height="10" viewBox="0 0 16 8"/u);
+});
+
+/** A preview's rows as text, without trailing spaces. */
+const screenText = preview => preview.rows.map(row => String.fromCharCode(...row.map(cell => cell.code)).trimEnd());
+
+test('screen preview lays PRINT out as the ROM does: zones, TAB, SPC, number spacing and line ends', () => {
+  const preview = previewScreen('10 PRINT 5;-3,"X";TAB(20);"Y";SPC(2);"Z"\n20 PRINT "A";\n30 PRINT "B":PRINT\n40 ?"C"\n', [4, 1, 2, 3, 2]);
+  assert.deepEqual(preview.lines, [10, 20, 30, 40]);
+  assert.deepEqual(screenText(preview), [' 5 -3         X     Y  Z', 'AB', '', 'C']);
+  assert.deepEqual([preview.placeholders, preview.notes, preview.backdrop], [[], [], undefined]);
+});
+
+test('screen preview shows run-time values as placeholders and keeps every value of a PRINT', () => {
+  const preview = previewScreen('100 PRINT "{rev c0}Great! You found my number in ";C%;"attempts"\n', [1]);
+  assert.deepEqual(screenText(preview), ['Great! You found my number in  C% attemp', 'ts']);
+  assert.deepEqual(preview.placeholders, [{row: 0, startColumn: 31, endColumn: 33}]);
+  assert.deepEqual([preview.rows[0][0].attribute, preview.rows[0][31].attribute, preview.rows[0][31].placeholder, preview.rows[1][0].attribute], [0x80, 0, 1, 0]);
+  // Values written next to each other print one after another, and a comparison is a number.
+  const juxtaposed = previewScreen('10 PRINT A$"B"C$;LEFT$(A$,2);X=1\n', [1]);
+  assert.deepEqual(screenText(juxtaposed), ['A$BC$LEFT$(A$,2) X=1']);
+  assert.deepEqual(juxtaposed.placeholders.map(run => [run.startColumn, run.endColumn]), [[0, 2], [3, 5], [5, 16], [17, 20]]);
+});
+
+test('screen preview applies the BASIC pen, STYLE and BCOLOR', () => {
+  const preview = previewScreen('10 COLOR 2:FLIPX 1\n20 PRINT "A";"{c5}B";1\n30 STYLE 1:PRINT "{c5 fy}C"\n40 ALT 1:COLOR 3:FLIPX 0:PRINT "D"\n50 BCOLOR 9\n', [1, 2, 3, 4, 5]);
+  assert.deepEqual(screenText(preview), ['AB 1', 'C', 'D']);
+  assert.deepEqual(preview.rows[0].slice(0, 5).map(cell => cell.attribute), [0x12, 0x05, 0x12, 0x12, 0x00]);
+  assert.deepEqual([preview.rows[1][0].attribute, preview.rows[2][0].attribute, preview.backdrop], [0x22, 0x83, 9]);
+});
+
+test('screen preview runs control codes in unstyled strings and draws them as glyphs in styled ones', () => {
+  const plain = previewScreen('10 PRINT "AB{$08}C{$0D}D{$91}E"\n', [1]);
+  assert.deepEqual(screenText(plain), ['AE', 'D']);
+  const styled = previewScreen('10 PRINT "{c1}{$0D}{$91}"\n', [1]);
+  assert.deepEqual(styled.rows[0].slice(0, 2), [{code: 0x0d, attribute: 1}, {code: 0x91, attribute: 1}]);
+});
+
+test('screen preview clears, moves the cursor, wraps and scrolls', () => {
+  const moved = previewScreen('10 PRINT "A":CLS:CRSR 38,2:PRINT "XYZ"\n', [1]);
+  assert.deepEqual(screenText(moved), ['', '', `${' '.repeat(38)}XY`, 'Z']);
+  const scrolled = previewScreen(Array.from({length: 26}, (_, index) => `${index + 1} PRINT "L${index + 1}"`).join('\n'), Array.from({length: 26}, (_, index) => index + 1));
+  assert.equal(scrolled.rows.length, 24);
+  assert.deepEqual([screenText(scrolled)[0], screenText(scrolled)[23]], ['L3', 'L26']);
+  assert.deepEqual(previewScreen('10 PRINT "A":CLS\n', [1]).rows, []);
+});
+
+test('screen preview follows THEN, skips REM, DATA and invalid lines, and notes what it cannot run', () => {
+  const preview = previewScreen('10 IF X THEN PRINT "Y":GOTO 10\n20 REM PRINT "N"\n30 DATA "A:B":PRINT "Z"\nBAD\n40\n50 COLOR X:CRSR 45,1:PRINT TAB(N);"Q"\n', [1, 2, 3, 4, 5, 6, 99]);
+  assert.deepEqual(preview.lines, [10, 20, 30, 50]);
+  assert.deepEqual(screenText(preview), ['Y', 'Z', 'Q']);
+  assert.deepEqual(preview.notes.map(note => [note.line, note.number]), [[6, 50], [6, 50], [6, 50]]);
+  assert.match(preview.notes[0].message, /^COLOR X is only known when the program runs, so the BASIC pen keeps its color\.$/u);
+  assert.match(preview.notes[1].message, /^CRSR 45,1 is out of range/u);
+  assert.match(preview.notes[2].message, /^TAB\(N\) is only known when the program runs/u);
+});
+
+test('screen rendering paints the backdrop once and outlines placeholders', () => {
+  assert.equal(backdropColor(), '#1941ff');
+  assert.equal(backdropColor(0), '#ffffff');
+  assert.deepEqual(cellColors(0x81, '#000000'), {ink: '#000000', background: '#ff0000'});
+  const svg = renderScreenSvg(previewScreen('10 BCOLOR 0:PRINT A\n', [1]));
+  assert.match(svg, /^<svg [^>]*width="320" height="8" viewBox="0 0 320 8"[^>]*><rect width="320" height="8" fill="#ffffff"\/>/u);
+  assert.match(svg, /stroke="#000000"[^>]*><rect x="8.25" y="0.25" width="7.5" height="7.5"\/><\/g><\/svg>$/u);
+  assert.doesNotMatch(svg, /<path fill="#ffffff" d="M0 0h8v8h-8z/u);
+});
+
 async function exerciseStdioServer(binPath) {
   const child = spawn(process.execPath, [binPath], {stdio: ['pipe', 'pipe', 'pipe']});
   let stderr = '';
@@ -352,6 +514,72 @@ async function exerciseStdioServer(binPath) {
     send({jsonrpc: '2.0', id: applyEdit.id, result: {applied: true}});
     const renumbered = await waitFor(m => m.id === renumberId);
     assert.equal(renumbered.result, true);
+
+    const overflowId = request('workspace/executeCommand', {
+      command: 'clementina.basic.renumber', arguments: ['file:///test.bas', 63995, 10],
+    });
+    const failure = await waitFor(m => m.method === 'window/showMessageRequest');
+    assert.equal(failure.params.type, 1);
+    assert.match(failure.params.message, /^Cannot renumber BASIC program: .*exceeds 63999/);
+    send({jsonrpc: '2.0', id: failure.id, result: null});
+    assert.equal((await waitFor(m => m.id === overflowId)).result, false);
+
+    assert.deepEqual(initialized.result.capabilities.completionProvider, {triggerCharacters: ['{', '$', ' '], resolveProvider: true});
+    notify('textDocument/didChange', {
+      textDocument: {uri: 'file:///test.bas', version: 3},
+      contentChanges: [{text: '10 PRINT "{c2 fy}F{c3}r";"{$81}"\n20 PRINT "{\n'}],
+    });
+    const tagsId = request('clementina/basicTags', {textDocument: {uri: 'file:///test.bas'}});
+    const tags = (await waitFor(m => m.id === tagsId)).result;
+    assert.deepEqual(tags[0], {start: {line: 0, character: 10}, end: {line: 0, character: 17}});
+    assert.equal(tags.length, 3);
+    // A selection ending at the start of a line leaves that line out; line 20 does not parse.
+    const screenId = request('clementina/basicScreen', {
+      textDocument: {uri: 'file:///test.bas'},
+      ranges: [{start: {line: 0, character: 3}, end: {line: 1, character: 0}}, {start: {line: 1, character: 2}, end: {line: 1, character: 2}}],
+    });
+    const screen = (await waitFor(m => m.id === screenId)).result;
+    assert.deepEqual([screen.lines, screen.rows, screen.placeholders, screen.notes], [[10], 1, false, []]);
+    assert.match(Buffer.from(screen.image.split(',')[1], 'base64').toString(), /^<svg [^>]*width="320" height="8"/u);
+    const noScreenId = request('clementina/basicScreen', {textDocument: {uri: 'file:///test.bas'}, ranges: 'all'});
+    assert.deepEqual((await waitFor(m => m.id === noScreenId)).result, {lines: [], placeholders: false, notes: []});
+
+    const glyphsId = request('clementina/basicGlyphs', {cellSize: 16});
+    const glyphs = (await waitFor(m => m.id === glyphsId)).result;
+    assert.equal(glyphs.length, 254);
+    assert.deepEqual([glyphs[0x80].label, glyphs[0x80].description], ['$82', 'glyph mode 1, key "']);
+    const stylesId = request('clementina/basicStyles', {});
+    const styles = (await waitFor(m => m.id === stylesId)).result;
+    assert.deepEqual([styles.colors.length, styles.colors[2].name, styles.flags.map(flag => flag.word)], [16, 'orange', ['fx', 'fy', 'rev']]);
+
+    const tagCompletionId = request('textDocument/completion', {
+      textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 11}, context: {triggerKind: 2, triggerCharacter: '{'},
+    });
+    const tagCompletion = (await waitFor(m => m.id === tagCompletionId)).result;
+    const color = tagCompletion.find(item => item.label === 'c2');
+    // Kind 16 is Color, whose documentation an editor shows as a swatch.
+    assert.deepEqual([color.kind, color.documentation, color.textEdit.newText], [16, '#ff8e00', 'c2']);
+    const glyph = tagCompletion.find(item => item.label === '$81');
+    assert.equal(glyph.textEdit.newText, '$81}');
+    const resolveId = request('completionItem/resolve', glyph);
+    const resolved = (await waitFor(m => m.id === resolveId)).result;
+    assert.match(resolved.documentation.value, /^\*\*Tile \$81\*\* — glyph mode 1, key `!`\n\n!\[tile \$81\]\(data:image\/svg\+xml;base64,/u);
+    const spaceId = request('textDocument/completion', {
+      textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 8}, context: {triggerKind: 2, triggerCharacter: ' '},
+    });
+    assert.deepEqual((await waitFor(m => m.id === spaceId)).result, []);
+
+    const tagHoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 12}});
+    assert.match((await waitFor(m => m.id === tagHoverId)).result.contents.value, /^\*\*\{c2 fy\}\*\* — color 2 \(orange\), flip Y\n\n!\[styled characters\]/u);
+
+    const styleId = request('workspace/executeCommand', {
+      command: 'clementina.basic.styleStrings',
+      arguments: ['file:///test.bas', [{start: {line: 0, character: 17}, end: {line: 0, character: 17}}], 0x85],
+    });
+    const styleEdit = await waitFor(m => m.method === 'workspace/applyEdit' && m.id !== applyEdit.id);
+    assert.deepEqual(styleEdit.params.edit.changes['file:///test.bas'], [{range: {start: {line: 0, character: 10}, end: {line: 0, character: 23}}, newText: '{c5 rev}Fr'}]);
+    send({jsonrpc: '2.0', id: styleEdit.id, result: {applied: true}});
+    assert.equal((await waitFor(m => m.id === styleId)).result, true);
   } finally {
     child.kill();
     await once(child, 'exit');

@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind} from 'vscode-languageclient/node';
+import {ScreenView} from './screen';
+import {insertGlyph, styleSelection, TagDecorator} from './strings';
 
 const DEBUG_TYPE = 'clementina';
 
@@ -25,8 +27,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const run = {command: process.execPath, args: [serverPath('basic-lsp')], transport: TransportKind.stdio};
   const serverOptions: ServerOptions = {run, debug: run};
   const clientOptions: LanguageClientOptions = {documentSelector: [{scheme: 'file', language: 'clementina-basic'}]};
-  languageClient = new LanguageClient('clementinaBasic', 'Clementina BASIC Language Server', serverOptions, clientOptions);
-  void languageClient.start();
+  const client = languageClient = new LanguageClient('clementinaBasic', 'Clementina BASIC Language Server', serverOptions, clientOptions);
+  const started = client.start();
+  void started.then(() => { context.subscriptions.push(new TagDecorator(client)); });
+  const screen = new ScreenView(client, started);
+  context.subscriptions.push(
+    screen,
+    vscode.window.registerWebviewViewProvider(ScreenView.viewId, screen),
+    vscode.commands.registerCommand('clementina.basic.insertGlyph', () => insertGlyph(client)),
+    vscode.commands.registerCommand('clementina.basic.styleSelection', () => styleSelection(client)),
+    vscode.commands.registerCommand('clementina.basic.showScreen', () => screen.reveal()),
+  );
   context.subscriptions.push(vscode.commands.registerCommand('clementina.basic.renumberInteractive', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'clementina-basic') return;

@@ -35,6 +35,8 @@ export function semanticSpans(text: string): BasicSemanticSpan[] {
     const {lexemes} = tokenizeBasicLineWithSpans(line.body);
     for (const lexeme of lexemes) {
       const location = {line: line.physicalLine, startCharacter: line.bodyStart + lexeme.start, endCharacter: line.bodyStart + lexeme.end};
+      // A {…} tag gets no span, so an editor keeps its grammar's escape coloring.
+      if (lexeme.tag) continue;
       if (lexeme.keyword) spans.push({...location, type: basicOperatorKeywords.has(lexeme.keyword) ? 'operator' : 'keyword'});
       else if (lexeme.kind === 'literal' || lexeme.kind === 'data') spans.push({...location, type: 'string'});
       else if (lexeme.kind === 'remark') spans.push({...location, type: 'comment'});

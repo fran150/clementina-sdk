@@ -1,4 +1,4 @@
-import {basicSourceLimits, compileBasicProgram, detokenizeBasicProgram, parseBasicSource} from '@clementina/basic';
+import {basicSourceLimits, basicSourceLineLength, compileBasicProgram, detokenizeBasicProgram, parseBasicSource} from '@clementina/basic';
 import {referencesInBody} from './source.js';
 import type {RenumberBasicOptions} from './types.js';
 
@@ -10,10 +10,10 @@ export function formatBasicSource(text: string): string {
   const original = parseBasicSource(text);
   const listed = canonical.slice(0, -1).split('\n');
   return listed.map((line, index) => {
-    if (line.length <= basicSourceLimits.maxInputCharacters) return line;
+    if (basicSourceLineLength(line) <= basicSourceLimits.maxInputCharacters) return line;
     const source = original[index]!;
     const readable = `${source.number} ${source.text}`;
-    return readable.length <= basicSourceLimits.maxInputCharacters ? readable : `${source.number}${source.text}`;
+    return basicSourceLineLength(readable) <= basicSourceLimits.maxInputCharacters ? readable : `${source.number}${source.text}`;
   }).join('\n') + '\n';
 }
 

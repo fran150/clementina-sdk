@@ -5,6 +5,7 @@ import {
   TextDocumentSyncKind,
   DiagnosticSeverity,
   CompletionItemKind,
+  CompletionTriggerKind,
   CodeActionKind,
   ErrorCodes,
   Location,
@@ -24,20 +25,36 @@ import {
 } from 'vscode-languageserver/node.js';
 import {TextDocument} from 'vscode-languageserver-textdocument';
 import {errorMessage} from '@clementina/core';
+import {basicStyleFlags, BASIC_STYLE_COLOR_MASK, formatBasicStyleTag} from '@clementina/basic';
 import {
   analyzeDiagnostics,
+  analyzeStrings,
   basicKeywordByName,
+  cellColors,
   completionsAt,
+  consoleControlAction,
   definitionAt,
   documentSymbols,
   formatBasicSource,
+  glyphKeyFor,
   hoverAt,
+  inkName,
+  previewScreen,
   referencesAt,
   renameAt,
+  renderCellsSvg,
+  renderScreenSvg,
   renumberBasicSource,
+  restyleStrings,
   semanticSpans,
   signatureHelpAt,
+  stringHoverAt,
+  svgDataUri,
+  tagCompletionsAt,
+  type BasicCell,
   type BasicSourceLocation,
+  type BasicSourceRange,
+  type BasicStringCell,
 } from './index.js';
 import {splitPhysicalLines} from './source.js';
 
@@ -48,7 +65,7 @@ connection.onInitialize((): InitializeResult => ({
   capabilities: {
     textDocumentSync: TextDocumentSyncKind.Full,
     hoverProvider: true,
-    completionProvider: {},
+    completionProvider: {triggerCharacters: ['{', '$', ' '], resolveProvider: true},
     definitionProvider: true,
     referencesProvider: true,
     renameProvider: {prepareProvider: true},
@@ -60,7 +77,7 @@ connection.onInitialize((): InitializeResult => ({
     signatureHelpProvider: {triggerCharacters: ['(', ',']},
     documentFormattingProvider: true,
     codeActionProvider: true,
-    executeCommandProvider: {commands: ['clementina.basic.renumber']},
+    executeCommandProvider: {commands: ['clementina.basic.renumber', 'clementina.basic.styleStrings']},
   },
 }));
 
@@ -77,7 +94,7 @@ function validate(document: TextDocument): void {
   const text = document.getText();
   const lines = splitPhysicalLines(text);
   const diagnostics: Diagnostic[] = analyzeDiagnostics(text).map(item => ({
-    severity: DiagnosticSeverity.Error,
+    severity: item.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
     range: toRange({line: item.line, startCharacter: item.startCharacter ?? 0, endCharacter: item.endCharacter ?? lines[item.line - 1]?.length ?? 0}),
     message: item.message,
     source: 'clementina-basic',
@@ -90,9 +107,61 @@ documents.onDidOpen(event => validate(event.document));
 documents.onDidChangeContent(event => validate(event.document));
 documents.onDidClose(event => connection.sendDiagnostics({uri: event.document.uri, diagnostics: []}));
 
+/** Format a byte as `$hh`. */
+const hex2 = (code: number): string => `$${code.toString(16).toUpperCase().padStart(2, '0')}`;
+
+/** Wrap text as inline code, even when it is a backtick. */
+const inlineCode = (text: string): string => (text.includes('`') ? `\`\` ${text} \`\`` : `\`${text}\``);
+
+/** Markdown image of cells drawn with the default charset and palette. */
+function cellsImage(cells: readonly BasicCell[], cellSize: number, alt: string): string {
+  return `![${alt}](${svgDataUri(renderCellsSvg(cells, cellSize))})`;
+}
+
+/** How the screen editor types a tile. */
+function glyphKeyText(code: number): string {
+  const key = glyphKeyFor(code);
+  return key ? `glyph mode ${key.mode}, key ${inlineCode(key.key)}` : 'no key types it';
+}
+
+/** Name an attribute's color and flags. */
+function describeAttribute(attribute: number): string {
+  const bank = attribute & BASIC_STYLE_COLOR_MASK;
+  return [`color ${bank} (${inkName(bank)})`, ...basicStyleFlags.filter(flag => attribute & flag.bit).map(flag => flag.label)].join(', ');
+}
+
+/** Cells of a string as they print; an unstyled one is shown in the startup BASIC pen, $00. */
+const printedCells = (cells: readonly BasicStringCell[]): BasicCell[] => cells.map(cell => ({code: cell.code, attribute: cell.attribute ?? 0}));
+
+/** Hover text for a tag or a styled or tagged string, or undefined elsewhere. */
+function stringHover(text: string, line: number, character: number): string | undefined {
+  const info = stringHoverAt(text, line, character);
+  if (!info) return undefined;
+  if (info.kind === 'character') {
+    const cell = info.string?.cells.find(item => item.startCharacter === info.location.startCharacter);
+    const lines = [`**Tile ${hex2(info.code)}** — ${glyphKeyText(info.code)}`, cellsImage([{code: info.code, attribute: cell?.attribute ?? 0}], 48, `tile ${hex2(info.code)}`)];
+    const action = consoleControlAction(info.code);
+    if (info.string && !info.string.styled && !info.string.data && action) {
+      lines.push(`PRINT sends an unstyled string through CHROUT, which does "${action}" instead of drawing this tile. Add a style tag such as \`{c0}\` to draw it.`);
+    }
+    return lines.join('\n\n');
+  }
+  if (info.kind === 'style') {
+    const lines = [`**${formatBasicStyleTag(info.attribute)}** — ${describeAttribute(info.attribute)}`];
+    if (info.styled.length) lines.push(cellsImage(printedCells(info.styled), 24, 'styled characters'));
+    return lines.join('\n\n');
+  }
+  const summary = info.string.styled
+    ? '**Styled string**: prints in its stored colors and flips (STYLE can override them)'
+    : '**Unstyled string**: prints at the BASIC pen COLOR sets; shown here in the startup pen, color 0';
+  return info.string.cells.length ? `${summary}\n\n${cellsImage(printedCells(info.string.cells), 24, 'printed string')}` : summary;
+}
+
 connection.onHover((params): Hover | undefined => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return undefined;
+  const string = stringHover(document.getText(), params.position.line + 1, params.position.character);
+  if (string) return {contents: {kind: MarkupKind.Markdown, value: string}};
   const info = hoverAt(document.getText(), params.position.line + 1, params.position.character);
   if (!info) return undefined;
   const entry = basicKeywordByName.get(info.keyword);
@@ -104,8 +173,82 @@ connection.onHover((params): Hover | undefined => {
 connection.onCompletion((params): CompletionItem[] => {
   const document = documents.get(params.textDocument.uri);
   if (!document) return [];
+  const tags = tagCompletionsAt(document.getText(), params.position.line + 1, params.position.character);
+  if (tags) {
+    return tags.map((item, index): CompletionItem => {
+      const range = toRange({line: params.position.line + 1, startCharacter: item.startCharacter, endCharacter: item.endCharacter});
+      const base = {label: item.label, detail: item.detail, filterText: item.label, sortText: String(index).padStart(3, '0'), textEdit: TextEdit.replace(range, item.newText)};
+      // A color item's documentation is the CSS color an editor shows as a swatch.
+      if (item.kind === 'color') return {...base, kind: CompletionItemKind.Color, documentation: cellColors(item.attribute!).ink, labelDetails: {description: inkName(item.attribute!)}};
+      if (item.kind === 'flag') return {...base, kind: CompletionItemKind.EnumMember};
+      const key = glyphKeyFor(item.code!);
+      return {...base, kind: CompletionItemKind.Constant, labelDetails: {description: key ? `mode ${key.mode} ${key.key}` : 'no key'}, data: {code: item.code}};
+    });
+  }
+  // A tag trigger character outside a tag must not open keyword completion.
+  if (params.context?.triggerKind === CompletionTriggerKind.TriggerCharacter) return [];
   return completionsAt(document.getText(), params.position.line + 1, params.position.character)
     .map(item => ({label: item.keyword, kind: item.category === 'variable' ? CompletionItemKind.Variable : CompletionItemKind.Keyword, detail: item.category}));
+});
+
+// Glyph pictures are rendered only for the item an editor asks about.
+connection.onCompletionResolve(item => {
+  const code = (item.data as {code?: unknown} | undefined)?.code;
+  if (typeof code !== 'number') return item;
+  return {...item, documentation: {kind: MarkupKind.Markdown, value: `**Tile ${hex2(code)}** — ${glyphKeyText(code)}\n\n${cellsImage([{code, attribute: 0}], 48, `tile ${hex2(code)}`)}`}};
+});
+
+/** Clamp an editor-requested image cell size to a sensible pixel range. */
+const cellSizeOf = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? Math.min(64, Math.max(4, Math.round(value))) : 16);
+
+// Every tag's range, for an editor that dims them.
+connection.onRequest('clementina/basicTags', (params: {textDocument?: {uri?: string}}) => {
+  const document = params.textDocument?.uri === undefined ? undefined : documents.get(params.textDocument.uri);
+  return document ? analyzeStrings(document.getText()).tags.map(toRange) : [];
+});
+
+/** One-based physical lines that ranges touch; a range ending at the start of a later line leaves that line out. */
+function touchedLines(ranges: readonly Range[]): number[] {
+  const lines = new Set<number>();
+  for (const {start, end} of ranges) {
+    const last = end.line > start.line && end.character === 0 ? end.line - 1 : end.line;
+    for (let line = start.line; line <= last; line++) lines.add(line + 1);
+  }
+  return [...lines];
+}
+
+// What the lines that selections touch print, for an editor's screen preview.
+connection.onRequest('clementina/basicScreen', (params: {textDocument?: {uri?: string}; ranges?: unknown}) => {
+  const document = params.textDocument?.uri === undefined ? undefined : documents.get(params.textDocument.uri);
+  if (!document || !isRangeList(params.ranges)) return {lines: [], placeholders: false, notes: []};
+  const preview = previewScreen(document.getText(), touchedLines(params.ranges));
+  return {
+    lines: preview.lines,
+    ...(preview.rows.length ? {image: svgDataUri(renderScreenSvg(preview)), rows: preview.rows.length} : {}),
+    placeholders: preview.placeholders.length > 0,
+    notes: preview.notes.map(note => `Line ${note.number}: ${note.message}`),
+  };
+});
+
+// The 16 colors, each as an A in its ink, and the flag words, for a style picker.
+connection.onRequest('clementina/basicStyles', (params: {cellSize?: number} | undefined) => {
+  const cellSize = cellSizeOf(params?.cellSize);
+  const colors = [];
+  for (let bank = 0; bank <= BASIC_STYLE_COLOR_MASK; bank++) {
+    colors.push({bank, word: `c${bank}`, name: inkName(bank), icon: svgDataUri(renderCellsSvg([{code: 0x41, attribute: bank}], cellSize))});
+  }
+  return {colors, flags: basicStyleFlags.map(flag => ({word: flag.word, label: flag.label, bit: flag.bit}))};
+});
+
+// Every storable tile, for a glyph picker.
+connection.onRequest('clementina/basicGlyphs', (params: {cellSize?: number} | undefined) => {
+  const cellSize = cellSizeOf(params?.cellSize);
+  const glyphs = [];
+  for (let code = 1; code < 0x100; code++) {
+    if (code === 0x22) continue;
+    glyphs.push({code, label: hex2(code), description: glyphKeyText(code).replace(/`/gu, ''), icon: svgDataUri(renderCellsSvg([{code, attribute: 0}], cellSize))});
+  }
+  return glyphs;
 });
 
 connection.onDefinition(params => {
@@ -221,7 +364,15 @@ connection.onCodeAction((params): CodeAction[] => {
   }];
 });
 
+/** Check that a command argument is a list of LSP ranges. */
+function isRangeList(value: unknown): value is Range[] {
+  const position = (item: unknown): boolean => typeof item === 'object' && item !== null
+    && Number.isInteger((item as {line?: unknown}).line) && Number.isInteger((item as {character?: unknown}).character);
+  return Array.isArray(value) && value.every(range => typeof range === 'object' && range !== null && position(range.start) && position(range.end));
+}
+
 connection.onExecuteCommand(async params => {
+  if (params.command === 'clementina.basic.styleStrings') return styleStrings(params.arguments ?? []);
   if (params.command !== 'clementina.basic.renumber') return undefined;
   const [uri, start = 10, step = 10] = params.arguments ?? [];
   if (typeof uri !== 'string' || typeof start !== 'number' || typeof step !== 'number') return false;
@@ -231,10 +382,35 @@ connection.onExecuteCommand(async params => {
     const newText = renumberBasicSource(document.getText(), {start, step});
     const response = await connection.workspace.applyEdit({changes: {[uri]: [TextEdit.replace(wholeDocumentRange(document), newText)]}});
     return response.applied;
-  } catch {
+  } catch (error) {
+    void connection.window.showErrorMessage(`Cannot renumber BASIC program: ${errorMessage(error)}`);
     return false;
   }
 });
+
+/** Apply one attribute to the selected string characters, or remove styles with a null attribute. */
+async function styleStrings(args: unknown[]): Promise<boolean> {
+  const [uri, ranges, attribute] = args;
+  if (typeof uri !== 'string' || !isRangeList(ranges) || !(attribute === null || typeof attribute === 'number')) return false;
+  const document = documents.get(uri);
+  if (!document) return false;
+  const selections: BasicSourceRange[] = ranges.map(range => ({
+    start: {line: range.start.line + 1, character: range.start.character},
+    end: {line: range.end.line + 1, character: range.end.character},
+  }));
+  try {
+    const edits = restyleStrings(document.getText(), selections, attribute);
+    if (edits.length === 0) {
+      void connection.window.showInformationMessage('Nothing to restyle: select characters inside a quoted string.');
+      return false;
+    }
+    const response = await connection.workspace.applyEdit({changes: {[uri]: edits.map(edit => TextEdit.replace(toRange(edit), edit.newText))}});
+    return response.applied;
+  } catch (error) {
+    void connection.window.showErrorMessage(`Cannot style BASIC strings: ${errorMessage(error)}`);
+    return false;
+  }
+}
 
 documents.listen(connection);
 connection.listen();

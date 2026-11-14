@@ -15,7 +15,11 @@
   "activationEvents": [
     "onDebug",
     "onLanguage:clementina-basic",
-    "onCommand:clementina.basic.renumberInteractive"
+    "onCommand:clementina.basic.renumberInteractive",
+    "onCommand:clementina.basic.insertGlyph",
+    "onCommand:clementina.basic.styleSelection",
+    "onCommand:clementina.basic.showScreen",
+    "onView:clementina.basic.screen"
   ],
   "main": "./dist/extension.js",
   "scripts": {
@@ -45,12 +49,37 @@
       {"language": "clementina-asm", "scopeName": "source.clementina-asm", "path": "./syntaxes/clementina-asm.tmLanguage.json"}
     ],
     "commands": [
-      {"command": "clementina.basic.renumberInteractive", "title": "Clementina BASIC: Renumber Program…"}
+      {"command": "clementina.basic.renumberInteractive", "title": "Clementina BASIC: Renumber Program…"},
+      {"command": "clementina.basic.insertGlyph", "title": "Clementina BASIC: Insert Glyph…"},
+      {"command": "clementina.basic.styleSelection", "title": "Clementina BASIC: Style Selected Text…"},
+      {"command": "clementina.basic.showScreen", "title": "Clementina BASIC: Show Screen Preview"}
     ],
     "breakpoints": [
       {"language": "clementina-basic"},
       {"language": "clementina-asm"}
     ],
+    "menus": {
+      "commandPalette": [
+        {"command": "clementina.basic.insertGlyph", "when": "editorLangId == clementina-basic"},
+        {"command": "clementina.basic.styleSelection", "when": "editorLangId == clementina-basic"},
+        {"command": "clementina.basic.showScreen", "when": "editorLangId == clementina-basic"}
+      ],
+      "editor/context": [
+        {"command": "clementina.basic.insertGlyph", "when": "editorLangId == clementina-basic", "group": "1_modification@90"},
+        {"command": "clementina.basic.styleSelection", "when": "editorLangId == clementina-basic", "group": "1_modification@91"},
+        {"command": "clementina.basic.showScreen", "when": "editorLangId == clementina-basic", "group": "1_modification@92"}
+      ]
+    },
+    "viewsContainers": {
+      "panel": [
+        {"id": "clementina-screen", "title": "Clementina Screen", "icon": "media/screen.svg"}
+      ]
+    },
+    "views": {
+      "clementina-screen": [
+        {"type": "webview", "id": "clementina.basic.screen", "name": "Clementina Screen"}
+      ]
+    },
     "debuggers": [
       {
         "type": "clementina",
@@ -97,5 +126,5 @@
     "typescript": "^5.8.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "LICENSE"]
+  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "media", "LICENSE"]
 }

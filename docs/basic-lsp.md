@@ -11,7 +11,10 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   violation `parseBasicSource` would report, plus a whole-program size-overflow
   check from `compileBasicProgram` — but for the *whole open document at once*
   rather than stopping at the first bad line the way interactive entry does.
-  Each diagnostic is anchored to its physical source line.
+  Each diagnostic is anchored to its physical source line, and a malformed `{…}`
+  tag to the tag itself. A warning marks a control-code tag such as `{$0D}` in an
+  unstyled string: `PRINT` sends that string through `CHROUT`, which acts on the
+  code (`consoleControlCodes` in `specs/kernel-abi.json`) instead of drawing the tile.
 - **Hover**: the keyword under the cursor, resolved against
   `basicTokenTables` in the ROM's own tokenizer search order (`MON`, extension
   functions, extension, extension2, primary), reporting its category and exact
@@ -19,9 +22,17 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   is only treated as part of the keyword when that longer form actually
   matches a table entry (`STR$`, `TAB(`), not for an ordinary function call
   like `CUE(0)`. The editor's hover also shows the keyword's syntax line and
-  one-line summary.
+  one-line summary. On a `{…}` tag, or in a styled string or one with glyph tags,
+  the hover describes the tag (a tile and the glyph-mode key that types it, or a
+  style's color and flags) and shows an image of how it prints. The image uses the
+  default charset and palette from `specs/video.json`.
 - **Completion**: every keyword across all four tables plus `MON`, filtered by
   statement or expression context, plus variables already used in the document.
+  Inside an unclosed `{` in a string, `DATA` or `REM`, it offers every storable tile
+  `$01`–`$FF`, and in a quoted string also the style words `c0`–`c15`, `fx`, `fy`
+  and `rev`. Color items carry their ink as a color an editor shows as a swatch.
+  Glyph items get their picture when an editor resolves them. `{`, `$` and space
+  trigger completion; outside a tag they open nothing.
 - **Line targets**: precise diagnostics and go-to-definition for static targets
   after `GOTO`, `GO TO`, `GOSUB`, numeric `THEN`, and `RUN`, including the
   comma-separated target lists used by `ON...GOTO`/`ON...GOSUB`. The analysis
@@ -36,16 +47,44 @@ contract; see [BASIC tooling](basic-tooling.md) for what those actually do.
   lines plus their static targets, with new names checked against the ROM tokenizer.
 - **Semantic tokens**: tokenizer-derived keyword, operator, literal, comment,
   variable, and line-number spans are available to any semantic-token client.
+  Tags get no span, so the client's grammar colors them (the VS Code grammar
+  scopes them `constant.character.escape`).
 - **Formatting**: round-trips through the canonical tokenizer and detokenizer,
   producing ROM `LIST`-style source. Effective program lines are sorted, keywords
-  are uppercased, and quoted/`DATA`/`REM` text keeps its lexical content. If a
-  canonical line exceeds the ROM's 80-character input limit, formatting keeps
-  that valid source line's shorthand instead.
+  are uppercased, and quoted/`DATA`/`REM` text keeps its lexical content, with
+  tags in their canonical form (see [BASIC tooling](basic-tooling.md)). If a
+  canonical line exceeds the ROM's 80-character input limit, measured in typed
+  characters, formatting keeps that valid source line's shorthand instead.
 - **Renumbering**: the `Renumber BASIC program` source action defaults to line 10
   with a step of 10 and updates static references to existing lines. The VS Code
   command prompts for both values. Undefined
   targets are preserved so the target diagnostic remains visible. The operation
   rejects results outside 0–63999 or beyond the ROM's input-line limit.
+- **Styling**: the `clementina.basic.styleStrings` command takes a document URI,
+  a list of ranges and an attribute byte. It gives the selected characters of
+  quoted strings that attribute, or with `null` removes every style from the strings
+  the ranges touch. An empty range means its whole string. Each string is rewritten
+  canonically, and the unselected characters of a formerly unstyled string take
+  color 0.
+
+## Editor requests
+
+Four custom requests serve editors that draw strings and the screen themselves:
+
+- `clementina/basicTags` (`{textDocument}`) returns every tag's range.
+- `clementina/basicScreen` (`{textDocument, ranges}`) runs the output statements
+  of every line the ranges touch, in source order, on a cleared 40×25 screen
+  (`previewScreen`). A range ending at the start of a line leaves that line out.
+  It returns the BASIC line numbers that ran, a `data:` SVG image of the rows
+  from the top through the last one drawn on (one unit per screen pixel, absent
+  when nothing is left drawn), its row count, whether any dashed placeholder
+  stands for a run-time value, and notes on statements it could not run. The
+  [VS Code extension](vscode-extension.md#screen-preview) describes the layout
+  rules.
+- `clementina/basicGlyphs` (`{cellSize}`) returns every storable tile with its
+  `$hh` label, the glyph-mode key that types it, and an image.
+- `clementina/basicStyles` (`{cellSize}`) returns the 16 colors with their ink
+  names and images, and the flag words with their attribute bits.
 
 ## Architecture
 
@@ -65,13 +104,15 @@ build, emulator-client, debug) — the same reasoning that already keeps
 `@clementina/debug` and `@clementina/emulator-client` separate from
 `@clementina/assembler`/`@clementina/basic`.
 
-## Keyword data
+## Generated data
 
 Syntax lines, arguments, accepted ranges, and summaries come from the
 `keywords` section of `specs/basic.json`, which has one entry per ROM token.
-`npm run generate:basic-keywords` copies it into `src/keyword-data.ts`, and
-`npm test` fails when that copy is stale. Edit the spec, never the generated
-file.
+`npm run generate:basic-keywords` copies it into `src/keyword-data.ts`. The
+default charset, text palette and glyph modes of `specs/video.json` and the
+console control codes of `specs/kernel-abi.json` are copied the same way by
+`npm run generate:basic-charset` into `src/charset-data.ts`. `npm test` fails when
+either copy is stale. Edit the specs, never the generated files.
 
 ## Running it
 
