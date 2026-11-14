@@ -1,6 +1,6 @@
 # @clementina/assets
 
-Portable asset types, validation, and binary encoders for Clementina projects. The package checks version 1 JSON assets against the schemas in [`specs/schema`](../../specs/schema/) and encodes palette, CHR, map, sprite, song, and sound data for the SDK builder and runtime.
+Portable asset types, validation, and binary encoders for Clementina projects. The package checks version 1 JSON assets against the schemas in [`specs/schema`](../../specs/schema/) and encodes palette, CHR, map, sprite, song, and sound data for the SDK builder and the Clementina library.
 
 Portable assets belong in files listed by a project's `clementina.yaml` manifest. Editor session state belongs outside those files. `@clementina/project` loads and checks the manifest and its cross-asset references; `@clementina/assets` can validate individual assets or an assembled `PortableAssetSet`.
 
@@ -46,7 +46,7 @@ const frameWrites = soundWrites(sound);
 // Each entry holds register/value pairs for one 60 Hz frame, plus a release entry.
 ```
 
-`encodeSongFile` and `encodeSoundFile` wrap those outputs for the SDK runtime. The song compiler resolves steps to 24 kHz sequencer tick boundaries and writes each event's desired tick count as its encoded duration. Callers choose MIA RAM locations for tracks; this package does not allocate memory.
+`encodeSongFile` and `encodeSoundFile` wrap those outputs for the Clementina library. The song compiler resolves steps to 24 kHz sequencer tick boundaries and writes each event's desired tick count as its encoded duration. Callers choose MIA RAM locations for tracks; this package does not allocate memory.
 
 For portable asset layouts and hardware constraints, see the [asset model](../../docs/gamedev/asset-model.md), [builder file formats](../../docs/gamedev/builder.md), [video architecture](../../docs/architecture/video.md), and [audio architecture](../../docs/architecture/audio.md).
 

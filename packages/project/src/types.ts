@@ -2,6 +2,8 @@ export interface ProjectAssemblyBuild {
  /** ca65 sources, assembled and linked into one PRG. */
  sources:string[];linkerConfig:string;outputName:string;loadAddress:number;bank?:number;entrySymbol:string;
  includeDirectories?:string[];defines?:Record<string,string|number>;
+ /** Assemble the Clementina library with its argument checks (CL_CHECKS); default true. */
+ checks?:boolean;
 }
 export interface ProjectBasicBuild {
  outputName:string;
@@ -19,7 +21,7 @@ export interface ProjectAssetSlot {name:string;size:number;mia?:number;bank?:num
 export type ProjectAssetBuildKind="paletteConfig"|"tileset"|"background"|"overlay"|"sprites"|"song"|"sound";
 /** An asset the build writes to the card. A sprite file names its tileset's id. */
 export interface ProjectAssetInclude {kind:ProjectAssetBuildKind;id:string;slot:string;file?:string}
-export interface ProjectAssetsBuild {folder?:string;checks?:boolean;slots:ProjectAssetSlot[];include:ProjectAssetInclude[]}
+export interface ProjectAssetsBuild {folder?:string;slots:ProjectAssetSlot[];include:ProjectAssetInclude[]}
 /** Settings for each part the project has: `assembly`, `basic` for program.entry, or both. */
 export type ProjectBuild = {outputDirectory:string;video?:ProjectVideoBuild;assets?:ProjectAssetsBuild}&(
  {assembly:ProjectAssemblyBuild;basic?:ProjectBasicBuild}|{basic:ProjectBasicBuild;assembly?:ProjectAssemblyBuild}

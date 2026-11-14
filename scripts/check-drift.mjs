@@ -561,7 +561,7 @@ export function checkRomInclude(report, specs, romDir) {
   report.same('mia.inc', `the ROM's ${rel}`, true, () => {
     let text;
     try { text = readFileSync(path.join(romDir, rel), 'utf8'); } catch { throw Error('is missing'); }
-    if (text !== renderMiaInc(specs)) throw Error('differs from what the specs generate; run npm run generate:includes and copy packages/runtime/asm/mia.inc there');
+    if (text !== renderMiaInc(specs)) throw Error('differs from what the specs generate; run npm run generate:includes and copy packages/lib/asm/mia.inc there');
     return true;
   }, 'clementina-rom');
 }

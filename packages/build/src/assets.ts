@@ -3,7 +3,7 @@
 // caller writes the files. docs/gamedev/builder.md describes every format.
 import {diagnostic, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {BUILTIN_SLOTS, type PortableProject, type ProjectAssetBuildKind, type ProjectAssetInclude, type ProjectAssetSlot} from '@clementina/project';
-import {bankLocation} from '@clementina/runtime';
+import {bankLocation} from '@clementina/lib';
 import {encodeIncludedAsset} from './asset-encoding.js';
 import {identifier} from './asset-names.js';
 import {renderAssetsInc, renderAssetsS} from './asset-render.js';
@@ -54,13 +54,12 @@ export interface MemoryReport {
   folder: string;
   slots: Array<Omit<PlannedSlot, 'location'> & {location: number; used: number; assets: Array<{kind: ProjectAssetBuildKind; id: string; name: string; label: string; file: string; size: number}>}>;
   diagnostics: ClementinaDiagnostic[];
-  /** Assembled CODE bytes per runtime module, populated by buildProject. */
-  runtimeCode?: Record<string, number>;
+  /** Assembled CODE bytes per Clementina library module, populated by buildProject. */
+  libraryCode?: Record<string, number>;
 }
 
 export interface AssetBuildPlan {
   folder: string;
-  checks: boolean;
   slots: PlannedSlot[];
   assets: PlannedAsset[];
   assetsInc: string;
@@ -174,7 +173,7 @@ export function planAssetBuild(project: PortableProject): ValidationResult<Asset
   });
 
   const report = memoryReport(folder, slots, planned, diagnostics);
-  const plan: AssetBuildPlan = {folder, checks: config.checks ?? true, slots, assets: planned, assetsInc: '', assetsS: '', report};
+  const plan: AssetBuildPlan = {folder, slots, assets: planned, assetsInc: '', assetsS: '', report};
   plan.assetsInc = renderAssetsInc(plan);
   plan.assetsS = renderAssetsS(plan);
   return result(plan, diagnostics);

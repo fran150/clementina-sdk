@@ -7,21 +7,25 @@ and BASIC-with-assembly projects.
 
 1. Read the relevant SDK architecture document and spec before changing
    hardware-dependent behavior.
-2. Edit source, then run `node packages/cli/bin/clementina.mjs project validate <project>`.
+2. Edit source, then run `clementina project validate <project>`.
 3. Put an observable expectation in `checks/smoke.json` (BASIC screen/input
    text) or `checks/code.json` (CPU memory bytes). Check files are workflow
    evidence, outside the portable asset manifest.
 4. Run:
 
 ```sh
-node agents/workflows/code-game.mjs <project> --emulator /path/to/clementina-automation
+clementina check <project>
 ```
 
 The command validates all assets and references, builds with the SDK, launches
 the generated load plan through the ROM, and writes
 `<outputDirectory>/inspection/report.json` plus native MIA video snapshots.
-Add `--renderer /path/to/clementina-render` for 320×200 PNGs. It fails when
-a declared check fails and closes the emulator even on failure.
+Add `--renderer /path/to/clementina-render` for 320×200 PNGs, and
+`--emulator <path>` for an automation executable that is not
+`clementina-automation` on `PATH`. It exits 1 when a declared check fails,
+with one diagnostic per failed check, and closes the emulator even on failure.
+From an SDK checkout, `node agents/workflows/code-game.mjs <project>` does the
+same but also fails when the project has no check files.
 
 For an assembly game, a deterministic memory check can be:
 

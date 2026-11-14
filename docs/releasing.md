@@ -33,7 +33,7 @@ workspace dependency versions or missing entry points. Tag a release only after
 the checks above pass.
 
 Publish npm packages in dependency order: `core`, `assets`, `project`, `basic`,
-`assembler`, `runtime`, `build`, `emulator-client`, `debug`, `basic-lsp`,
+`assembler`, `lib`, `build`, `emulator-client`, `debug`, `basic-lsp`,
 `debug-adapter`, `cli`, and `mcp`. For a public release, use
 `npm publish --workspace @clementina/<name> --access public` for each package
 after verifying npm scope ownership. The repository's npm version and the VS

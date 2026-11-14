@@ -35,8 +35,12 @@ export async function findExecutable(command: string, cwd = process.cwd()): Prom
 export async function probeTool(name: 'ca65' | 'ld65' | 'ar65' | 'emulator', command: string, cwd = process.cwd()): Promise<ToolProbe> {
   const path = await findExecutable(command, cwd);
   if (!path) return {found: false, detail: `${command} is not executable or is not on PATH`};
-  if (name === 'emulator') return {found: true, path};
   const result = spawnSync(path, [name === 'ar65' ? 'V' : '--version'], {encoding: 'utf8', timeout: 5000, windowsHide: true});
+  // Emulator builds older than their --version flag may reject it; finding the executable is enough.
+  if (name === 'emulator') {
+    const version = result.status === 0 ? result.stdout.trim().split(/\r?\n/u).find(Boolean) : undefined;
+    return {found: true, path, ...(version ? {detail: version} : {})};
+  }
   if (result.error || result.status !== 0) return {
     found: false, path,
     detail: `${command} did not complete its version check${result.error ? `: ${result.error.message}` : ''}`,

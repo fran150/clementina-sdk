@@ -66,9 +66,18 @@ jobs:
           done
           if command -v node; then echo "Node.js is still on PATH"; exit 1; fi
           "$cli" --help
+          "$cli" --version | tee version.txt
+          # A release executable reports the plain version, never a dev build.
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' packages/cli/package.json)"
+          grep -qx "clementina $version" version.txt
           "$cli" doctor --json
+          # The bundled MCP server answers an initialize request over stdio.
+          { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}'; sleep 3; } | "$cli" mcp | tee mcp.txt
+          grep -q '"serverInfo"' mcp.txt
           "$cli" project validate examples/minimal-game
           "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json
+          # Templates are embedded: `new` must work with no SDK files beside the executable.
+          (cd "$RUNNER_TEMP" && "$cli" new new-game && "$cli" project validate new-game)
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

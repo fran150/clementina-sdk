@@ -12,7 +12,9 @@
     {"path": "../basic"},
     {"path": "../build"},
     {"path": "../core"},
+    {"path": "../debug"},
     {"path": "../emulator-client"},
+    {"path": "../mcp"},
     {"path": "../project"}
   ]
 }

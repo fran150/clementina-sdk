@@ -3,13 +3,13 @@ import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 // Writes the ca65 includes for 6502 code from specs/*.json:
 // - mia.inc: MIA's registers, ids, bits and MIA RAM layout, under MIA's own #define names
-//   where MIA has one. The SDK runtime includes it, and the ROM keeps a copy in
+//   where MIA has one. The Clementina library includes it, and the ROM keeps a copy in
 //   src/include/mia.inc that npm run check:drift compares with this output.
 // - clementina.inc: mia.inc plus the kernel jump table, the VIA and the fixed CPU addresses
 //   programs use. The build puts both on every assembly project's include path.
 
 const sdkRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const asmDir = path.join(sdkRoot, 'packages', 'runtime', 'asm');
+const asmDir = path.join(sdkRoot, 'packages', 'lib', 'asm');
 
 /** Every spec file, keyed by file name. */
 export function loadSpecs(dir = path.join(sdkRoot, 'specs')) {

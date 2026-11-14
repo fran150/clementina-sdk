@@ -77,7 +77,7 @@ test('character workflow validates portable references against emulator OAM evid
   const temporary = await mkdtemp(join(tmpdir(), 'clementina-character-'));
   const root = join(temporary, 'demo');
   try {
-    await cp(join(sdkRoot, 'examples/runtime-demo'), root, {recursive: true});
+    await cp(join(sdkRoot, 'examples/library-demo'), root, {recursive: true});
     await mkdir(join(root, 'build/inspection'), {recursive: true});
     const video = Buffer.alloc(68944);
     video[0x20] = 1;

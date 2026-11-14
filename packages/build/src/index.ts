@@ -10,13 +10,13 @@ import {diagnostic, errorMessage, result, type ClementinaDiagnostic, type Valida
 import type {PortableProject, ProjectAssemblyBuild, ProjectBasicBuild} from '@clementina/project';
 import {loadProject, resolveProjectPath} from '@clementina/project/node';
 import {planAssetBuild, type AssetBuildPlan} from './assets.js';
-import {buildRuntime, writeSystemIncludes} from './runtime-build.js';
+import {buildLibrary, writeSystemIncludes} from './library-build.js';
 import {cardFile, joinPortable, loadPath, type BuildPaths} from './build-paths.js';
 import {memoryLayout, type MemoryLayout} from './memory-layout.js';
 
 export * from './assets.js';
 export * from './memory-layout.js';
-export {buildRuntime, runtimeCodeSize, writeSystemIncludes} from './runtime-build.js';
+export {buildLibrary, libraryCodeSize, writeSystemIncludes} from './library-build.js';
 
 export interface GeneratedBuildFile {
   kind: 'palette' | 'tileset' | 'basic' | 'load-plan' | 'bootstrap' | 'boot' | 'program' | 'asset' | 'asset-source' | 'memory-report' | 'memory-layout';
@@ -106,11 +106,11 @@ async function writeStagedFile(projectRoot: string, item: PendingBuildFile): Pro
   await writeFile(target, item.bytes);
 }
 
-/** Replace the initial report with code sizes collected by the runtime build. */
-async function updateRuntimeReport(state: BuildState): Promise<void> {
+/** Replace the initial report with code sizes collected by the library build. */
+async function updateLibraryReport(state: BuildState): Promise<void> {
   const plan = state.assetPlan!;
-  const reportPath = joinPortable(state.paths.outputDirectory, 'runtime/code-sizes.json');
-  plan.report.runtimeCode = JSON.parse(await readFile(await resolveProjectPath(state.projectRoot, reportPath), 'utf8'));
+  const reportPath = joinPortable(state.paths.outputDirectory, 'lib/code-sizes.json');
+  plan.report.libraryCode = JSON.parse(await readFile(await resolveProjectPath(state.projectRoot, reportPath), 'utf8'));
   const reportFile = state.pending.find(item => item.file.kind === 'memory-report')!;
   reportFile.bytes = utf8Bytes(JSON.stringify(plan.report, null, 2) + '\n');
   reportFile.file.length = reportFile.bytes.length;
@@ -124,20 +124,21 @@ async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild
   const system = await writeSystemIncludes(projectRoot, joinPortable(paths.outputDirectory, 'include'));
   if (!system.ok) return system as ValidationResult<never>;
   const includeDirectories = [...(config.includeDirectories ?? []), system.value];
-  const libraries: string[] = [];
+  // Every assembly program links the Clementina library; ld65 takes only the modules it calls.
+  const library = await buildLibrary(projectRoot, joinPortable(paths.outputDirectory, 'lib'), config.checks ?? true, runner);
+  if (!library.ok) return library as ValidationResult<never>;
+  includeDirectories.push(joinPortable(paths.outputDirectory, 'lib'));
+  const libraries = [library.value];
   if (plan) {
-    // ca65 needs generated sources and runtime files before the final output pass.
+    // ca65 needs the generated asset sources before the final output pass.
     try {
       for (const item of state.pending.filter(item => item.file.kind === 'asset-source')) await writeStagedFile(projectRoot, item);
     } catch (error) {
       return result(undefined, [diagnostic('build.io', '', errorMessage(error))]);
     }
-    const runtime = await buildRuntime(projectRoot, joinPortable(paths.outputDirectory, 'runtime'), plan.checks, runner);
-    if (!runtime.ok) return runtime as ValidationResult<never>;
-    await updateRuntimeReport(state);
+    await updateLibraryReport(state);
     sources.push(joinPortable(paths.outputDirectory, 'assets.s'));
-    includeDirectories.push(paths.outputDirectory, joinPortable(paths.outputDirectory, 'runtime'));
-    libraries.push(runtime.value);
+    includeDirectories.push(paths.outputDirectory);
   }
   const assembled = await buildAssembly(projectRoot, {
     sources,
@@ -149,7 +150,7 @@ async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild
     ...(config.bank === undefined ? {} : {bank: config.bank}),
     includeDirectories,
     ...(config.defines === undefined ? {} : {defines: config.defines}),
-    ...(libraries.length ? {libraries} : {}),
+    libraries,
   }, runner);
   if (!assembled.ok) return assembled as ValidationResult<never>;
   let step = assembled.value.loadStep;

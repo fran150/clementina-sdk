@@ -41,7 +41,7 @@
       "hex": "$00",
       "count": 80,
       "owner": "programs",
-      "description": "Free for programs. Never configured or touched by the firmware, the kernel or BASIC. The SDK game runtime is part of the program that links it and takes $40-$41."
+      "description": "Free for programs. Never configured or touched by the firmware, the kernel or BASIC. The SDK's Clementina library is part of the program that links it and takes $40-$41."
     },
     {
       "id": 80,

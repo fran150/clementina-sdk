@@ -1,6 +1,6 @@
 # Create a game
 
-This workflow starts a BASIC or assembly game from an SDK template, validates
+This workflow starts a game from an SDK starter, validates
 its portable assets and references, builds a ROM-loadable program, and checks
 observable behavior in a headless emulator. It uses SDK commands and files, so
 it works with any agent or shell.
@@ -19,15 +19,18 @@ both; see [program parts](../../docs/project-format.md#program-parts).
 
 ## 2. Create and edit a portable project
 
-From the SDK root, after `npm ci && npm run build`:
-
 ```sh
-node agents/workflows/create-game.mjs init /path/to/my-game --name "My Game"
-# For a 65C02 assembly starter instead:
-node agents/workflows/create-game.mjs init /path/to/my-asm-game --template assembly --name "My Assembly Game"
+clementina new /path/to/my-game --name "My Game"
+# To begin with 65C02 assembly code instead of a BASIC program:
+clementina new /path/to/my-game --template assembly --name "My Game"
 ```
 
-The destination must be new. The BASIC starter contains `clementina.yaml`,
+`node agents/workflows/create-game.mjs init <directory> [--name <name>] [--template basic|assembly]`
+does the same from an SDK checkout.
+
+The destination must be new or an empty directory. Either starter can later
+add the other [program part](../../docs/project-format.md#program-parts). The
+default starter contains `clementina.yaml`,
 `src/main.bas`, JSON palette assets, and `checks/smoke.json`. Its input loop
 accepts `A` to score and `R` to restart. The assembly starter contains
 `src/main.s`, an explicit `link.cfg`, and `checks/code.json`; it writes 42 to CPU
@@ -45,8 +48,8 @@ limits, not gameplay timing or a claim about hardware speed. See the
 ## 3. Validate and build
 
 ```sh
-node packages/cli/bin/clementina.mjs project validate /path/to/my-game
-node packages/cli/bin/clementina.mjs build /path/to/my-game
+clementina project validate /path/to/my-game
+clementina build /path/to/my-game
 ```
 
 Project validation checks every listed asset against its schema, cross-asset IDs,
@@ -60,8 +63,7 @@ and JSON assets remain the editable project.
 For a live session, run:
 
 ```sh
-node packages/cli/bin/clementina.mjs run /path/to/my-game \
-  --emulator /path/to/clementina-automation
+clementina run /path/to/my-game
 ```
 
 This builds and launches the same plan, then prints an automation endpoint.
@@ -70,14 +72,12 @@ launches the emulator and records evidence.
 
 ## 4. Run and inspect
 
-Build `clementina-automation` from the emulator repository as described in
-[emulator automation](../../docs/emulator-automation.md). For PNGs, build the
-optional `clementina-render` command from `clementina-video-client`.
+Install `clementina-automation` from the emulator release (see
+[emulator automation](../../docs/emulator-automation.md)). For PNGs, install
+the optional `clementina-render` command from `clementina-video-client`.
 
 ```sh
-node agents/workflows/create-game.mjs check /path/to/my-game \
-  --emulator /path/to/clementina-automation \
-  --renderer /path/to/clementina-render
+clementina check /path/to/my-game --renderer clementina-render
 ```
 
 `check` repeats project validation and build, mounts the generated SD root,
@@ -88,7 +88,8 @@ snapshot, and compares loaded palette bytes with the generated asset. For the
 assembly starter, it checks CPU RAM `$0200`. It exits nonzero if a declared
 check fails. The emulator process is closed after inspection. `--emulator` defaults to
 `CLEMENTINA_EMULATOR` or `clementina-automation` on `PATH`; `--renderer` can be
-omitted when only state and overlay text are needed.
+omitted when only state and overlay text are needed. From an SDK checkout,
+`node agents/workflows/create-game.mjs check` does the same.
 
 Open `build/inspection/report.json` for CPU registers, cycle count, overlay rows,
 snapshot hashes, and check results. `before.video.bin` and `after.video.bin` are

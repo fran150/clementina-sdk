@@ -1141,6 +1141,9 @@ export const schemas = {
                     }
                   ]
                 }
+              },
+              "checks": {
+                "type": "boolean"
               }
             }
           },
@@ -1173,9 +1176,6 @@ export const schemas = {
               "folder": {
                 "type": "string",
                 "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$"
-              },
-              "checks": {
-                "type": "boolean"
               },
               "slots": {
                 "type": "array",

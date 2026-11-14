@@ -8,17 +8,18 @@ spec and source. The debugger supports BASIC and assembly projects.
 2. Run:
 
 ```sh
-node agents/workflows/debug-game.mjs <project> --line 124 \
-  --source src/main.s --memory 640:16 \
-  --emulator /path/to/clementina-automation
+clementina debug <project> --line 124 --source src/main.s --memory '$0280:16'
 ```
 
-`--source` defaults to the manifest entry file. `--memory` is an optional
-CPU address and byte count. `--timeout` sets the host wait limit in
+`--source` defaults to the manifest's `program.entry`, else the first assembly
+source. `--memory` is an optional CPU address and byte count; the address may be
+decimal, `$hex` or `0xhex` (quote `$` in a shell). `--emulator` names an
+automation executable other than `clementina-automation` on `PATH`. `--timeout` sets the host wait limit in
 milliseconds. The command builds with SDK APIs, configures a verified source
 breakpoint before launch, waits for that stop, saves CPU/register/source and
 optional memory in `<outputDirectory>/inspection/debug-report.json`, and saves
-native MIA video state as `debug.video.bin`. It closes the owned emulator.
+native MIA video state as `debug.video.bin`. It closes the owned emulator. `node agents/workflows/debug-game.mjs` takes the
+same options from an SDK checkout.
 
 3. Compare the report and video state with the spec. For a visual PNG, use
    [the character workflow](create-character.md) with `clementina-render`,
