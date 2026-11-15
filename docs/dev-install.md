@@ -35,7 +35,7 @@ Then, in any shell:
 $ clementina-dev on        # dev folder first on PATH, in this shell only
 $ clementina-dev status    # which copy of each tool this shell runs
 clementina: dev, /Users/me/.clementina/dev/bin/clementina
-clementina-automation: installed, /opt/homebrew/bin/clementina-automation
+clementina-automation: installed, /Users/me/.clementina/bin/clementina-automation
 $ clementina-dev off       # back to the installed tools
 ```
 

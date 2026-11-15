@@ -120,8 +120,8 @@ result include `sdRoot`.
 `PATH`; with no names it installs all four, and without `@version` each comes
 from its newest release. `update [tool ...] [--check]` moves the standalone CLI
 and every installed tool to its newest release; `--check` only lists the newer
-releases. A CLI installed with npm or Homebrew is not replaced; `update` names
-the command that updates it.
+releases. A CLI that the install script did not put there, such as a build in
+an SDK checkout, is not replaced.
 See [installing](install.md). Every command looks for tools on `PATH` first,
 then in `~/.clementina`.
 

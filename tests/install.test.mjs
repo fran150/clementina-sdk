@@ -142,8 +142,8 @@ test('update --check lists newer releases without downloading them', {skip: !pla
     const options = {home, downloadBase: base, apiBase: `${base}/api`};
     const old = await clementina(['install', 'emulator@0.4.0', '--no-modify-path'], {CLEMENTINA_HOME: home, CLEMENTINA_DOWNLOAD_BASE: base, CLEMENTINA_API_BASE: `${base}/api`});
     assert.equal(old.status, 0, old.stderr);
-    const report = await updateTools({...options, check: true, cli: {version: '0.3.0-alpha.3', how: 'npm'}});
-    assert.deepEqual(report.cli, {current: 'v0.3.0-alpha.3', latest: 'v9.0.0', updated: false, hint: 'npm install -g @clementina/cli@alpha'});
+    const report = await updateTools({...options, check: true, cli: {version: '0.3.0-alpha.3', how: 'dev'}});
+    assert.deepEqual(report.cli, {current: 'v0.3.0-alpha.3', latest: 'v9.0.0', updated: false, hint: 'this is a dev build, so update its checkout'});
     assert.deepEqual(report.tools, [{tool: 'emulator', current: 'v0.4.0', latest: 'v0.5.0'}]);
     assert.deepEqual(report.installed, []);
     assert.equal(JSON.parse(await readFile(join(home, 'installed.json'), 'utf8')).tools.emulator.tag, 'v0.4.0');
