@@ -164,7 +164,8 @@ async function download(url: string, fetcher: typeof fetch, headers: Record<stri
 function run(command: string, args: string[], cwd?: string): void {
   const result = spawnSync(command, args, {cwd, encoding: 'utf8', windowsHide: true});
   if (result.error || result.status !== 0) {
-    throw new InstallError('install.extract', `${command} ${args.join(' ')} failed: ${result.error?.message ?? result.stderr.trim()}`);
+    const why = result.error?.message ?? (result.stderr.trim() || `exit status ${result.status ?? result.signal}`);
+    throw new InstallError('install.extract', `${command} ${args.join(' ')} failed: ${why}`);
   }
 }
 
