@@ -24,7 +24,7 @@ library runtime: Studio, the MCP server, and the VS Code extension consume the
 npm packages unchanged.
 
 ```sh
-npx clementina new path/to/my-game --template basic --name "My Game"
+npx clementina new path/to/my-game --name "My Game"
 npx clementina project validate examples/minimal-game
 npx clementina project import "My game.cstudio" path/to/new-project --name "My Game"
 npx clementina asset validate examples/minimal-game/assets/palettes/main.palette.json
@@ -38,18 +38,18 @@ npx clementina debug path/to/project --line 20 --memory '$0200:16'
 npx clementina doctor
 ```
 
-`new <directory>` starts a project from a starter built into the CLI, so it
-needs no SDK checkout. The starters differ only in the code they begin with:
-`--template basic` (the default) has a BASIC `program.entry` with a palette and
-an input loop, and `--template assembly` has a `build.assembly` part with an
-explicit `link.cfg`. Either project can add the other
-[program part](project-format.md#program-parts) later. Both include a `README.md`
-and the `checks/` files used by the [agent workflows](../agents/workflows/create-game.md).
+`new <directory>` starts a project from the starter built into the CLI, so it
+needs no SDK checkout. The starter has both [program parts](project-format.md#program-parts):
+a BASIC `program.entry` (`src/main.bas`, an input loop with a palette) that calls
+an assembly routine (`src/score.s`, linked by `link.cfg` at `$7000`, above a
+`build.basic.memoryTop` of `$7000`) with `SYS`. A project keeps either part on its
+own by removing the other. It includes a `README.md` and the `checks/` files used
+by the [agent workflows](../agents/workflows/create-game.md); building it needs cc65.
 The destination must not exist or must be an empty directory, and no file is
 overwritten. `--name` sets the manifest `name` (1..80 characters); it defaults
 to the directory's name. The new project validates as created, and `--json`
-`data` lists its `directory`, `template`, `name` and `files`. The templates are
-generated from `templates/` by `npm run generate:templates`.
+`data` lists its `directory`, `name` and `files`. The embedded starter is
+generated from `templates/starter/` by `npm run generate:templates`.
 
 `check [directory]` validates and builds the project, runs it in an owned
 headless emulator like `run`, and tests its `checks/smoke.json` (overlay text
@@ -123,7 +123,9 @@ and every installed tool to its newest release; `--check` only lists the newer
 releases. A CLI that the install script did not put there, such as a build in
 an SDK checkout, is not replaced.
 See [installing](install.md). Every command looks for tools on `PATH` first,
-then in `~/.clementina`.
+then in `~/.clementina`. `dev [on|off|status]` switches every terminal to the
+local builds in `~/.clementina/dev/bin` and back; see
+[dev mode](dev-install.md#dev-mode).
 
 `mcp` serves the SDK's [MCP server](mcp.md) over stdio until the host closes
 it; standard output then carries only MCP messages. `--version` prints the CLI version; a build in an SDK checkout adds its commit

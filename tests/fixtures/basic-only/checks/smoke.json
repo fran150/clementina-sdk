@@ -1,0 +1,6 @@
+{
+  "settleCycles": 3000000,
+  "beforeText": "PRESS A TO CATCH IT",
+  "input": "A",
+  "afterText": "CAUGHT! SCORE 1"
+}

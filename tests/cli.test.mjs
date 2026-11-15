@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdir,mkdtemp,readFile,writeFile} from 'node:fs/promises';
+import {cp,mkdir,mkdtemp,readFile,writeFile} from 'node:fs/promises';
 import {loadProject} from '@clementina/project/node';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -114,42 +114,49 @@ test('project import turns a Studio session into a validating assembly project',
  const bad=run('project','import','package.json',join(dir,'bad'),'--json');
  assert.equal(bad.status,1);assert.equal(JSON.parse(bad.stdout).diagnostics[0].code,'project.import.studio');
 });
-test('new writes an embedded template that validates and refuses to overwrite',async()=>{
+test('new writes the embedded starter, with both program parts, that validates and refuses to overwrite',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'clementina-new-'));
- const basic=join(dir,'star-game');
- const r=run('new',basic,'--json');
+ const star=join(dir,'star-game');
+ const r=run('new',star,'--json');
  assert.equal(r.status,0,r.stdout+r.stderr);
  const out=JSON.parse(r.stdout);
- assert.deepEqual([out.ok,out.data.template,out.data.name,out.data.directory],[true,'basic','star-game',basic]);
- assert.match(await readFile(join(basic,'src/main.bas'),'utf8'),/CATCH THE STAR/);
- assert.match(await readFile(join(basic,'clementina.yaml'),'utf8'),/^name: star-game$/m);
- assert.equal(run('project','validate',basic,'--json').status,0);
- const again=run('new',basic,'--json');
+ assert.deepEqual([out.ok,out.data.name,out.data.directory],[true,'star-game',star]);
+ assert.match(await readFile(join(star,'src/main.bas'),'utf8'),/SYS 28672/);
+ assert.match(await readFile(join(star,'src/score.s'),'utf8'),/add_point:/);
+ assert.match(await readFile(join(star,'clementina.yaml'),'utf8'),/^name: star-game$/m);
+ assert.equal(run('project','validate',star,'--json').status,0);
+ const again=run('new',star,'--json');
  assert.equal(again.status,1);assert.equal(JSON.parse(again.stdout).diagnostics[0].code,'project.new.exists');
- const asm=join(dir,'asm');
- await mkdir(asm);
- const made=run('new',asm,'--template','assembly','--name','Ruben\'s Underworld: "1"');
+ const named=join(dir,'named');
+ await mkdir(named);
+ const made=run('new',named,'--name','Ruben\'s Underworld: "1"');
  assert.equal(made.status,0,made.stdout+made.stderr);
- assert.equal(made.stdout,`Created ${asm} from the assembly template.\n`);
- const loaded=await loadProject(asm);
+ assert.equal(made.stdout,`Created ${named}.\n`);
+ const loaded=await loadProject(named);
  assert.equal(loaded.ok,true,JSON.stringify(loaded.diagnostics));
  assert.equal(loaded.value.manifest.name,'Ruben\'s Underworld: "1"');
- assert.equal(loaded.value.manifest.build.assembly.entrySymbol,'game_start');
- if(hasTools){const built=run('build',asm,'--json');assert.equal(built.status,0,built.stdout+built.stderr);}
+ assert.equal(loaded.value.manifest.program.entry,'src/main.bas');
+ assert.equal(loaded.value.manifest.build.assembly.entrySymbol,'add_point');
+ assert.equal(loaded.value.manifest.build.basic.memoryTop,0x7000);
+ if(hasTools){
+  const built=run('build',named,'--json');assert.equal(built.status,0,built.stdout+built.stderr);
+  // The assembly sits above BASIC's lowered top, so the layout has no overlap.
+  assert.deepEqual(JSON.parse(built.stdout).diagnostics,[]);
+ }
  for(const [args,status,code] of [
   [['new'],2,'cli.usage'],
   [['new','a','b'],2,'cli.usage'],
-  [['new',join(dir,'x'),'--template'],2,'cli.usage'],
-  [['new',join(dir,'x'),'--template','mixed'],2,'project.new.template'],
+  [['new',join(dir,'x'),'--template','basic'],2,'cli.usage'],
   [['new',join(dir,'x'),'--name','a'.repeat(81)],1,'project.new.name'],
  ]){const f=run(...args,'--json');assert.equal(f.status,status,f.stdout);assert.equal(JSON.parse(f.stdout).diagnostics[0].code,code);}
  const {help}=await import('../packages/cli/dist/index.js');
- assert.match(help,/new <directory> \[--template basic\|assembly\]/);
+ assert.match(help,/new <directory> \[--name <name>\]/);
 });
 test('check runs smoke and code checks through an owned emulator and reports failures as diagnostics',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'clementina-check-'));
  const root=join(dir,'game');
- assert.equal(run('new',root).status,0);
+ // BASIC only, so the build needs no cc65.
+ await cp(new URL('fixtures/basic-only/',import.meta.url),root,{recursive:true});
  await writeFile(join(root,'checks/code.json'),JSON.stringify({format:'clementina-code-check',version:1,settleCycles:10,memory:[{address:0x200,bytes:[42]},{address:0x201,bytes:[7],phase:'after'}]}));
  const start=65664,columns=40; // specs/video.json OV_NT and overlay.columns
  const screen=async rows=>{

@@ -8,7 +8,7 @@ import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
 
 const sdkRoot = resolve(import.meta.dirname, '..');
 const server = join(sdkRoot, 'packages/mcp/bin/clementina-mcp.mjs');
-const template = join(sdkRoot, 'templates/basic-game');
+const template = join(sdkRoot, 'tests/fixtures/basic-only');
 const data = result => result.structuredContent ?? JSON.parse(result.content.find(item => item.type === 'text').text);
 
 test('MCP stdio server lists tools, validates assets/projects, builds, and returns structured failures', async () => {
@@ -50,7 +50,7 @@ test('MCP controls an owned emulator and captures native video', {skip: !process
   const client = new Client({name: 'clementina-mcp-emulator-test', version: '1.0.0'});
   const transport = new StdioClientTransport({command: process.execPath, args: [server]});
   try {
-    await cp(join(sdkRoot, 'templates/asm-game'), root, {recursive: true});
+    await cp(join(sdkRoot, 'tests/fixtures/assembly-only'), root, {recursive: true});
     await client.connect(transport);
     const launched = await client.callTool({name: 'emulator_launch', arguments: {
       projectRoot: root, executable: process.env.CLEMENTINA_EMULATOR,

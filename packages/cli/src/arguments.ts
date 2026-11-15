@@ -58,19 +58,18 @@ export function parseImportArguments(args: readonly string[]): ImportArguments |
 }
 
 /** Options accepted by `clementina new`. */
-export interface NewArguments {directory: string; template?: string; name?: string}
+export interface NewArguments {directory: string; name?: string}
 
-/** Parse `new <directory> [--template <name>] [--name <name>]`, rejecting repeats and unknown flags. */
+/** Parse `new <directory> [--name <name>]`, rejecting repeats and unknown flags. */
 export function parseNewArguments(args: readonly string[]): NewArguments | undefined {
-  let directory: string | undefined, template: string | undefined, name: string | undefined;
+  let directory: string | undefined, name: string | undefined;
   for (let index = 1; index < args.length; index++) {
-    if (args[index] === '--template' && template === undefined && isValue(args[index + 1])) template = args[++index];
-    else if (args[index] === '--name' && name === undefined && isValue(args[index + 1])) name = args[++index];
+    if (args[index] === '--name' && name === undefined && isValue(args[index + 1])) name = args[++index];
     else if (isValue(args[index]) && directory === undefined) directory = args[index];
     else return undefined;
   }
   if (directory === undefined) return undefined;
-  return {directory, ...(template !== undefined ? {template} : {}), ...(name !== undefined ? {name} : {})};
+  return {directory, ...(name !== undefined ? {name} : {})};
 }
 
 /** Options accepted by `clementina check`. */
@@ -149,6 +148,12 @@ export function parseInstallArguments(args: readonly string[]): InstallArguments
   }
   const requested = tools.length ? tools : INSTALLABLE_TOOLS.map(tool => ({tool}));
   return {tools: INSTALLABLE_TOOLS.flatMap(tool => requested.filter(entry => entry.tool === tool)), modifyPath, force};
+}
+
+/** Parse `dev [on|off|status]`; no action means `status`. */
+export function parseDevArguments(args: readonly string[]): 'on' | 'off' | 'status' | undefined {
+  if (args.length === 1) return 'status';
+  return args.length === 2 && ['on', 'off', 'status'].includes(args[1]) ? args[1] as 'on' | 'off' | 'status' : undefined;
 }
 
 /** Options accepted by `clementina update`. */

@@ -8,7 +8,7 @@ import {CheckError, checkProject, createProject} from '@clementina/cli';
 import {startEmulatorProcess} from '@clementina/emulator-client/node';
 
 const usage = `Usage:
-  node agents/workflows/create-game.mjs init <new-directory> [--name <name>] [--template basic|assembly]
+  node agents/workflows/create-game.mjs init <new-directory> [--name <name>]
   node agents/workflows/create-game.mjs check <project-directory> [--emulator <path>] [--renderer <path>]
 
 These are the same as clementina new and clementina check.
@@ -26,8 +26,8 @@ function options(args, names) {
 }
 
 /** Same as `clementina new`. */
-export async function initGame(destination, name = 'Catch the Star', template = 'basic') {
-  return (await createProject(destination, {name, template})).root;
+export async function initGame(destination, name = 'Catch the Star') {
+  return (await createProject(destination, {name})).root;
 }
 
 /** Same as `clementina check`, throwing when a check fails. */
@@ -51,9 +51,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const [command, directory, ...rest] = process.argv.slice(2);
     if (!directory || !['init', 'check'].includes(command)) throw new Error(usage);
     if (command === 'init') {
-      const args = options(rest, ['--name', '--template']);
-      const template = args['--template'] ?? 'basic';
-      const root = await initGame(directory, args['--name'] ?? (template === 'assembly' ? 'Assembly Starter' : 'Catch the Star'), template);
+      const args = options(rest, ['--name']);
+      const root = await initGame(directory, args['--name']);
       console.log(`Created ${root}`);
     } else {
       const args = options(rest, ['--emulator', '--renderer']);

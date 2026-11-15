@@ -122,7 +122,7 @@ test('real toolchain builds the library demo, generated descriptors and SD card'
 
 test('real toolchain links the Clementina library into an assembly project without assets', {skip:!hasTools},async()=>{
  const root=await mkdtemp(join(tmpdir(),'clementina-library-'));
- await cp(new URL('../templates/asm-game/',import.meta.url),root,{recursive:true});
+ await cp(new URL('fixtures/assembly-only/',import.meta.url),root,{recursive:true});
  const plain=await buildProject(root);assert.equal(plain.ok,true,JSON.stringify(plain.diagnostics));
  assert.ok((await readFile(join(root,'build/lib/clementina.lib'))).length>0);
  // A program that calls nothing from the library links none of it.

@@ -3,9 +3,9 @@
 A dev install runs local builds of the SDK and its companion tools in place of
 the installed releases, without replacing them. Local builds go into one dev
 folder, `~/.clementina/dev/bin` (set `CLEMENTINA_DEV_BIN` to use another), and
-a shell switch puts that folder ahead of the installed tools on `PATH`. The
-released copies stay where they are, so switching back is immediate and a
-package-manager upgrade never overwrites a dev build.
+`clementina dev on` makes every terminal use them. The released copies stay
+where they are, so switching back is immediate and `clementina update` never
+overwrites a dev build.
 
 | Repository | Command | Puts in the dev folder |
 | --- | --- | --- |
@@ -19,29 +19,34 @@ the checkout's `packages/cli/bin/clementina.mjs` and
 is enough to update them. The Go repositories build their executables straight
 into the folder; run `make dev-install` again after a change.
 
-## The shell switch
-
-`npm run dev:install` also copies `scripts/clementina-dev.sh` to
-`~/.clementina/dev/clementina-dev.sh`. Source it from a bash or zsh startup
-file:
-
-```sh
-. ~/.clementina/dev/clementina-dev.sh
-```
-
-Then, in any shell:
+## Dev mode
 
 ```text
-$ clementina-dev on        # dev folder first on PATH, in this shell only
-$ clementina-dev status    # which copy of each tool this shell runs
-clementina: dev, /Users/me/.clementina/dev/bin/clementina
-clementina-automation: installed, /Users/me/.clementina/bin/clementina-automation
-$ clementina-dev off       # back to the installed tools
+$ clementina dev on        # every terminal uses the dev builds
+Dev mode is on in every terminal. Commands use the dev builds in /Users/me/.clementina/dev/bin: clementina, clementina-automation, clementina-emulator, clementina-mcp.
+$ clementina dev           # or dev status: whether it is on, and the dev builds
+$ clementina dev off       # back to the installed tools
 ```
 
-The switch affects only the shell it runs in, so one terminal can use dev
-builds while another uses the release. A tool without a dev build falls
-through to the installed copy.
+`dev on` writes `~/.clementina/dev/enabled`, so the mode holds in every
+terminal and after a restart until `dev off`. While it is on:
+
+- The installed `clementina` runs the dev build of the CLI for every command
+  except `dev` and `update`, which it always runs itself. A broken checkout can
+  therefore never stop `clementina dev off`.
+- On macOS and Linux, the links in `~/.clementina/bin` of each tool with a dev
+  build point at the dev build, so typing `clementina-emulator` runs it too.
+  `dev off` points them back at the installed releases, and `install` and
+  `update` leave them alone until then. On Windows, type the dev folder path
+  to run a dev build by hand.
+- `clementina` commands put the dev folder first on their own `PATH`, so
+  `build`, `run`, `check`, the debugger and the MCP server start the dev
+  emulator on every system.
+- Each command prints a reminder on stderr (not with `--json`, nor for `mcp`),
+  and `doctor` shows `dev mode: on`.
+
+A tool without a dev build stays on its installed copy. `dev on` refuses when
+the dev folder is empty, so a machine without dev builds cannot switch to them.
 
 ## Telling the copies apart
 
