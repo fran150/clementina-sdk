@@ -130,8 +130,8 @@ function run(command: string, args: string[], cwd?: string): void {
   }
 }
 
-/** Unpack an archive into a new folder and return the folder that holds its files. */
-async function unpack(archive: string, into: string): Promise<string> {
+/** Unpack an archive into a new folder and return the folder that holds its files, or `into` itself without `strip`. */
+async function unpack(archive: string, into: string, strip = true): Promise<string> {
   await mkdir(into, {recursive: true});
   // tar reads .tar.gz everywhere, and .zip on macOS and Windows (bsdtar). On
   // Windows, use the system's bsdtar: a GNU tar from Git or MSYS2 earlier on
@@ -139,7 +139,7 @@ async function unpack(archive: string, into: string): Promise<string> {
   const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
   run(tar, ['-xof', archive, '-C', into]);
   const entries = await readdir(into, {withFileTypes: true});
-  return entries.length === 1 && entries[0].isDirectory() ? join(into, entries[0].name) : into;
+  return strip && entries.length === 1 && entries[0].isDirectory() ? join(into, entries[0].name) : into;
 }
 
 /** Replace `target` with `source`, keeping the old copy until the new one is in place. */
@@ -185,7 +185,8 @@ async function installStudio(file: string, platform: Platform, home: string, bin
     return image;
   }
   // macOS: the zip holds the .app bundle; it goes in the user's Applications folder.
-  const unpacked = await unpack(file, await mkdtemp(join(tools, '.studio-')));
+  // The zip's only top-level entry is the bundle itself, so keep it.
+  const unpacked = await unpack(file, await mkdtemp(join(tools, '.studio-')), false);
   const app = (await readdir(unpacked)).find(name => name.endsWith('.app'));
   if (!app) throw new InstallError('install.extract', 'The Studio download holds no .app bundle');
   const applications = join(homedir(), 'Applications');
