@@ -83,6 +83,8 @@ jobs:
       - name: Install the companion tools
         env:
           CLEMENTINA_HOME: ${{ runner.temp }}/clementina-home
+          # Shared runner addresses run out of unauthenticated GitHub API requests.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           cli="$PWD/bin/${{ matrix.binary }}"
           "$cli" install emulator video-client studio --no-modify-path
