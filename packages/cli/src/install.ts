@@ -1,5 +1,6 @@
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {existsSync, readdirSync} from 'node:fs';
 import {chmod, mkdir, mkdtemp, readdir, readFile, rename, rm, stat, symlink, writeFile} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {delimiter, join} from 'node:path';
@@ -74,17 +75,41 @@ export function installedToolDirectories(home = clementinaHome()): string[] {
   return [join(home, 'bin'), ...Object.entries(COMMANDS).map(([tool, {dir}]) => join(home, 'tools', tool, dir))];
 }
 
+/** The folder of dev builds: `CLEMENTINA_DEV_BIN`, or `dev/bin` in the Clementina home. See docs/dev-install.md. */
+export function devBin(home = clementinaHome(), env: NodeJS.ProcessEnv = process.env): string {
+  return env.CLEMENTINA_DEV_BIN || join(home, 'dev', 'bin');
+}
+
+/** The file whose presence turns dev mode on, written by `clementina dev on`. */
+export function devModeFile(home = clementinaHome()): string {
+  return join(home, 'dev', 'enabled');
+}
+
+/** True while `clementina dev on` is in effect. */
+export function devModeOn(home = clementinaHome()): boolean {
+  return existsSync(devModeFile(home));
+}
+
+/** The commands in the dev folder, without `.exe` or `.cmd`. */
+export function devTools(home = clementinaHome(), env: NodeJS.ProcessEnv = process.env): string[] {
+  try {
+    return [...new Set(readdirSync(devBin(home, env)).map(name => name.replace(/\.(?:exe|cmd)$/iu, '')))].sort();
+  } catch { return []; }
+}
+
 /**
  * Add the installed tools to the end of this process's PATH, so builds, runs
  * and checks find them in a shell that has not picked up the PATH change yet.
- * They go last so the shell's own order still wins, including dev builds that
- * `clementina-dev on` puts first.
+ * They go last so the shell's own order still wins. In dev mode the dev
+ * folder goes first instead, so commands start the dev builds on every system.
  */
 export function useInstalledTools(env: NodeJS.ProcessEnv = process.env): void {
   const key = Object.keys(env).find(name => name.toUpperCase() === 'PATH') ?? 'PATH';
-  const current = (env[key] ?? '').split(delimiter).filter(Boolean);
-  const added = installedToolDirectories(clementinaHome(env)).filter(dir => !current.includes(dir));
-  env[key] = [...current, ...added].join(delimiter);
+  const home = clementinaHome(env);
+  const dev = devModeOn(home) ? [devBin(home, env)] : [];
+  const current = (env[key] ?? '').split(delimiter).filter(dir => dir && !dev.includes(dir));
+  const added = installedToolDirectories(home).filter(dir => !current.includes(dir));
+  env[key] = [...dev, ...current, ...added].join(delimiter);
 }
 
 /** One tool to install, at its newest release unless a version is given. */
@@ -323,7 +348,9 @@ export async function installTools(options: InstallOptions): Promise<InstallRepo
         const ext = platform.os === 'windows' ? '.exe' : '';
         const present = new Set(await readdir(join(location, dir)));
         commands = names.filter(name => present.has(name + ext));
-        for (const name of commands) await link(bin, name, join(location, dir, name + ext), platform);
+        // In dev mode, bin/ keeps pointing at the dev builds until `clementina dev off`.
+        const dev = devModeOn(home) ? new Set(devTools(home)) : new Set<string>();
+        for (const name of commands) if (!dev.has(name)) await link(bin, name, join(location, dir, name + ext), platform);
       }
       installed.push({tool, tag, asset, location, commands});
       report(`${tool}: installed ${tag} in ${location}`);
@@ -335,6 +362,20 @@ export async function installTools(options: InstallOptions): Promise<InstallRepo
     [...previous.map(entry => [entry.tool, entry] as const), ...installed.map(entry => [entry.tool, entry] as const)])}, null, 2) + '\n');
   const path = options.modifyPath ? await addToUserPath(home, platform) : {changed: false as const, reason: '--no-modify-path'};
   return {home, installed, current, skipped, path};
+}
+
+/** Where each installed command lives, for linking `bin/` back to the releases. */
+export function installedCommandPaths(installed: readonly InstalledTool[], platform: Platform): Map<string, string> {
+  const ext = platform.os === 'windows' ? '.exe' : '';
+  const paths = new Map<string, string>();
+  for (const entry of installed) {
+    if (entry.tool === 'studio') {
+      for (const name of entry.commands) paths.set(name, entry.location);
+      continue;
+    }
+    for (const name of entry.commands) paths.set(name, join(entry.location, COMMANDS[entry.tool].dir, name + ext));
+  }
+  return paths;
 }
 
 /** Tools recorded by earlier installs into this home folder. */

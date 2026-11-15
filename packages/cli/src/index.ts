@@ -9,18 +9,18 @@ import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, ty
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
 export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
 export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
+export {devStatus, setDevMode, type DevStatus} from './dev.js';
 export {clementinaHome, currentPlatform, installTools, updateTools, INSTALLABLE_TOOLS, releaseTag, TOOL_REPOS, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
-export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
+export {createProject, NewProjectError, type NewProject, type NewProjectOptions} from './new.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
 const HELP_FLAGS = ['--help', '-h', 'help'];
 const VERSION_FLAGS = ['--version', '-V', 'version'];
 
 export const help = `Usage: clementina <command> [--json]
-  new <directory> [--template basic|assembly] [--name <name>]
-                                Start a project from a starter: a BASIC program
-                                (default) or an assembly program; either can add
-                                the other part later
+  new <directory> [--name <name>]
+                                Start a project: a BASIC program that calls an
+                                assembly routine
   project validate [directory]   Validate manifest, assets, references, and sources
   project import <file.cstudio> <directory> [--name <name>]
                                 Turn a Studio session into a new project
@@ -41,6 +41,8 @@ export const help = `Usage: clementina <command> [--json]
                                 and put them on PATH
   update [tool ...] [--check]    Update the CLI and the installed tools to their
                                 newest releases; --check only lists them
+  dev [on|off|status]            Use local dev builds in place of the installed
+                                tools, in every terminal
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   mcp                            Serve the SDK's MCP tools over stdio

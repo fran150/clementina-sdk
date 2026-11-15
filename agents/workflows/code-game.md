@@ -41,7 +41,7 @@ For an assembly game, a deterministic memory check can be:
 Each memory check may set `"phase": "after"` to inspect after the
 `checks/smoke.json` input. Addresses are CPU addresses; checks read at most
 256 bytes each. `settleCycles` is an emulator processing budget, not gameplay
-timing or a physical-hardware claim. The assembly starter includes this check.
+timing or a physical-hardware claim. The starter's check reads the score at `$0280` after the input.
 
 Compare the report, raw video, and optional PNG with the spec. Change source or
 portable assets, adjust the expected behavior deliberately, and run again.

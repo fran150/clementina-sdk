@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp, readFile} from 'node:fs/promises';
+import {lstat, mkdir, mkdtemp, readlink, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {dirname, join} from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname;
 const cli = new URL('../packages/cli/bin/clementina.mjs', import.meta.url).pathname;
@@ -20,26 +20,67 @@ test('--version names the checkout build and its commit', () => {
 
 test('dev install writes launchers that run this checkout', {skip: process.platform === 'win32'}, async () => {
   const home = await mkdtemp(join(tmpdir(), 'clementina-dev-'));
-  const bin = join(home, '.clementina', 'dev', 'bin');
-  const env = {...process.env, HOME: home, CLEMENTINA_DEV_BIN: ''};
+  const env = {...process.env, CLEMENTINA_HOME: home, CLEMENTINA_DEV_BIN: ''};
   const install = spawnSync(process.execPath, [join(root, 'scripts', 'dev-install.mjs')], {encoding: 'utf8', env});
   assert.equal(install.status, 0, install.stderr);
-  const launched = spawnSync(join(bin, 'clementina'), ['--version'], {encoding: 'utf8'});
+  const launched = spawnSync(join(home, 'dev', 'bin', 'clementina'), ['--version'], {encoding: 'utf8'});
   assert.equal(launched.status, 0, launched.stderr);
   assert.match(launched.stdout, /dev build/u);
-  assert.equal(await readFile(join(home, '.clementina', 'dev', 'clementina-dev.sh'), 'utf8'),
-    await readFile(join(root, 'scripts', 'clementina-dev.sh'), 'utf8'));
+});
 
-  // The shell switch puts the folder first once, however often it runs, and removes it again.
-  const script = `. "$HOME/.clementina/dev/clementina-dev.sh"
-clementina-dev on >/dev/null; clementina-dev on >/dev/null
-printf '%s\\n' "$PATH" | tr ':' '\\n' | grep -cxF "${bin}"
-clementina-dev status | grep '^clementina:'
-clementina-dev off >/dev/null
-printf '%s\\n' "$PATH" | tr ':' '\\n' | grep -cxF "${bin}" || true`;
-  const shell = spawnSync('bash', ['-c', script], {encoding: 'utf8', env: {...env, PATH: `/usr/bin:/bin:${process.env.PATH}`}});
-  assert.equal(shell.status, 0, shell.stderr);
-  assert.deepEqual(shell.stdout.trim().split('\n'), ['1', `clementina: dev, ${join(bin, 'clementina')}`, '0']);
+test('dev on and off switch bin/ and the CLI between dev builds and the installed tools', {skip: process.platform === 'win32'}, async () => {
+  const {devLaunch, devNotice, runDevBuild} = await import('../packages/cli/dist/dev.js');
+  const {useInstalledTools} = await import('../packages/cli/dist/install.js');
+  const home = await mkdtemp(join(tmpdir(), 'clementina-dev-'));
+  const env = {...process.env, CLEMENTINA_HOME: home, CLEMENTINA_DEV_BIN: '', CLEMENTINA_DEV_FORWARDED: ''};
+  const run = args => spawnSync(process.execPath, [cli, ...args], {encoding: 'utf8', env});
+  const devBin = join(home, 'dev', 'bin');
+
+  // With no dev builds there is nothing to switch to.
+  const empty = run(['dev', 'on', '--json']);
+  assert.equal(empty.status, 1);
+  assert.equal(JSON.parse(empty.stdout).diagnostics[0].code, 'dev.empty');
+
+  // An installed emulator, linked from bin/, and dev builds of the CLI and the emulator.
+  const release = join(home, 'tools', 'emulator', 'clementina-automation');
+  await mkdir(dirname(release), {recursive: true});
+  await writeFile(release, '#!/bin/sh\necho release\n', {mode: 0o755});
+  await mkdir(join(home, 'bin'), {recursive: true});
+  await symlink(release, join(home, 'bin', 'clementina-automation'));
+  await writeFile(join(home, 'installed.json'), JSON.stringify({version: 1, tools: {emulator: {
+    tool: 'emulator', tag: 'v1.0.0', asset: 'emulator.tar.gz', location: dirname(release), commands: ['clementina-automation']}}}));
+  assert.equal(spawnSync(process.execPath, [join(root, 'scripts', 'dev-install.mjs')], {env}).status, 0);
+  await writeFile(join(devBin, 'clementina-automation'), '#!/bin/sh\necho dev\n', {mode: 0o755});
+
+  const on = run(['dev', 'on']);
+  assert.equal(on.status, 0, on.stderr);
+  assert.match(on.stdout, /Dev mode is on/u);
+  assert.equal(await readlink(join(home, 'bin', 'clementina-automation')), join(devBin, 'clementina-automation'));
+  assert.equal(await readlink(join(home, 'bin', 'clementina-mcp')), join(devBin, 'clementina-mcp'));
+  assert.match(run(['dev']).stdout, /Dev mode is on/u);
+  assert.match(run(['doctor']).stdout, /dev mode: on/u);
+  assert.match(devNotice(['build'], env), /dev mode is on/u);
+  assert.equal(devNotice(['build', '--json'], env), undefined);
+  assert.equal(devNotice(['dev', 'off'], env), undefined);
+
+  // The installed standalone CLI runs the dev build, except for dev and update.
+  const launch = devLaunch(['--version'], env, true);
+  assert.equal(launch.command, join(devBin, 'clementina'));
+  assert.equal(devLaunch(['dev', 'off'], env, true), undefined);
+  assert.equal(devLaunch(['update'], env, true), undefined);
+  assert.equal(devLaunch(['--version'], env, false), undefined);
+  assert.equal(devLaunch(['--version'], {...env, CLEMENTINA_DEV_FORWARDED: '1'}, true), undefined);
+  assert.equal(await runDevBuild({command: join(devBin, 'clementina'), args: ['project', 'validate', '/nonexistent']}, env), 1);
+  const path = {...env, PATH: '/usr/bin'};
+  useInstalledTools(path);
+  assert.equal(path.PATH.split(':')[0], devBin);
+
+  const off = run(['dev', 'off']);
+  assert.equal(off.status, 0, off.stderr);
+  assert.equal(await readlink(join(home, 'bin', 'clementina-automation')), release);
+  await assert.rejects(lstat(join(home, 'bin', 'clementina-mcp')));
+  assert.equal(devNotice(['build'], env), undefined);
+  assert.match(run(['dev', 'status']).stdout, /Dev mode is off/u);
 });
 
 test('clementina mcp serves the MCP server over stdio', async () => {

@@ -21,20 +21,20 @@ both; see [program parts](../../docs/project-format.md#program-parts).
 
 ```sh
 clementina new /path/to/my-game --name "My Game"
-# To begin with 65C02 assembly code instead of a BASIC program:
-clementina new /path/to/my-game --template assembly --name "My Game"
 ```
 
-`node agents/workflows/create-game.mjs init <directory> [--name <name>] [--template basic|assembly]`
+`node agents/workflows/create-game.mjs init <directory> [--name <name>]`
 does the same from an SDK checkout.
 
-The destination must be new or an empty directory. Either starter can later
-add the other [program part](../../docs/project-format.md#program-parts). The
-default starter contains `clementina.yaml`,
-`src/main.bas`, JSON palette assets, and `checks/smoke.json`. Its input loop
-accepts `A` to score and `R` to restart. The assembly starter contains
-`src/main.s`, an explicit `link.cfg`, and `checks/code.json`; it writes 42 to CPU
-RAM `$0200`. Both manifests use project-relative source paths. Keep reusable
+The destination must be new or an empty directory. The starter has both
+[program parts](../../docs/project-format.md#program-parts): `clementina.yaml`,
+`src/main.bas`, JSON palette assets, `src/score.s` with `link.cfg`, and
+`checks/smoke.json` and `checks/code.json`. Its input loop accepts `A` to score
+and `R` to restart; scoring calls the assembly routine `add_point` with
+`SYS 28672`, which adds one to CPU RAM `$0280`. `build.basic.memoryTop` keeps
+BASIC below the routine at `$7000`. Remove `build.assembly` (and the `SYS`) for
+a BASIC-only project, or `program.entry` and `build.basic` for an assembly
+program that takes over the machine. The manifest uses project-relative source paths. Keep reusable
 asset data in portable JSON files under `assets/` and use the matching schemas
 in `specs/schema/`.
 
@@ -82,10 +82,10 @@ clementina check /path/to/my-game --renderer clementina-render
 
 `check` repeats project validation and build, mounts the generated SD root,
 launches the load plan through the ROM, pauses the emulator, advances a bounded
-number of cycles, and captures CPU and MIA video state. For the BASIC starter,
-it injects `A`, checks prompt and score text on the overlay and a changed video
-snapshot, and compares loaded palette bytes with the generated asset. For the
-assembly starter, it checks CPU RAM `$0200`. It exits nonzero if a declared
+number of cycles, and captures CPU and MIA video state. For the starter, it
+injects `A`, checks prompt and score text on the overlay and a changed video
+snapshot, compares loaded palette bytes with the generated asset, and checks
+the score at CPU RAM `$0280` after the input. It exits nonzero if a declared
 check fails. The emulator process is closed after inspection. `--emulator` defaults to
 `CLEMENTINA_EMULATOR` or `clementina-automation` on `PATH`; `--renderer` can be
 omitted when only state and overlay text are needed. From an SDK checkout,

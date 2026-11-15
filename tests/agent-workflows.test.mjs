@@ -14,7 +14,7 @@ test('code workflow checks CPU memory after a real SDK build and closes its emul
   const root = join(temporary, 'game');
   let closed = 0;
   try {
-    await cp(join(sdkRoot, 'templates/basic-game'), root, {recursive: true});
+    await cp(join(sdkRoot, 'tests/fixtures/basic-only'), root, {recursive: true});
     await rm(join(root, 'checks/smoke.json'));
     await writeFile(join(root, 'checks/code.json'), JSON.stringify({
       format: 'clementina-code-check', version: 1, settleCycles: 10,
@@ -50,7 +50,7 @@ test('debug workflow records a verified source stop and closes the owned session
   const root = join(temporary, 'game');
   let closed = 0, breakpointPath;
   try {
-    await cp(join(sdkRoot, 'templates/basic-game'), root, {recursive: true});
+    await cp(join(sdkRoot, 'tests/fixtures/basic-only'), root, {recursive: true});
     const result = await inspectBreakpoint(root, {line: 2, memory: {address: 512, count: 1}}, {
       createProjectDebugSession: async () => ({ok: true, diagnostics: [], value: {
         build: {basic: {source: 'src/main.bas'}, files: [{kind: 'load-plan', path: 'build/load-plan.json'}]},

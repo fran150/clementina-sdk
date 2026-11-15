@@ -1,9 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-alpha.4
 
+Fourth alpha. `clementina new` starts every project from one starter, `clementina update` updates the CLI and the installed tools, and `clementina dev` switches every terminal to local dev builds. Tested with clementina-6502 v0.4.0-alpha.1, clementina-video-client v0.1.0-alpha.1, clementina-studio v0.1.0-alpha.1 and cc65 2.19 (`cc65-v2.19`).
+
+- `clementina new <directory> [--name <name>]` creates one starter with both program parts: a BASIC program that calls an assembly routine with `SYS`, above a `build.basic.memoryTop` of `$7000`, with smoke and code checks. `--template` and the `basic`/`assembly` starters are gone, as are the `DEFAULT_TEMPLATE` and `TEMPLATE_NAMES` exports and the `template` field of `new --json`. Building the starter needs cc65.
 - Add `clementina update [tool ...] [--check]`, which moves the standalone CLI and every installed tool to its newest release, or with `--check` lists the newer releases.
 - The install script is the one supported install path; `docs/install.md` no longer offers npm or Homebrew installs of the CLI.
+- Add `clementina dev on|off|status`, which switches every terminal between the dev builds in `~/.clementina/dev/bin` and the installed tools; the installed CLI runs the dev build of the CLI and links `bin/` to the dev tools until `dev off`. It replaces `clementina-dev.sh`, which `npm run dev:install` no longer copies.
 
 ## 0.3.0-alpha.3
 

@@ -33,7 +33,7 @@ main:
 ```
 
 The program's linker configuration must place the `ZEROPAGE`, `CODE`,
-`RODATA`, `DATA` and `BSS` segments; the assembly starter's `link.cfg` does.
+`RODATA`, `DATA` and `BSS` segments; the starter's `link.cfg` does.
 The routines that work on assets take the descriptors that the
 [asset builder](builder.md) generates in `assets.s`, and their macros in
 `assets.inc` name assets by label.

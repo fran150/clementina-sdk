@@ -1,19 +1,13 @@
 import {mkdir, readdir, writeFile} from 'node:fs/promises';
 import {basename, dirname, join, resolve} from 'node:path';
 import {parseDocument} from 'yaml';
-import {templateFiles} from './templates.js';
+import {starterFiles} from './templates.js';
 
-/** Template names accepted by `clementina new --template`. */
-export const TEMPLATE_NAMES = Object.keys(templateFiles) as readonly string[];
-
-/** The template `clementina new` uses without `--template`. */
-export const DEFAULT_TEMPLATE = 'basic';
-
-/** Options for creating a project from an embedded template. */
-export interface NewProjectOptions {template?: string; name?: string}
+/** Options for creating a project from the embedded starter. */
+export interface NewProjectOptions {name?: string}
 
 /** A project written by `createProject`. */
-export interface NewProject {root: string; template: string; name: string; files: string[]}
+export interface NewProject {root: string; name: string; files: string[]}
 
 /** Why a project could not be created; `code` becomes the CLI diagnostic code. */
 export class NewProjectError extends Error {
@@ -33,11 +27,9 @@ async function checkDestination(root: string): Promise<void> {
   if (entries.length) throw new NewProjectError('project.new.exists', `Destination already exists and is not empty: ${root}`);
 }
 
-/** Write an embedded template to a new (or empty) directory and set the project name. */
+/** Write the embedded starter to a new (or empty) directory and set the project name. */
 export async function createProject(destination: string, options: NewProjectOptions = {}): Promise<NewProject> {
-  const template = options.template ?? DEFAULT_TEMPLATE;
-  const files = Object.hasOwn(templateFiles, template) ? templateFiles[template] : undefined;
-  if (!files) throw new NewProjectError('project.new.template', `Unknown template ${template}; expected ${TEMPLATE_NAMES.join(' or ')}`);
+  const files = starterFiles;
   const root = resolve(destination);
   const name = options.name ?? basename(root);
   if (!name.trim() || name.length > 80) {
@@ -52,5 +44,5 @@ export async function createProject(destination: string, options: NewProjectOpti
     await mkdir(dirname(target), {recursive: true});
     await writeFile(target, text, {flag: 'wx'});
   }
-  return {root, template, name, files: Object.keys(contents)};
+  return {root, name, files: Object.keys(contents)};
 }

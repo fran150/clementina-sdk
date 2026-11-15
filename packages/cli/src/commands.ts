@@ -6,9 +6,10 @@ import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
 import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
 import {loadProject, saveProject} from '@clementina/project/node';
-import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseInstallArguments, parseUpdateArguments, parseNewArguments, parseRunArguments} from './arguments.js';
+import {isValue, parseCheckArguments, parseDebugArguments, parseDevArguments, parseDoctorArguments, parseImportArguments, parseInstallArguments, parseUpdateArguments, parseNewArguments, parseRunArguments} from './arguments.js';
 import {CheckError, checkDiagnostics, checkProject} from './check.js';
 import {debugProject} from './debug.js';
+import {DevError, devStatus, setDevMode} from './dev.js';
 import {probeTool, type ToolProbe} from './doctor.js';
 import {installTools, InstallError, updateTools, type UpdateOptions} from './install.js';
 import {createProject, NewProjectError} from './new.js';
@@ -55,14 +56,16 @@ const doctor: Command = {
         : `${name} unavailable: ${tools[name].detail}. Run clementina install cc65 to build assembly projects.`,
     }));
     const failed = options.strict && missing.length > 0;
+    const dev = devStatus();
     return {
       ok: !failed, diagnostics,
       exitCode: failed ? EXIT_FAILURE : EXIT_OK,
       message: [
         `${formatCliVersion()}; ${standalone ? 'standalone executable' : `Node.js ${process.versions.node}`}`,
+        ...(dev.on ? [`dev mode: on, dev builds first from ${dev.bin}`] : []),
         ...DOCTOR_TOOLS.map(name => toolLine(name, tools[name])),
       ].join('\n'),
-      data: {...(standalone ? {standalone: true} : {node: process.versions.node}), cli: cliVersion(), tools},
+      data: {...(standalone ? {standalone: true} : {node: process.versions.node}), cli: cliVersion(), devMode: dev.on, tools},
     };
   },
 };
@@ -84,6 +87,29 @@ const install: Command = {
     if (report.path.changed) lines.push(`Added the Clementina tools to PATH in ${report.path.files.join(', ')}. Open a new terminal to use them there.`);
     lines.push('Run clementina doctor to check the toolchain.');
     return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: lines.join('\n'), data: report};
+  },
+};
+
+/** `dev [on|off|status]`: switch every terminal between dev builds and the installed tools. */
+const dev: Command = {
+  matches: args => args[0] === 'dev',
+  async run(args) {
+    const action = parseDevArguments(args);
+    if (!action) return usageFailure('dev');
+    try {
+      const status = action === 'status' ? devStatus() : await setDevMode(action === 'on');
+      const builds = status.tools.length ? status.tools.join(', ') : 'none';
+      const message = action === 'on'
+        ? `Dev mode is on in every terminal. Commands use the dev builds in ${status.bin}: ${builds}. Run clementina dev off to switch back.`
+        : action === 'off'
+          ? 'Dev mode is off. Commands use the installed tools again.'
+          : status.on
+            ? `Dev mode is on. Commands use the dev builds in ${status.bin}: ${builds}.`
+            : `Dev mode is off. Dev builds in ${status.bin}: ${builds}.`;
+      return {ok: true, diagnostics: [], exitCode: EXIT_OK, message, data: status};
+    } catch (error) {
+      return failure(error instanceof DevError ? error.code : 'dev.io', errorMessage(error));
+    }
   },
 };
 
@@ -121,7 +147,7 @@ const update: Command = {
   },
 };
 
-/** `new <directory> [--template basic|assembly] [--name <name>]`: start a project from an embedded template. */
+/** `new <directory> [--name <name>]`: start a project from the embedded starter. */
 const newProject: Command = {
   matches: args => args[0] === 'new',
   async run(args, {cwd}) {
@@ -132,13 +158,13 @@ const newProject: Command = {
       created = await createProject(resolve(cwd, options.directory), options);
     } catch (error) {
       const code = error instanceof NewProjectError ? error.code : 'project.new.io';
-      return failure(code, errorMessage(error), code === 'project.new.template' ? EXIT_USAGE : EXIT_FAILURE, options.directory);
+      return failure(code, errorMessage(error), EXIT_FAILURE, options.directory);
     }
     const loaded = await loadProject(created.root);
     return {
       ok: loaded.ok, diagnostics: loaded.diagnostics, exitCode: loaded.ok ? EXIT_OK : EXIT_FAILURE,
-      message: `Created ${created.root} from the ${created.template} template.`,
-      data: {directory: created.root, template: created.template, name: created.name, files: created.files},
+      message: `Created ${created.root}.`,
+      data: {directory: created.root, name: created.name, files: created.files},
     };
   },
 };
@@ -351,4 +377,4 @@ const debug: Command = {
 };
 
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, install, update, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, install, update, dev, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];
