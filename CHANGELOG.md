@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `clementina install [cc65|emulator|video-client|studio ...]`, which downloads the companion releases this SDK release was tested with into `~/.clementina`, checks them against `SHA256SUMS`, and adds them to `PATH`. `install.sh` and `install.ps1` install the CLI and run it, so one command sets up macOS, Linux or Windows (see `docs/install.md`). CLI commands also look for tools in `~/.clementina` after `PATH`.
+- Build cc65 for every release platform in the `cc65` workflow; a `cc65-v<version>` tag publishes the archives `clementina install cc65` uses.
 - Add `clementina mcp`, which serves the MCP server over stdio from the CLI, so the standalone executables run it without Node.js.
 - Add `clementina --version`, which names a checkout build and its commit; `doctor` prints it and the path and version of each tool it finds.
 - Add dev installs: `npm run dev:install` puts launchers for this checkout's `clementina` and `clementina-mcp` in `~/.clementina/dev/bin`, and `clementina-dev on|off|status` switches a shell between them and the installed tools.

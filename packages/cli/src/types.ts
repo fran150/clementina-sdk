@@ -5,6 +5,7 @@ import type {EmulatorProcess, EmulatorProcessOptions} from '@clementina/emulator
 import type {createProjectDebugSession} from '@clementina/debug/node';
 import type {DebugDependencies} from './debug.js';
 import type {probeTool} from './doctor.js';
+import type {installTools} from './install.js';
 
 /** An emulator left running by `clementina run` for the terminal host to supervise. */
 export interface RunSession {emulator: EmulatorProcess; initialState: ExecutionState}
@@ -19,6 +20,9 @@ export interface CommandDependencies {
   probeTool?: typeof probeTool;
   createProjectDebugSession: typeof createProjectDebugSession;
   createHttpEmulatorClient: DebugDependencies['createHttpEmulatorClient'];
+  /** Progress lines for long commands such as `install`; the terminal prints them to stderr. */
+  progress?: (line: string) => void;
+  installTools?: typeof installTools;
 }
 
 /** Inputs shared by every command handler. */

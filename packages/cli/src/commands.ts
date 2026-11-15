@@ -6,10 +6,11 @@ import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
 import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
 import {loadProject, saveProject} from '@clementina/project/node';
-import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseNewArguments, parseRunArguments} from './arguments.js';
+import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseInstallArguments, parseNewArguments, parseRunArguments} from './arguments.js';
 import {CheckError, checkDiagnostics, checkProject} from './check.js';
 import {debugProject} from './debug.js';
 import {probeTool, type ToolProbe} from './doctor.js';
+import {installTools, InstallError} from './install.js';
 import {createProject, NewProjectError} from './new.js';
 import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, usageFailure, type Command, type CommandResult} from './types.js';
@@ -50,8 +51,8 @@ const doctor: Command = {
       severity: options.strict ? 'error' : 'warning',
       code: `doctor.${name}`,
       message: name === 'emulator'
-        ? `Emulator automation executable unavailable: ${tools[name].detail}. Set CLEMENTINA_EMULATOR or use --emulator.`
-        : `${name} unavailable: ${tools[name].detail}. Install cc65 to build assembly projects.`,
+        ? `Emulator automation executable unavailable: ${tools[name].detail}. Run clementina install emulator, set CLEMENTINA_EMULATOR, or use --emulator.`
+        : `${name} unavailable: ${tools[name].detail}. Run clementina install cc65 to build assembly projects.`,
     }));
     const failed = options.strict && missing.length > 0;
     return {
@@ -63,6 +64,26 @@ const doctor: Command = {
       ].join('\n'),
       data: {...(standalone ? {standalone: true} : {node: process.versions.node}), cli: cliVersion(), tools},
     };
+  },
+};
+
+/** `install [tool ...] [--no-modify-path]`: download the tested cc65, emulator, video client and Studio releases. */
+const install: Command = {
+  matches: args => args[0] === 'install',
+  async run(args, {dependencies}) {
+    const options = parseInstallArguments(args);
+    if (!options) return usageFailure('install');
+    let report;
+    try {
+      report = await (dependencies.installTools ?? installTools)({...options, ...(dependencies.progress ? {report: dependencies.progress} : {})});
+    } catch (error) {
+      return failure(error instanceof InstallError ? error.code : 'install.io', errorMessage(error));
+    }
+    const lines = [...report.installed, ...report.current].map(entry => `${entry.tool} ${entry.tag}: ${entry.location}`);
+    for (const entry of report.skipped) lines.push(`${entry.tool}: skipped, ${entry.reason}`);
+    if (report.path.changed) lines.push(`Added the Clementina tools to PATH in ${report.path.files.join(', ')}. Open a new terminal to use them there.`);
+    lines.push('Run clementina doctor to check the toolchain.');
+    return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: lines.join('\n'), data: report};
   },
 };
 
@@ -296,4 +317,4 @@ const debug: Command = {
 };
 
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, install, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];

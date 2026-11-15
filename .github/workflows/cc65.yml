@@ -1,0 +1,122 @@
+name: cc65
+
+# Builds the cc65 assembler and linker that `clementina install cc65` puts in
+# ~/.clementina. cc65 publishes Windows snapshots only, so each platform is
+# built here from the upstream release tag on its own runner. Pushing a
+# cc65-v<version> tag (cc65-v2.19) attaches the archives and SHA256SUMS to a
+# release of that name; bump TOOL_RELEASES in packages/cli/src/install.ts to
+# match.
+
+on:
+  push:
+    tags: ['cc65-v*']
+  pull_request:
+    paths: [.github/workflows/cc65.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The upstream cc65 version built when no cc65-v* tag names one.
+  CC65_VERSION: '2.19'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Older Ubuntu images keep the glibc requirement low.
+          - {os: ubuntu-22.04, target: linux-amd64}
+          - {os: ubuntu-22.04-arm, target: linux-arm64}
+          - {os: macos-latest, target: darwin-arm64}
+          - {os: macos-15-intel, target: darwin-amd64}
+          - {os: windows-latest, target: windows-amd64}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Choose the version
+        run: |
+          case "$GITHUB_REF" in refs/tags/cc65-v*) version="${GITHUB_REF_NAME#cc65-v}" ;; *) version="$CC65_VERSION" ;; esac
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "PACKAGE_NAME=cc65-$version-${{ matrix.target }}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          repository: cc65/cc65
+          ref: V${{ env.VERSION }}
+          path: cc65
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          install: make mingw-w64-x86_64-gcc
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        working-directory: cc65
+        # Static linking leaves no MinGW DLLs for the user to find.
+        run: make -j4 bin LDFLAGS=-static
+      - name: Build
+        if: runner.os != 'Windows'
+        working-directory: cc65
+        run: make -j4 bin
+      - name: Package
+        run: |
+          dir="dist/$PACKAGE_NAME"
+          mkdir -p "$dir/bin"
+          cp cc65/bin/* "$dir/bin/"
+          cp cc65/LICENSE "$dir/LICENSE"
+          printf 'cc65 %s, built from https://github.com/cc65/cc65/tree/V%s for the Clementina SDK.\n' "$VERSION" "$VERSION" > "$dir/README.txt"
+          ls -l "$dir/bin"
+      - name: Smoke test
+        run: |
+          bin="$PWD/dist/$PACKAGE_NAME/bin"
+          cd "$RUNNER_TEMP"
+          printf '.segment "CODE"\n  lda #$01\n  rts\n' > smoke.s
+          printf 'MEMORY { RAM: start = $1000, size = $1000, file = %%O; }\nSEGMENTS { CODE: load = RAM, type = ro; }\n' > smoke.cfg
+          "$bin/ca65" --version
+          "$bin/ca65" --cpu 65C02 -o smoke.o smoke.s
+          "$bin/ld65" --config smoke.cfg -o smoke.bin smoke.o
+          "$bin/ar65" r smoke.lib smoke.o
+          test "$(od -An -tx1 smoke.bin | tr -d ' \n')" = a90160
+      - name: Archive
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a "$PACKAGE_NAME.zip" "$PACKAGE_NAME" >/dev/null
+          else
+            tar -czf "$PACKAGE_NAME.tar.gz" "$PACKAGE_NAME"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cc65-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/cc65-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cc65-*
+          path: dist
+          merge-multiple: true
+      - name: Attach the archives to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "cc65 ${GITHUB_REF_NAME#cc65-v}" \
+                 --notes "cc65 ${GITHUB_REF_NAME#cc65-v} built for clementina install. Not an SDK release." --prerelease
+          gh release upload "$GITHUB_REF_NAME" ./* --repo "$GITHUB_REPOSITORY" --clobber

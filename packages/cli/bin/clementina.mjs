@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // `clementina mcp` hands stdio to the MCP server, which keeps the process alive
-// until the host closes it; every other command runs once and exits.
+// until the host closes it; every other command runs once and exits. Tools
+// from `clementina install` are added to the end of PATH for both.
+const {useInstalledTools} = await import('../dist/install.js');
+useInstalledTools();
 if (process.argv.length === 3 && process.argv[2] === 'mcp') {
   const {serveMcp} = await import('../dist/mcp.js');
   serveMcp();

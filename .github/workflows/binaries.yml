@@ -78,6 +78,17 @@ jobs:
           "$cli" asset validate examples/minimal-game/assets/palettes/main.palette.json
           # Templates are embedded: `new` must work with no SDK files beside the executable.
           (cd "$RUNNER_TEMP" && "$cli" new new-game && "$cli" project validate new-game)
+      # The tested companion releases install and are found with nothing on PATH.
+      # cc65 joins once its cc65-v* release exists.
+      - name: Install the companion tools
+        env:
+          CLEMENTINA_HOME: ${{ runner.temp }}/clementina-home
+        run: |
+          cli="$PWD/bin/${{ matrix.binary }}"
+          "$cli" install emulator video-client studio --no-modify-path
+          "$cli" install emulator video-client studio --no-modify-path --json | grep -q '"current":\[{'
+          "$cli" doctor --json | tee doctor.json
+          grep -q '"emulator":{"found":true' doctor.json
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

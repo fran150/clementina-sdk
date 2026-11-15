@@ -115,6 +115,12 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
+`install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]`
+downloads the companion releases this SDK release was tested with into
+`~/.clementina` and adds them to `PATH`; with no names it installs all four.
+See [installing](install.md). Every command looks for tools on `PATH` first,
+then in `~/.clementina`.
+
 `mcp` serves the SDK's [MCP server](mcp.md) over stdio until the host closes
 it; standard output then carries only MCP messages. `--version` prints the CLI version; a build in an SDK checkout adds its commit
 and path (see [dev installs](dev-install.md)). `doctor` starts with that line,
