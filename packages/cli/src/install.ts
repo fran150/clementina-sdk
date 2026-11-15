@@ -133,8 +133,11 @@ function run(command: string, args: string[], cwd?: string): void {
 /** Unpack an archive into a new folder and return the folder that holds its files. */
 async function unpack(archive: string, into: string): Promise<string> {
   await mkdir(into, {recursive: true});
-  // tar reads .tar.gz everywhere, and .zip on macOS and Windows (bsdtar).
-  run('tar', ['-xof', archive, '-C', into]);
+  // tar reads .tar.gz everywhere, and .zip on macOS and Windows (bsdtar). On
+  // Windows, use the system's bsdtar: a GNU tar from Git or MSYS2 earlier on
+  // PATH reads `C:` in a path as a remote host and cannot open zip files.
+  const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+  run(tar, ['-xof', archive, '-C', into]);
   const entries = await readdir(into, {withFileTypes: true});
   return entries.length === 1 && entries[0].isDirectory() ? join(into, entries[0].name) : into;
 }
