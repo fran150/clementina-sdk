@@ -16,8 +16,20 @@ Windows, in PowerShell:
 irm https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.ps1 | iex
 ```
 
-Then open a new terminal and run `clementina doctor`. Run the same command
-again to update.
+Then open a new terminal and run `clementina doctor`.
+
+## Updating
+
+```sh
+clementina update           # the CLI and every installed tool, to their newest releases
+clementina update --check   # only list what has a newer release
+clementina update emulator  # only the tools named
+```
+
+`update` replaces the `clementina` executable in `~/.clementina/bin` and then
+updates the tools recorded in `installed.json`. A CLI installed with npm or
+Homebrew is left alone; `update` names the command that updates it. Running the
+install script again also updates everything.
 
 ## What it installs
 

@@ -9,7 +9,7 @@ import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, ty
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
 export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
 export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
-export {clementinaHome, currentPlatform, installTools, INSTALLABLE_TOOLS, releaseTag, TOOL_REPOS, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
+export {clementinaHome, currentPlatform, installTools, updateTools, INSTALLABLE_TOOLS, releaseTag, TOOL_REPOS, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
 export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
@@ -39,6 +39,8 @@ export const help = `Usage: clementina <command> [--json]
                                 Download cc65, emulator, video-client and studio
                                 (default: all, newest releases) into ~/.clementina
                                 and put them on PATH
+  update [tool ...] [--check]    Update the CLI and the installed tools to their
+                                newest releases; --check only lists them
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   mcp                            Serve the SDK's MCP tools over stdio

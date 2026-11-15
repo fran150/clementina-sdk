@@ -150,3 +150,18 @@ export function parseInstallArguments(args: readonly string[]): InstallArguments
   const requested = tools.length ? tools : INSTALLABLE_TOOLS.map(tool => ({tool}));
   return {tools: INSTALLABLE_TOOLS.flatMap(tool => requested.filter(entry => entry.tool === tool)), modifyPath, force};
 }
+
+/** Options accepted by `clementina update`. */
+export interface UpdateArguments {tools?: InstallableTool[]; check: boolean}
+
+/** Parse `update [tool ...] [--check]`; no names means the CLI and every installed tool. */
+export function parseUpdateArguments(args: readonly string[]): UpdateArguments | undefined {
+  const tools: InstallableTool[] = [];
+  let check = false;
+  for (const arg of args.slice(1)) {
+    if (arg === '--check' && !check) check = true;
+    else if ((INSTALLABLE_TOOLS as readonly string[]).includes(arg) && !tools.includes(arg as InstallableTool)) tools.push(arg as InstallableTool);
+    else return undefined;
+  }
+  return {check, ...(tools.length ? {tools: INSTALLABLE_TOOLS.filter(tool => tools.includes(tool))} : {})};
+}

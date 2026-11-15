@@ -6,11 +6,11 @@ import {errorMessage, type ClementinaDiagnostic} from '@clementina/core';
 import type {EmulatorProcess} from '@clementina/emulator-client/node';
 import {ASSEMBLY_STARTER_LINK_CFG, ASSEMBLY_STARTER_MAIN, assetPaths, importStudioProject} from '@clementina/project';
 import {loadProject, saveProject} from '@clementina/project/node';
-import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseInstallArguments, parseNewArguments, parseRunArguments} from './arguments.js';
+import {isValue, parseCheckArguments, parseDebugArguments, parseDoctorArguments, parseImportArguments, parseInstallArguments, parseUpdateArguments, parseNewArguments, parseRunArguments} from './arguments.js';
 import {CheckError, checkDiagnostics, checkProject} from './check.js';
 import {debugProject} from './debug.js';
 import {probeTool, type ToolProbe} from './doctor.js';
-import {installTools, InstallError} from './install.js';
+import {installTools, InstallError, updateTools, type UpdateOptions} from './install.js';
 import {createProject, NewProjectError} from './new.js';
 import {cliVersion, formatCliVersion} from './version.js';
 import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, usageFailure, type Command, type CommandResult} from './types.js';
@@ -83,6 +83,42 @@ const install: Command = {
     for (const entry of report.skipped) lines.push(`${entry.tool}: skipped, ${entry.reason}`);
     if (report.path.changed) lines.push(`Added the Clementina tools to PATH in ${report.path.files.join(', ')}. Open a new terminal to use them there.`);
     lines.push('Run clementina doctor to check the toolchain.');
+    return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: lines.join('\n'), data: report};
+  },
+};
+
+/** How the running CLI was installed, which decides whether `update` can replace it. */
+function runningCli(): UpdateOptions['cli'] {
+  const {version, source} = cliVersion();
+  if (source === 'package') return {version, how: 'npm'};
+  if (source === 'checkout') return {version, how: 'dev'};
+  if (/[\\/](Cellar|homebrew|linuxbrew)[\\/]/u.test(process.execPath)) return {version, how: 'homebrew'};
+  return {version, how: 'standalone', executable: process.execPath};
+}
+
+/** `update [tool ...] [--check]`: move the CLI and the installed tools to their newest releases. */
+const update: Command = {
+  matches: args => args[0] === 'update',
+  async run(args, {dependencies}) {
+    const options = parseUpdateArguments(args);
+    if (!options) return usageFailure('update');
+    let report;
+    try {
+      report = await (dependencies.updateTools ?? updateTools)({
+        ...options, cli: dependencies.runningCli?.() ?? runningCli(), ...(dependencies.progress ? {report: dependencies.progress} : {}),
+      });
+    } catch (error) {
+      return failure(error instanceof InstallError ? error.code : 'install.io', errorMessage(error));
+    }
+    const {cli, tools, installed} = report;
+    const lines: string[] = [];
+    if (cli.latest === cli.current) lines.push(`clementina ${cli.current} is up to date.`);
+    else if (cli.updated) lines.push(`Updated clementina ${cli.current} to ${cli.latest}.`);
+    else lines.push(`clementina ${cli.latest} is available (running ${cli.current})${cli.hint ? `; update it with ${cli.hint}` : ''}.`);
+    if (options.check) for (const entry of tools) lines.push(`${entry.tool} ${entry.latest} is available (installed: ${entry.current}).`);
+    else for (const entry of installed) lines.push(`Updated ${entry.tool} to ${entry.tag}.`);
+    if (!tools.length) lines.push('Every installed tool is up to date.');
+    else if (options.check) lines.push('Run clementina update to install them.');
     return {ok: true, diagnostics: [], exitCode: EXIT_OK, message: lines.join('\n'), data: report};
   },
 };
@@ -317,4 +353,4 @@ const debug: Command = {
 };
 
 /** Commands in match order; the first match handles the arguments. */
-export const commands: readonly Command[] = [doctor, install, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];
+export const commands: readonly Command[] = [doctor, install, update, newProject, check, debug, projectValidate, projectImport, basicCompile, build, run, assetValidate];
