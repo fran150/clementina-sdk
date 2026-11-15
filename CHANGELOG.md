@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0-alpha.3
+
 - `clementina install` and the install scripts fall back to the GitHub releases feed when the GitHub API refuses an unauthenticated request (60 an hour per address), and send `GITHUB_TOKEN` when it is set.
 - The cc65 packages include `asminc` and `cfg`, which ca65 needs for `.macpack`; on macOS and Linux their `bin/` commands set `CC65_HOME` themselves.
 
