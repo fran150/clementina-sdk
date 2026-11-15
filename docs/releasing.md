@@ -52,15 +52,15 @@ and `SHA256SUMS` to that GitHub release.
 
 ## Companion tools
 
-`clementina install` installs the companion releases named in `TOOL_RELEASES`
-in `packages/cli/src/install.ts`. Before tagging an SDK release, point it at
-the emulator, video client and Studio releases the SDK was tested with, and
-record them in the CHANGELOG. To publish a new cc65 build, push a
-`cc65-v<version>` tag (for example `cc65-v2.19`): the
-[cc65 workflow](../.github/workflows/cc65.yml) builds the upstream `V<version>`
-tag on every platform and attaches the archives and `SHA256SUMS` to a
-prerelease of that name. `install.sh` and `install.ps1` only pick `v*` tags, so
-cc65 releases never stand in for an SDK release.
+`clementina install` installs the newest release of each companion repository
+unless a version is named, so a companion release reaches users as soon as it
+is published. Record the versions an SDK release was tested with in its
+CHANGELOG section. To publish a new cc65 build, push a `cc65-v<version>` tag
+(for example `cc65-v2.19`): the [cc65 workflow](../.github/workflows/cc65.yml)
+builds the upstream `V<version>` tag on every platform and attaches the
+archives and `SHA256SUMS` to a prerelease of that name. `install.sh` and
+`install.ps1` only pick `v*` tags, so cc65 releases never stand in for an SDK
+release.
 
 ## Alpha releases
 

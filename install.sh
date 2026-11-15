@@ -8,8 +8,10 @@
 # `clementina install`, which installs cc65, the emulator, the video client and
 # Studio and puts ~/.clementina/bin on PATH. Run it again to update.
 #
-# Arguments go to `clementina install`: ... | sh -s -- emulator --no-modify-path
-# CLEMENTINA_VERSION=v0.3.0-alpha.1 picks a release; CLEMENTINA_HOME moves the folder.
+# --version picks an SDK release instead of the newest: ... | sh -s -- --version 0.3.0-alpha.2
+# Other arguments go to `clementina install`, which takes tool@version too:
+#   ... | sh -s -- emulator@0.4.0-alpha.1 video-client --no-modify-path
+# CLEMENTINA_VERSION also picks the release; CLEMENTINA_HOME moves the folder.
 # Windows uses install.ps1. See docs/install.md.
 set -eu
 
@@ -35,7 +37,21 @@ fi
 
 command -v curl >/dev/null 2>&1 || fail "curl is required"
 tag="${CLEMENTINA_VERSION:-}"
-if [ -z "$tag" ]; then
+# Take --version out of the arguments; the rest go to `clementina install`.
+count=$#
+while [ "$count" -gt 0 ]; do
+  arg="$1"; shift; count=$((count - 1))
+  case "$arg" in
+    --version)
+      [ "$count" -gt 0 ] || fail "--version needs a release, such as 0.3.0-alpha.2"
+      tag="$1"; shift; count=$((count - 1)) ;;
+    --version=*) tag="${arg#--version=}" ;;
+    *) set -- "$@" "$arg" ;;
+  esac
+done
+if [ -n "$tag" ]; then
+  case "$tag" in v*) ;; *) tag="v$tag" ;; esac
+else
   # The newest SDK release, alphas included. Other tags (cc65-v*) are not SDK releases.
   tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=30" \
     | sed -n 's/.*"tag_name": *"\(v[^"]*\)".*/\1/p' | head -n 1)"

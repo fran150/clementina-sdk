@@ -67,7 +67,7 @@ const doctor: Command = {
   },
 };
 
-/** `install [tool ...] [--no-modify-path]`: download the tested cc65, emulator, video client and Studio releases. */
+/** `install [tool[@version] ...] [--force] [--no-modify-path]`: download cc65, the emulator, the video client and Studio. */
 const install: Command = {
   matches: args => args[0] === 'install',
   async run(args, {dependencies}) {

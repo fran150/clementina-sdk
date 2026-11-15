@@ -6,7 +6,7 @@
 
 Second alpha. Install the SDK and its toolchain on macOS, Linux or Windows with one command (`install.sh` or `install.ps1`, see `docs/install.md`). Tested with clementina-6502 v0.4.0-alpha.1, clementina-video-client v0.1.0-alpha.1, clementina-studio v0.1.0-alpha.1 and cc65 2.19 (`cc65-v2.19`).
 
-- Add `clementina install [cc65|emulator|video-client|studio ...]`, which downloads the companion releases this SDK release was tested with into `~/.clementina`, checks them against `SHA256SUMS`, and adds them to `PATH`. `install.sh` and `install.ps1` install the CLI and run it, so one command sets up macOS, Linux or Windows (see `docs/install.md`). CLI commands also look for tools in `~/.clementina` after `PATH`.
+- Add `clementina install [tool[@version] ...]`, which downloads cc65, the emulator, the video client and Studio (their newest releases, or the versions named) into `~/.clementina`, checks them against `SHA256SUMS`, and adds them to `PATH`. `install.sh` and `install.ps1` install the newest CLI, or the one `--version` names, and run it, so one command sets up macOS, Linux or Windows (see `docs/install.md`). CLI commands also look for tools in `~/.clementina` after `PATH`.
 - Build cc65 for every release platform in the `cc65` workflow; a `cc65-v<version>` tag publishes the archives `clementina install cc65` uses.
 - Add `clementina mcp`, which serves the MCP server over stdio from the CLI, so the standalone executables run it without Node.js.
 - Add `clementina --version`, which names a checkout build and its commit; `doctor` prints it and the path and version of each tool it finds.

@@ -4,8 +4,7 @@ name: cc65
 # ~/.clementina. cc65 publishes Windows snapshots only, so each platform is
 # built here from the upstream release tag on its own runner. Pushing a
 # cc65-v<version> tag (cc65-v2.19) attaches the archives and SHA256SUMS to a
-# release of that name; bump TOOL_RELEASES in packages/cli/src/install.ts to
-# match.
+# release of that name, which `clementina install cc65` then installs.
 
 on:
   push:
