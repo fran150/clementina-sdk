@@ -58,7 +58,9 @@ is published. Record the versions an SDK release was tested with in its
 CHANGELOG section. To publish a new cc65 build, push a `cc65-v<version>` tag
 (for example `cc65-v2.19`): the [cc65 workflow](../.github/workflows/cc65.yml)
 builds the upstream `V<version>` tag on every platform and attaches the
-archives and `SHA256SUMS` to a prerelease of that name. `install.sh` and
+archives and `SHA256SUMS` to a prerelease of that name. To rebuild a cc65 release, delete its tag and push it
+again at the new commit; the workflow replaces the archives and publishes the
+release again (deleting a tag turns its release into a draft). `install.sh` and
 `install.ps1` only pick `v*` tags, so cc65 releases never stand in for an SDK
 release.
 

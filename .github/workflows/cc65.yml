@@ -155,3 +155,5 @@ jobs:
             || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "cc65 ${GITHUB_REF_NAME#cc65-v}" \
                  --notes "cc65 ${GITHUB_REF_NAME#cc65-v} built for clementina install. Not an SDK release." --prerelease
           gh release upload "$GITHUB_REF_NAME" ./* --repo "$GITHUB_REPOSITORY" --clobber
+          # Deleting a tag turns its release into a draft; publish it again when the tag is pushed back.
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

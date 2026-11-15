@@ -113,3 +113,5 @@ jobs:
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes "${prerelease[@]}"
           gh release upload "$GITHUB_REF_NAME" bin/* --repo "$GITHUB_REPOSITORY" --clobber
+          # Deleting a tag turns its release into a draft; publish it again when the tag is pushed back.
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
