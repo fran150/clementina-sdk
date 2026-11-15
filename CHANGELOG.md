@@ -2,8 +2,6 @@
 
 ## Unreleased
 
-## 0.3.0-alpha.4
-
 - Add `clementina update [tool ...] [--check]`, which moves the standalone CLI and every installed tool to its newest release, or with `--check` lists the newer releases. An npm or Homebrew CLI is left to its package manager.
 
 ## 0.3.0-alpha.3
