@@ -90,10 +90,8 @@ const install: Command = {
 /** How the running CLI was installed, which decides whether `update` can replace it. */
 function runningCli(): UpdateOptions['cli'] {
   const {version, source} = cliVersion();
-  if (source === 'package') return {version, how: 'npm'};
-  if (source === 'checkout') return {version, how: 'dev'};
-  if (/[\\/](Cellar|homebrew|linuxbrew)[\\/]/u.test(process.execPath)) return {version, how: 'homebrew'};
-  return {version, how: 'standalone', executable: process.execPath};
+  if (source === 'standalone') return {version, how: 'standalone', executable: process.execPath};
+  return {version, how: source === 'checkout' ? 'dev' : 'package'};
 }
 
 /** `update [tool ...] [--check]`: move the CLI and the installed tools to their newest releases. */
@@ -114,7 +112,7 @@ const update: Command = {
     const lines: string[] = [];
     if (cli.latest === cli.current) lines.push(`clementina ${cli.current} is up to date.`);
     else if (cli.updated) lines.push(`Updated clementina ${cli.current} to ${cli.latest}.`);
-    else lines.push(`clementina ${cli.latest} is available (running ${cli.current})${cli.hint ? `; update it with ${cli.hint}` : ''}.`);
+    else lines.push(`clementina ${cli.latest} is available (running ${cli.current})${cli.hint ? `; ${cli.hint}` : ''}.`);
     if (options.check) for (const entry of tools) lines.push(`${entry.tool} ${entry.latest} is available (installed: ${entry.current}).`);
     else for (const entry of installed) lines.push(`Updated ${entry.tool} to ${entry.tag}.`);
     if (!tools.length) lines.push('Every installed tool is up to date.');

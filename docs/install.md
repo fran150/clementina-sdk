@@ -27,9 +27,8 @@ clementina update emulator  # only the tools named
 ```
 
 `update` replaces the `clementina` executable in `~/.clementina/bin` and then
-updates the tools recorded in `installed.json`. A CLI installed with npm or
-Homebrew is left alone; `update` names the command that updates it. Running the
-install script again also updates everything.
+updates the tools recorded in `installed.json`. Running the install script again
+also updates everything.
 
 ## What it installs
 
@@ -105,11 +104,5 @@ block:
 `CLEMENTINA_VERSION` (and `CLEMENTINA_INSTALL_ARGS` for PowerShell) do the same
 through the environment.
 
-## Other ways to install
-
-- npm: `npm install -g @clementina/cli@alpha`, then `clementina install`.
-- Homebrew on macOS and Linux: the `fran150/clementina` tap. Its cc65 comes from
-  Homebrew; skip `clementina install cc65` there.
-- Every release page also lists the files for manual download.
-
-To work on the SDK or its tools themselves, see [dev installs](dev-install.md).
+The install script is the one supported way to install the toolchain. To work
+on the SDK or its tools themselves, see [dev installs](dev-install.md).

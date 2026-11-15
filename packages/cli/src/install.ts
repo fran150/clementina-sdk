@@ -164,7 +164,8 @@ async function download(url: string, fetcher: typeof fetch, headers: Record<stri
 function run(command: string, args: string[], cwd?: string): void {
   const result = spawnSync(command, args, {cwd, encoding: 'utf8', windowsHide: true});
   if (result.error || result.status !== 0) {
-    throw new InstallError('install.extract', `${command} ${args.join(' ')} failed: ${result.error?.message ?? result.stderr.trim()}`);
+    const why = result.error?.message ?? (result.stderr.trim() || `exit status ${result.status ?? result.signal}`);
+    throw new InstallError('install.extract', `${command} ${args.join(' ')} failed: ${why}`);
   }
 }
 
@@ -365,7 +366,7 @@ export interface UpdateOptions {
   fetcher?: typeof fetch;
   report?: (line: string) => void;
   /** The running CLI: its version, and the executable when it is a standalone release. */
-  cli: {version: string; executable?: string; how: 'standalone' | 'npm' | 'homebrew' | 'dev'};
+  cli: {version: string; executable?: string; how: 'standalone' | 'package' | 'dev'};
 }
 
 export interface UpdateReport {
@@ -390,10 +391,9 @@ export async function updateTools(options: UpdateOptions): Promise<UpdateReport>
   const cli: UpdateReport['cli'] = {current, latest, updated: false};
   if (latest !== current) {
     if (options.cli.how !== 'standalone' || !options.cli.executable) {
-      cli.hint = options.cli.how === 'npm' ? 'npm install -g @clementina/cli@alpha'
-        : options.cli.how === 'homebrew' ? 'brew upgrade clementina'
-        : 'this is a dev build; update its checkout';
-      report(`clementina: ${latest} is available (running ${current}); update it with ${cli.hint}`);
+      cli.hint = options.cli.how === 'dev' ? 'this is a dev build, so update its checkout'
+        : 'run the install script to get the standalone CLI';
+      report(`clementina: ${latest} is available (running ${current}); ${cli.hint}`);
     } else if (options.check) {
       report(`clementina: ${latest} is available (running ${current})`);
     } else {
