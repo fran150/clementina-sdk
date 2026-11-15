@@ -6,7 +6,7 @@ import {mkdir, mkdtemp, readFile, readlink, writeFile, chmod} from 'node:fs/prom
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {currentPlatform, TOOL_REPOS} from '../packages/cli/dist/install.js';
+import {cliAssetName, currentPlatform, TOOL_REPOS, updateTools} from '../packages/cli/dist/install.js';
 
 const cli = new URL('../packages/cli/bin/clementina.mjs', import.meta.url).pathname;
 const platform = currentPlatform();
@@ -38,6 +38,12 @@ async function fakeReleases(root, {corrupt = false, limited = false} = {}) {
   await release('cc65', 'cc65-v2.19', 'bin', ['ca65', 'ld65', 'ar65']);
   await release('emulator', 'v0.5.0', '', ['clementina-emulator', 'clementina-automation']);
   await release('emulator', 'v0.4.0', '', ['clementina-emulator', 'clementina-automation']);
+  // The newest SDK release carries a standalone CLI.
+  const cliAsset = cliAssetName(platform);
+  const cliData = Buffer.from('#!/bin/sh\necho "clementina 9.0.0"\n');
+  files.set(`/${TOOL_REPOS.cc65.repo}/releases/download/v9.0.0/${cliAsset}`, cliData);
+  files.set(`/${TOOL_REPOS.cc65.repo}/releases/download/v9.0.0/SHA256SUMS`,
+    Buffer.from(`${createHash('sha256').update(cliData).digest('hex')}  ${cliAsset}\n`));
   const server = createServer((request, response) => {
     const [path] = request.url.split('?');
     const listed = path.match(/^\/api\/repos\/(.+)\/releases$/u);
@@ -127,4 +133,45 @@ test('install rejects unknown tools and malformed versions', async () => {
   for (const args of [['nothing'], ['emulator@'], ['emulator@1@2'], ['emulator', 'emulator@1']]) {
     assert.equal((await clementina(['install', ...args], {})).status, 2, args.join(' '));
   }
+});
+
+test('update --check lists newer releases without downloading them', {skip: !platform || platform.os === 'windows'}, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'clementina-home-'));
+  const {server, base} = await fakeReleases();
+  try {
+    const options = {home, downloadBase: base, apiBase: `${base}/api`};
+    const old = await clementina(['install', 'emulator@0.4.0', '--no-modify-path'], {CLEMENTINA_HOME: home, CLEMENTINA_DOWNLOAD_BASE: base, CLEMENTINA_API_BASE: `${base}/api`});
+    assert.equal(old.status, 0, old.stderr);
+    const report = await updateTools({...options, check: true, cli: {version: '0.3.0-alpha.3', how: 'npm'}});
+    assert.deepEqual(report.cli, {current: 'v0.3.0-alpha.3', latest: 'v9.0.0', updated: false, hint: 'npm install -g @clementina/cli@alpha'});
+    assert.deepEqual(report.tools, [{tool: 'emulator', current: 'v0.4.0', latest: 'v0.5.0'}]);
+    assert.deepEqual(report.installed, []);
+    assert.equal(JSON.parse(await readFile(join(home, 'installed.json'), 'utf8')).tools.emulator.tag, 'v0.4.0');
+  } finally {
+    server.close();
+  }
+});
+
+test('update replaces a standalone CLI and moves installed tools to their newest releases', {skip: !platform || platform.os === 'windows'}, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'clementina-home-'));
+  const {server, base} = await fakeReleases();
+  try {
+    const env = {CLEMENTINA_HOME: home, CLEMENTINA_DOWNLOAD_BASE: base, CLEMENTINA_API_BASE: `${base}/api`};
+    assert.equal((await clementina(['install', 'emulator@0.4.0', 'cc65', '--no-modify-path'], env)).status, 0);
+    const executable = join(home, 'bin', 'clementina');
+    await writeFile(executable, 'old');
+    const report = await updateTools({home, downloadBase: base, apiBase: `${base}/api`, check: false,
+      cli: {version: '0.3.0-alpha.3', how: 'standalone', executable}});
+    assert.equal(report.cli.updated, true);
+    assert.match(await readFile(executable, 'utf8'), /clementina 9\.0\.0/u);
+    // cc65 is already at its newest release; only the emulator moves.
+    assert.deepEqual(report.installed.map(entry => [entry.tool, entry.tag]), [['emulator', 'v0.5.0']]);
+    assert.equal(JSON.parse(await readFile(join(home, 'installed.json'), 'utf8')).tools.emulator.tag, 'v0.5.0');
+  } finally {
+    server.close();
+  }
+});
+
+test('update rejects unknown tools', async () => {
+  assert.equal((await clementina(['update', 'nothing'], {})).status, 2);
 });

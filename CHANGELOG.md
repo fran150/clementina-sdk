@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `clementina update [tool ...] [--check]`, which moves the standalone CLI and every installed tool to its newest release, or with `--check` lists the newer releases. An npm or Homebrew CLI is left to its package manager.
+
 ## 0.3.0-alpha.3
 
 - `clementina install` and the install scripts fall back to the GitHub releases feed when the GitHub API refuses an unauthenticated request (60 an hour per address), and send `GITHUB_TOKEN` when it is set.

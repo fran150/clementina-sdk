@@ -123,6 +123,11 @@ async function exists(path: string): Promise<boolean> {
 /** The newest release tag of a tool, prereleases included. */
 async function latestTag(tool: InstallableTool, api: string, base: string, fetcher: typeof fetch): Promise<string> {
   const {repo, tagPrefix} = TOOL_REPOS[tool];
+  return latestReleaseTag(repo, tagPrefix, tool, api, base, fetcher);
+}
+
+/** The newest release of a repository whose tag starts with a prefix and a digit. */
+async function latestReleaseTag(repo: string, tagPrefix: string, label: string, api: string, base: string, fetcher: typeof fetch): Promise<string> {
   // cc65-v* and v* tags share the SDK repository, so the prefix must be followed by a digit.
   const matches = (tag: string) => tag.startsWith(tagPrefix) && /^\d/u.test(tag.slice(tagPrefix.length));
   let tags: string[];
@@ -140,7 +145,7 @@ async function latestTag(tool: InstallableTool, api: string, base: string, fetch
     tags = [...feed.matchAll(/\/releases\/tag\/([^"<>\s]+)/gu)].map(match => decodeURIComponent(match[1]));
   }
   const tag = tags.find(matches);
-  if (!tag) throw new InstallError('install.release', `${repo} has no ${tool} release yet`);
+  if (!tag) throw new InstallError('install.release', `${repo} has no ${label} release yet`);
   return tag;
 }
 
@@ -337,4 +342,107 @@ export async function readInstalled(home = clementinaHome()): Promise<InstalledT
     const parsed = JSON.parse(await readFile(join(home, 'installed.json'), 'utf8')) as {tools?: Record<string, InstalledTool>};
     return Object.values(parsed.tools ?? {});
   } catch { return []; }
+}
+
+/** Where the SDK's own command-line tool is released. */
+const CLI_REPO = 'fran150/clementina-sdk';
+
+/** The standalone CLI's release file for a platform. */
+export function cliAssetName(platform: Platform): string {
+  const arch = platform.arch === 'amd64' ? 'x64' : 'arm64';
+  return `clementina-${platform.os}-${arch}${platform.os === 'windows' ? '.exe' : ''}`;
+}
+
+export interface UpdateOptions {
+  /** Only report what has a newer release; download nothing. */
+  check: boolean;
+  /** Tools to update; default every installed tool. */
+  tools?: readonly InstallableTool[];
+  home?: string;
+  platform?: Platform;
+  downloadBase?: string;
+  apiBase?: string;
+  fetcher?: typeof fetch;
+  report?: (line: string) => void;
+  /** The running CLI: its version, and the executable when it is a standalone release. */
+  cli: {version: string; executable?: string; how: 'standalone' | 'npm' | 'homebrew' | 'dev'};
+}
+
+export interface UpdateReport {
+  cli: {current: string; latest: string; updated: boolean; hint?: string};
+  tools: {tool: InstallableTool; current: string; latest: string}[];
+  installed: InstalledTool[];
+}
+
+/** Bring the CLI and the installed tools to their newest releases, or report which have one. */
+export async function updateTools(options: UpdateOptions): Promise<UpdateReport> {
+  const platform = options.platform ?? currentPlatform();
+  if (!platform) throw new InstallError('install.platform', `No Clementina release is built for ${process.platform} ${process.arch}`);
+  const home = options.home ?? clementinaHome();
+  const fetcher = options.fetcher ?? fetch;
+  const base = (options.downloadBase ?? process.env.CLEMENTINA_DOWNLOAD_BASE ?? 'https://github.com').replace(/\/$/u, '');
+  const api = (options.apiBase ?? process.env.CLEMENTINA_API_BASE ?? 'https://api.github.com').replace(/\/$/u, '');
+  const report = options.report ?? (() => {});
+
+  // The CLI first: a newer CLI may know about newer tools.
+  const current = `v${options.cli.version.replace(/^v/u, '')}`;
+  const latest = await latestReleaseTag(CLI_REPO, 'v', 'SDK', api, base, fetcher);
+  const cli: UpdateReport['cli'] = {current, latest, updated: false};
+  if (latest !== current) {
+    if (options.cli.how !== 'standalone' || !options.cli.executable) {
+      cli.hint = options.cli.how === 'npm' ? 'npm install -g @clementina/cli@alpha'
+        : options.cli.how === 'homebrew' ? 'brew upgrade clementina'
+        : 'this is a dev build; update its checkout';
+      report(`clementina: ${latest} is available (running ${current}); update it with ${cli.hint}`);
+    } else if (options.check) {
+      report(`clementina: ${latest} is available (running ${current})`);
+    } else {
+      report(`clementina: downloading ${latest}`);
+      await replaceCli(options.cli.executable, `${base}/${CLI_REPO}/releases/download/${latest}`, cliAssetName(platform), platform, fetcher);
+      cli.updated = true;
+      report(`clementina: updated to ${latest}`);
+    }
+  } else {
+    report(`clementina: ${current} is the newest release`);
+  }
+
+  const recorded = await readInstalled(home);
+  const names = options.tools ?? INSTALLABLE_TOOLS.filter(tool => recorded.some(entry => entry.tool === tool));
+  const tools: UpdateReport['tools'] = [];
+  for (const tool of names) {
+    const newest = await latestTag(tool, api, base, fetcher);
+    const was = recorded.find(entry => entry.tool === tool)?.tag ?? 'not installed';
+    if (newest === was) {
+      report(`${tool}: ${was} is the newest release`);
+      continue;
+    }
+    tools.push({tool, current: was, latest: newest});
+    if (options.check) report(`${tool}: ${newest} is available (installed: ${was})`);
+  }
+  const installed = options.check || !tools.length ? [] : (await installTools({
+    tools: tools.map(({tool, latest: version}) => ({tool, version})), modifyPath: false, home, platform,
+    downloadBase: base, apiBase: api, fetcher, report,
+  })).installed;
+  return {cli, tools, installed};
+}
+
+/** Replace the running standalone executable with a release's, after checking SHA256SUMS. */
+async function replaceCli(executable: string, release: string, asset: string, platform: Platform, fetcher: typeof fetch): Promise<void> {
+  const sums = (await download(`${release}/SHA256SUMS`, fetcher)).toString('utf8');
+  const expected = sums.split(/\r?\n/u).map(row => row.trim().split(/\s+\*?/u)).find(([, name]) => name === asset)?.[0];
+  if (!expected) throw new InstallError('install.checksum', `${release} SHA256SUMS lists no ${asset}`);
+  const data = await download(`${release}/${asset}`, fetcher);
+  if (createHash('sha256').update(data).digest('hex') !== expected.toLowerCase()) {
+    throw new InstallError('install.checksum', `${asset} does not match its SHA256SUMS entry`);
+  }
+  const next = `${executable}.new`;
+  await writeFile(next, data);
+  await chmod(next, 0o755);
+  if (platform.os === 'windows') {
+    // Windows will not overwrite a running executable, but it will rename one.
+    const old = `${executable}.old`;
+    await rm(old, {force: true}).catch(() => {});
+    await rename(executable, old);
+  }
+  await rename(next, executable);
 }
