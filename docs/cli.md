@@ -115,9 +115,10 @@ card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
 directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
 result include `sdRoot`.
 
-`install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]`
-downloads the companion releases this SDK release was tested with into
-`~/.clementina` and adds them to `PATH`; with no names it installs all four.
+`install [tool[@version] ...] [--force] [--no-modify-path]` downloads cc65,
+`emulator`, `video-client` and `studio` into `~/.clementina` and adds them to
+`PATH`; with no names it installs all four, and without `@version` each comes
+from its newest release.
 See [installing](install.md). Every command looks for tools on `PATH` first,
 then in `~/.clementina`.
 

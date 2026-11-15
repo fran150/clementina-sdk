@@ -7,7 +7,7 @@ import {delimiter, join} from 'node:path';
 /**
  * `clementina install` puts the rest of the toolchain in the Clementina home
  * folder (`~/.clementina`, or `CLEMENTINA_HOME`): cc65, the emulator, the
- * video client and Studio, at the versions this SDK release was tested with.
+ * video client and Studio, at their newest releases or at versions asked for.
  * The same command works on macOS, Linux and Windows. See docs/install.md.
  */
 
@@ -15,16 +15,20 @@ import {delimiter, join} from 'node:path';
 export const INSTALLABLE_TOOLS = ['cc65', 'emulator', 'video-client', 'studio'] as const;
 export type InstallableTool = typeof INSTALLABLE_TOOLS[number];
 
-/** A GitHub release this SDK release was tested with. */
-interface ToolRelease {repo: string; tag: string}
-
-/** The companion releases tested with this SDK release. Update them together with the CHANGELOG. */
-export const TOOL_RELEASES: Record<InstallableTool, ToolRelease> = {
-  'cc65': {repo: 'fran150/clementina-sdk', tag: 'cc65-v2.19'},
-  'emulator': {repo: 'fran150/clementina-6502', tag: 'v0.4.0-alpha.1'},
-  'video-client': {repo: 'fran150/clementina-video-client', tag: 'v0.1.0-alpha.1'},
-  'studio': {repo: 'fran150/clementina-studio', tag: 'v0.1.0-alpha.1'},
+/** Where each tool is released, and the prefix of its release tags. */
+export const TOOL_REPOS: Record<InstallableTool, {repo: string; tagPrefix: string}> = {
+  'cc65': {repo: 'fran150/clementina-sdk', tagPrefix: 'cc65-v'},
+  'emulator': {repo: 'fran150/clementina-6502', tagPrefix: 'v'},
+  'video-client': {repo: 'fran150/clementina-video-client', tagPrefix: 'v'},
+  'studio': {repo: 'fran150/clementina-studio', tagPrefix: 'v'},
 };
+
+/** A requested version as its release tag: `0.4.0-alpha.1` and `v0.4.0-alpha.1` both name `v0.4.0-alpha.1`; cc65 `2.19` names `cc65-v2.19`. */
+export function releaseTag(tool: InstallableTool, version: string): string {
+  const {tagPrefix} = TOOL_REPOS[tool];
+  if (version.startsWith(tagPrefix)) return version;
+  return tagPrefix + version.replace(/^v/u, '');
+}
 
 /** Executables each tool provides, relative to its folder under `tools/`. */
 const COMMANDS: Record<Exclude<InstallableTool, 'studio'>, {dir: string; names: string[]}> = {
@@ -44,8 +48,7 @@ export function currentPlatform(platform: string = process.platform, arch: strin
 }
 
 /** The release file for a tool on a platform, or undefined when that tool has no build for it. */
-export function assetName(tool: InstallableTool, platform: Platform): string | undefined {
-  const {tag} = TOOL_RELEASES[tool];
+export function assetName(tool: InstallableTool, platform: Platform, tag: string): string | undefined {
   const archive = platform.os === 'windows' ? 'zip' : 'tar.gz';
   const target = `${platform.os}-${platform.arch}`;
   switch (tool) {
@@ -84,16 +87,21 @@ export function useInstalledTools(env: NodeJS.ProcessEnv = process.env): void {
   env[key] = [...current, ...added].join(delimiter);
 }
 
+/** One tool to install, at its newest release unless a version is given. */
+export interface ToolRequest {tool: InstallableTool; version?: string}
+
 export interface InstallOptions {
-  tools: readonly InstallableTool[];
+  tools: readonly ToolRequest[];
   /** Leave shell startup files and the Windows user PATH alone. */
   modifyPath: boolean;
-  /** Download again even when the tested release is already installed. */
+  /** Download again even when that release is already installed. */
   force?: boolean;
   home?: string;
   platform?: Platform;
   /** Release download root; tests serve a local copy. */
   downloadBase?: string;
+  /** GitHub API root used to find the newest releases. */
+  apiBase?: string;
   fetcher?: typeof fetch;
   report?: (line: string) => void;
 }
@@ -112,13 +120,28 @@ async function exists(path: string): Promise<boolean> {
   try { await stat(path); return true; } catch { return false; }
 }
 
-async function download(url: string, fetcher: typeof fetch): Promise<Buffer> {
+/** The newest release tag of a tool, prereleases included, from the GitHub API. */
+async function latestTag(tool: InstallableTool, api: string, fetcher: typeof fetch): Promise<string> {
+  const {repo, tagPrefix} = TOOL_REPOS[tool];
+  const url = `${api}/repos/${repo}/releases?per_page=50`;
+  const token = process.env.GITHUB_TOKEN;
+  const body = await download(url, fetcher, {accept: 'application/vnd.github+json', ...(token ? {authorization: `Bearer ${token}`} : {})});
+  const releases = JSON.parse(body.toString('utf8')) as {tag_name: string; draft?: boolean}[];
+  // cc65-v* and v* tags share the SDK repository, so the prefix must be followed by a digit.
+  const release = releases.find(entry => !entry.draft && entry.tag_name.startsWith(tagPrefix)
+    && /^\d/u.test(entry.tag_name.slice(tagPrefix.length)));
+  if (!release) throw new InstallError('install.release', `${repo} has no ${tool} release yet`);
+  return release.tag_name;
+}
+
+async function download(url: string, fetcher: typeof fetch, headers: Record<string, string> = {}): Promise<Buffer> {
   let response: Response;
   try {
-    response = await fetcher(url, {redirect: 'follow'});
+    response = await fetcher(url, {redirect: 'follow', headers: {'user-agent': 'clementina-install', ...headers}});
   } catch (error) {
     throw new InstallError('install.download', `Could not download ${url}: ${(error as Error).message}`);
   }
+  if (response.status === 404) throw new InstallError('install.release', `Not found: ${url}. Check the tool name and version.`);
   if (!response.ok) throw new InstallError('install.download', `Could not download ${url}: HTTP ${response.status}`);
   return Buffer.from(await response.arrayBuffer());
 }
@@ -235,6 +258,7 @@ export async function installTools(options: InstallOptions): Promise<InstallRepo
   const home = options.home ?? clementinaHome();
   const fetcher = options.fetcher ?? fetch;
   const base = (options.downloadBase ?? process.env.CLEMENTINA_DOWNLOAD_BASE ?? 'https://github.com').replace(/\/$/u, '');
+  const api = (options.apiBase ?? process.env.CLEMENTINA_API_BASE ?? 'https://api.github.com').replace(/\/$/u, '');
   const report = options.report ?? (() => {});
   const bin = join(home, 'bin');
   const tools = join(home, 'tools');
@@ -244,9 +268,10 @@ export async function installTools(options: InstallOptions): Promise<InstallRepo
   const current: InstalledTool[] = [];
   const skipped: InstallReport['skipped'] = [];
   const previous = await readInstalled(home);
-  for (const tool of options.tools) {
-    const {repo, tag} = TOOL_RELEASES[tool];
-    const asset = assetName(tool, platform);
+  for (const {tool, version} of options.tools) {
+    const {repo} = TOOL_REPOS[tool];
+    const tag = version ? releaseTag(tool, version) : await latestTag(tool, api, fetcher);
+    const asset = assetName(tool, platform, tag);
     const existing = previous.find(entry => entry.tool === tool && entry.tag === tag);
     if (existing && !options.force && (tool === 'studio' && platform.os === 'windows' || await exists(existing.location))) {
       current.push(existing);

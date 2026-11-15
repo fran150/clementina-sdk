@@ -1,5 +1,5 @@
 import {resolveEmulatorExecutable} from '@clementina/emulator-client/node';
-import {INSTALLABLE_TOOLS, type InstallableTool} from './install.js';
+import {INSTALLABLE_TOOLS, type InstallableTool, type ToolRequest} from './install.js';
 
 /** Options accepted by `clementina doctor`. */
 export interface DoctorArguments {strict: boolean; emulator: string}
@@ -129,17 +129,24 @@ export function parseDebugArguments(args: readonly string[]): DebugArguments | u
 }
 
 /** Options accepted by `clementina install`. */
-export interface InstallArguments {tools: InstallableTool[]; modifyPath: boolean; force: boolean}
+export interface InstallArguments {tools: ToolRequest[]; modifyPath: boolean; force: boolean}
 
-/** Parse `install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]`; no names means every tool. */
+/**
+ * Parse `install [tool[@version] ...] [--force] [--no-modify-path]`, where tool is
+ * cc65, emulator, video-client or studio. No names means every tool; no
+ * version means its newest release.
+ */
 export function parseInstallArguments(args: readonly string[]): InstallArguments | undefined {
-  const tools: InstallableTool[] = [];
+  const tools: ToolRequest[] = [];
   let modifyPath = true, force = false;
   for (const arg of args.slice(1)) {
+    const [tool, version, extra] = arg.split('@');
     if (arg === '--no-modify-path' && modifyPath) modifyPath = false;
     else if (arg === '--force' && !force) force = true;
-    else if ((INSTALLABLE_TOOLS as readonly string[]).includes(arg) && !tools.includes(arg as InstallableTool)) tools.push(arg as InstallableTool);
+    else if ((INSTALLABLE_TOOLS as readonly string[]).includes(tool) && extra === undefined && version !== ''
+      && !tools.some(entry => entry.tool === tool)) tools.push({tool: tool as InstallableTool, ...(version ? {version} : {})});
     else return undefined;
   }
-  return {tools: tools.length ? INSTALLABLE_TOOLS.filter(tool => tools.includes(tool)) : [...INSTALLABLE_TOOLS], modifyPath, force};
+  const requested = tools.length ? tools : INSTALLABLE_TOOLS.map(tool => ({tool}));
+  return {tools: INSTALLABLE_TOOLS.flatMap(tool => requested.filter(entry => entry.tool === tool)), modifyPath, force};
 }

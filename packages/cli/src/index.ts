@@ -9,7 +9,7 @@ import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, ty
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
 export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
 export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
-export {clementinaHome, currentPlatform, installTools, INSTALLABLE_TOOLS, TOOL_RELEASES, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
+export {clementinaHome, currentPlatform, installTools, INSTALLABLE_TOOLS, releaseTag, TOOL_REPOS, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
 export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
@@ -35,9 +35,10 @@ export const help = `Usage: clementina <command> [--json]
   debug [directory] --line <n> [--source <path>] [--memory <address>:<count>]
         [--emulator <path>] [--timeout <ms>]
                                 Stop at a source line and save CPU, memory, video
-  install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]
-                                Download the tested toolchain releases into
-                                ~/.clementina and put them on PATH (default: all)
+  install [tool[@version] ...] [--force] [--no-modify-path]
+                                Download cc65, emulator, video-client and studio
+                                (default: all, newest releases) into ~/.clementina
+                                and put them on PATH
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   mcp                            Serve the SDK's MCP tools over stdio

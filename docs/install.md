@@ -23,8 +23,8 @@ again to update.
 
 The script downloads the standalone `clementina` executable from the newest SDK
 release into `~/.clementina/bin`, checks it against the release's
-`SHA256SUMS`, and runs `clementina install`. That command installs the
-companion releases this SDK release was tested with:
+`SHA256SUMS`, and runs `clementina install`. That command installs the newest
+release of each tool, alphas included:
 
 | Tool | Commands | Release |
 | --- | --- | --- |
@@ -33,9 +33,8 @@ companion releases this SDK release was tested with:
 | `video-client` | `clementina-video-client`, `clementina-render` | `fran150/clementina-video-client` |
 | `studio` | Clementina Studio | `fran150/clementina-studio` |
 
-The tested versions are `TOOL_RELEASES` in
-[`packages/cli/src/install.ts`](../packages/cli/src/install.ts). Every download
-is checked against its release's `SHA256SUMS` before anything is replaced.
+Every download is checked against its release's `SHA256SUMS` before anything
+is replaced.
 
 Everything lives in `~/.clementina` (set `CLEMENTINA_HOME` to use another
 folder):
@@ -43,8 +42,8 @@ folder):
 - `tools/<tool>/` holds each tool's release files.
 - `bin/` holds `clementina` and, on macOS and Linux, links to every tool's
   commands.
-- `installed.json` records the installed versions. A tool already at its tested
-  version is not downloaded again unless you pass `--force`.
+- `installed.json` records the installed versions. A tool already at the
+  version asked for is not downloaded again unless you pass `--force`.
 
 Studio goes where each system expects an app: `~/Applications` on macOS (with
 the download quarantine cleared, because alpha builds are not notarized), an
@@ -61,19 +60,38 @@ Windows it adds `~\.clementina\bin` and the tool folders to the user `Path`.
 `--no-modify-path` skips this. `clementina` commands find the installed tools
 even before `PATH` is updated: they search the Clementina folders after `PATH`.
 
-## Choosing what to install
+## Choosing tools and versions
 
-`clementina install` with no names installs everything. Name tools to install
-only those:
+`clementina install` with no names installs everything at its newest release.
+Name tools to install only those, and add `@version` to pick a release:
 
 ```sh
 clementina install emulator video-client
+clementina install emulator@0.4.0-alpha.1 cc65@2.19
 ```
 
-The install script passes its arguments on: `curl -fsSL … | sh -s -- emulator`.
-In PowerShell, set `$env:CLEMENTINA_INSTALL_ARGS = 'emulator'` first.
-`CLEMENTINA_VERSION=v0.3.0-alpha.1` makes the script install that SDK release
-instead of the newest one.
+A version may be written with or without its `v` (`0.4.0-alpha.1` or
+`v0.4.0-alpha.1`); cc65 versions name the `cc65-v<version>` release. Running
+`clementina install` again moves each tool to its newest release.
+
+The install scripts install the newest SDK release unless told otherwise. On
+macOS and Linux, pass `--version` and any `clementina install` arguments after
+`sh -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.sh | sh -s -- --version 0.3.0-alpha.2
+curl -fsSL https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.sh | sh -s -- emulator@0.4.0-alpha.1
+```
+
+In PowerShell, `irm | iex` cannot pass arguments, so run the script as a script
+block:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.ps1))) -Version 0.3.0-alpha.2 emulator@0.4.0-alpha.1
+```
+
+`CLEMENTINA_VERSION` (and `CLEMENTINA_INSTALL_ARGS` for PowerShell) do the same
+through the environment.
 
 ## Other ways to install
 
