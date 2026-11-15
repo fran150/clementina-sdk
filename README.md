@@ -9,6 +9,13 @@ SDK for portable projects and its Builder tab. Assembly and BASIC projects
 share the [load-plan contract](docs/program-loading.md). Assembly builds use a
 generated BASIC bootstrap to load assets and start machine code.
 
+Install the SDK and its toolchain with one command (see [installing](docs/install.md)):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.sh | sh   # macOS, Linux
+irm https://raw.githubusercontent.com/fran150/clementina-sdk/main/install.ps1 | iex        # Windows PowerShell
+```
+
 See [shared packages](docs/shared-packages.md) for APIs and versioning.
 The `@clementina/*` packages are configured for public npm distribution under
 [GPLv3](LICENSE); the VS Code extension is distributed separately.

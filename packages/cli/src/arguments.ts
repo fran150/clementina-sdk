@@ -1,4 +1,5 @@
 import {resolveEmulatorExecutable} from '@clementina/emulator-client/node';
+import {INSTALLABLE_TOOLS, type InstallableTool} from './install.js';
 
 /** Options accepted by `clementina doctor`. */
 export interface DoctorArguments {strict: boolean; emulator: string}
@@ -125,4 +126,20 @@ export function parseDebugArguments(args: readonly string[]): DebugArguments | u
     ...(source !== undefined ? {source} : {}), ...(emulator !== undefined ? {emulator} : {}),
     ...(timeoutMs !== undefined ? {timeoutMs} : {}), ...(memory ? {memory} : {}),
   };
+}
+
+/** Options accepted by `clementina install`. */
+export interface InstallArguments {tools: InstallableTool[]; modifyPath: boolean; force: boolean}
+
+/** Parse `install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]`; no names means every tool. */
+export function parseInstallArguments(args: readonly string[]): InstallArguments | undefined {
+  const tools: InstallableTool[] = [];
+  let modifyPath = true, force = false;
+  for (const arg of args.slice(1)) {
+    if (arg === '--no-modify-path' && modifyPath) modifyPath = false;
+    else if (arg === '--force' && !force) force = true;
+    else if ((INSTALLABLE_TOOLS as readonly string[]).includes(arg) && !tools.includes(arg as InstallableTool)) tools.push(arg as InstallableTool);
+    else return undefined;
+  }
+  return {tools: tools.length ? INSTALLABLE_TOOLS.filter(tool => tools.includes(tool)) : [...INSTALLABLE_TOOLS], modifyPath, force};
 }

@@ -9,6 +9,7 @@ import {EXIT_FAILURE, EXIT_OK, EXIT_USAGE, failure, type CommandDependencies, ty
 export type {CommandDependencies, CommandResult, RunSession} from './types.js';
 export {CheckError, checkDiagnostics, checkProject, overlayRows, readCodeCheck, readSmokeCheck, type CheckDependencies, type CheckOptions, type CheckOutcome, type CheckReport} from './check.js';
 export {debugProject, type DebugDependencies, type DebugOptions, type DebugReport} from './debug.js';
+export {clementinaHome, currentPlatform, installTools, INSTALLABLE_TOOLS, TOOL_RELEASES, useInstalledTools, type InstallOptions, type InstallReport} from './install.js';
 export {createProject, DEFAULT_TEMPLATE, NewProjectError, TEMPLATE_NAMES, type NewProject, type NewProjectOptions} from './new.js';
 
 const defaultDependencies: CommandDependencies = {buildProject, startEmulatorProcess, createProjectDebugSession, createHttpEmulatorClient};
@@ -34,6 +35,9 @@ export const help = `Usage: clementina <command> [--json]
   debug [directory] --line <n> [--source <path>] [--memory <address>:<count>]
         [--emulator <path>] [--timeout <ms>]
                                 Stop at a source line and save CPU, memory, video
+  install [cc65|emulator|video-client|studio ...] [--force] [--no-modify-path]
+                                Download the tested toolchain releases into
+                                ~/.clementina and put them on PATH (default: all)
   doctor [--strict] [--emulator <path>]
                                 Check Node, assembler tools, and emulator
   mcp                            Serve the SDK's MCP tools over stdio
@@ -98,7 +102,8 @@ async function superviseSession(session: RunSession): Promise<number> {
 /** Run one command for a terminal and return the process exit status. */
 export async function runCli(args: string[], output: CliOutput, cwd = process.cwd()): Promise<number> {
   const json = args.includes('--json');
-  const result = await executeCommand(args.filter(arg => arg !== '--json'), cwd);
+  const dependencies = json ? defaultDependencies : {...defaultDependencies, progress: (line: string) => output.stderr(`${line}\n`)};
+  const result = await executeCommand(args.filter(arg => arg !== '--json'), cwd, dependencies);
   printResult(result, json, output);
   return result.session ? superviseSession(result.session) : result.exitCode;
 }
