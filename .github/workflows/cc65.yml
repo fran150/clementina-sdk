@@ -62,24 +62,60 @@ jobs:
         if: runner.os != 'Windows'
         working-directory: cc65
         run: make -j4 bin
+      # ca65 and ld65 find asminc and cfg through CC65_HOME on macOS and Linux,
+      # and next to the executable on Windows. On macOS and Linux, bin/ holds
+      # small wrappers that set CC65_HOME to this folder and run the real
+      # executables from libexec/, so the tools work wherever the folder is
+      # unpacked or linked from.
       - name: Package
         run: |
           dir="dist/$PACKAGE_NAME"
           mkdir -p "$dir/bin"
-          cp cc65/bin/* "$dir/bin/"
+          cp -R cc65/asminc cc65/cfg "$dir/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            cp cc65/bin/* "$dir/bin/"
+          else
+            mkdir -p "$dir/libexec"
+            cp cc65/bin/* "$dir/libexec/"
+            for tool in cc65/bin/*; do
+              name="$(basename "$tool")"
+              cat > "$dir/bin/$name" <<'WRAPPER'
+          #!/bin/sh
+          # Runs cc65's NAME with CC65_HOME set to this cc65 folder, following links to this script.
+          p="$0"
+          while [ -L "$p" ]; do
+            l="$(readlink "$p")"
+            case "$l" in /*) p="$l" ;; *) p="$(dirname "$p")/$l" ;; esac
+          done
+          root="$(cd "$(dirname "$p")/.." && pwd)"
+          CC65_HOME="$root" exec "$root/libexec/NAME" "$@"
+          WRAPPER
+              sed -i.bak "s/NAME/$name/g" "$dir/bin/$name" && rm "$dir/bin/$name.bak"
+              chmod 755 "$dir/bin/$name"
+            done
+          fi
           cp cc65/LICENSE "$dir/LICENSE"
           printf 'cc65 %s, built from https://github.com/cc65/cc65/tree/V%s for the Clementina SDK.\n' "$VERSION" "$VERSION" > "$dir/README.txt"
           ls -l "$dir/bin"
       - name: Smoke test
         run: |
           bin="$PWD/dist/$PACKAGE_NAME/bin"
+          # The build bakes the source folder's asminc path into ca65; move the
+          # source away so the test sees only what the package provides.
+          mv cc65 cc65-source
           cd "$RUNNER_TEMP"
-          printf '.segment "CODE"\n  lda #$01\n  rts\n' > smoke.s
+          # A .macpack loads its macros from asminc, as the Clementina library's do.
+          printf '.macpack longbranch\n.segment "CODE"\n  lda #$01\n  rts\n' > smoke.s
           printf 'MEMORY { RAM: start = $1000, size = $1000, file = %%O; }\nSEGMENTS { CODE: load = RAM, type = ro; }\n' > smoke.cfg
           "$bin/ca65" --version
           "$bin/ca65" --cpu 65C02 -o smoke.o smoke.s
           "$bin/ld65" --config smoke.cfg -o smoke.bin smoke.o
           "$bin/ar65" r smoke.lib smoke.o
+          # A link to the wrapper, as ~/.clementina/bin holds, still finds asminc.
+          if [ "$RUNNER_OS" != Windows ]; then
+            mkdir -p links && ln -sf "$bin/ca65" links/ca65
+            links/ca65 --cpu 65C02 -o linked.o smoke.s
+          fi
           test "$(od -An -tx1 smoke.bin | tr -d ' \n')" = a90160
       - name: Archive
         run: |
