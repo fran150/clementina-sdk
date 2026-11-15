@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `clementina install` and the install scripts fall back to the GitHub releases feed when the GitHub API refuses an unauthenticated request (60 an hour per address), and send `GITHUB_TOKEN` when it is set.
+- The cc65 packages include `asminc` and `cfg`, which ca65 needs for `.macpack`; on macOS and Linux their `bin/` commands set `CC65_HOME` themselves.
+
 ## 0.3.0-alpha.2
 
 Second alpha. Install the SDK and its toolchain on macOS, Linux or Windows with one command (`install.sh` or `install.ps1`, see `docs/install.md`). Tested with clementina-6502 v0.4.0-alpha.1, clementina-video-client v0.1.0-alpha.1, clementina-studio v0.1.0-alpha.1 and cc65 2.19 (`cc65-v2.19`).

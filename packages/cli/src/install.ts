@@ -120,18 +120,28 @@ async function exists(path: string): Promise<boolean> {
   try { await stat(path); return true; } catch { return false; }
 }
 
-/** The newest release tag of a tool, prereleases included, from the GitHub API. */
-async function latestTag(tool: InstallableTool, api: string, fetcher: typeof fetch): Promise<string> {
+/** The newest release tag of a tool, prereleases included. */
+async function latestTag(tool: InstallableTool, api: string, base: string, fetcher: typeof fetch): Promise<string> {
   const {repo, tagPrefix} = TOOL_REPOS[tool];
-  const url = `${api}/repos/${repo}/releases?per_page=50`;
-  const token = process.env.GITHUB_TOKEN;
-  const body = await download(url, fetcher, {accept: 'application/vnd.github+json', ...(token ? {authorization: `Bearer ${token}`} : {})});
-  const releases = JSON.parse(body.toString('utf8')) as {tag_name: string; draft?: boolean}[];
   // cc65-v* and v* tags share the SDK repository, so the prefix must be followed by a digit.
-  const release = releases.find(entry => !entry.draft && entry.tag_name.startsWith(tagPrefix)
-    && /^\d/u.test(entry.tag_name.slice(tagPrefix.length)));
-  if (!release) throw new InstallError('install.release', `${repo} has no ${tool} release yet`);
-  return release.tag_name;
+  const matches = (tag: string) => tag.startsWith(tagPrefix) && /^\d/u.test(tag.slice(tagPrefix.length));
+  let tags: string[];
+  try {
+    const token = process.env.GITHUB_TOKEN;
+    const body = await download(`${api}/repos/${repo}/releases?per_page=50`, fetcher,
+      {accept: 'application/vnd.github+json', ...(token ? {authorization: `Bearer ${token}`} : {})});
+    const releases = JSON.parse(body.toString('utf8')) as {tag_name: string; draft?: boolean}[];
+    tags = releases.filter(entry => !entry.draft).map(entry => entry.tag_name);
+  } catch (error) {
+    // The API allows 60 requests an hour per address without a token; the
+    // releases feed has no such limit and lists the same releases, newest first.
+    if (!(error instanceof InstallError) || error.code === 'install.release') throw error;
+    const feed = (await download(`${base}/${repo}/releases.atom`, fetcher)).toString('utf8');
+    tags = [...feed.matchAll(/\/releases\/tag\/([^"<>\s]+)/gu)].map(match => decodeURIComponent(match[1]));
+  }
+  const tag = tags.find(matches);
+  if (!tag) throw new InstallError('install.release', `${repo} has no ${tool} release yet`);
+  return tag;
 }
 
 async function download(url: string, fetcher: typeof fetch, headers: Record<string, string> = {}): Promise<Buffer> {
@@ -270,7 +280,7 @@ export async function installTools(options: InstallOptions): Promise<InstallRepo
   const previous = await readInstalled(home);
   for (const {tool, version} of options.tools) {
     const {repo} = TOOL_REPOS[tool];
-    const tag = version ? releaseTag(tool, version) : await latestTag(tool, api, fetcher);
+    const tag = version ? releaseTag(tool, version) : await latestTag(tool, api, base, fetcher);
     const asset = assetName(tool, platform, tag);
     const existing = previous.find(entry => entry.tool === tool && entry.tag === tag);
     if (existing && !options.force && (tool === 'studio' && platform.os === 'windows' || await exists(existing.location))) {

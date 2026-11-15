@@ -53,8 +53,11 @@ if [ -n "$tag" ]; then
   case "$tag" in v*) ;; *) tag="v$tag" ;; esac
 else
   # The newest SDK release, alphas included. Other tags (cc65-v*) are not SDK releases.
-  tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=30" \
-    | sed -n 's/.*"tag_name": *"\(v[^"]*\)".*/\1/p' | head -n 1)"
+  tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=30" 2>/dev/null \
+    | sed -n 's/.*"tag_name": *"\(v[0-9][^"]*\)".*/\1/p' | head -n 1)" || true
+  # Without a token the API allows 60 requests an hour; the releases feed has no limit.
+  [ -n "$tag" ] || tag="$(curl -fsSL "https://github.com/$repo/releases.atom" \
+    | grep -o '/releases/tag/v[0-9][^"<]*' | head -n 1 | sed 's|.*/||')" || true
   [ -n "$tag" ] || fail "could not find an SDK release on GitHub"
 fi
 

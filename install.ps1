@@ -34,8 +34,14 @@ param(
   if ($tag -and -not $tag.StartsWith('v')) { $tag = "v$tag" }
   if (-not $tag) {
     # The newest SDK release, alphas included. Other tags (cc65-v*) are not SDK releases.
-    $releases = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=30"
-    $tag = ($releases | Where-Object { $_.tag_name -like 'v*' } | Select-Object -First 1).tag_name
+    try {
+      $releases = Invoke-RestMethod "https://api.github.com/repos/$repo/releases?per_page=30"
+      $tag = ($releases | Where-Object { $_.tag_name -match '^v\d' } | Select-Object -First 1).tag_name
+    } catch {
+      # Without a token the API allows 60 requests an hour; the releases feed has no limit.
+      $feed = (Invoke-WebRequest "https://github.com/$repo/releases.atom" -UseBasicParsing).Content
+      $tag = ([regex]::Matches($feed, '/releases/tag/(v\d[^"<]*)') | Select-Object -First 1).Groups[1].Value
+    }
     if (-not $tag) { throw 'clementina install: could not find an SDK release on GitHub' }
   }
 

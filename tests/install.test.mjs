@@ -13,7 +13,7 @@ const platform = currentPlatform();
 const target = platform && `${platform.os}-${platform.arch}`;
 
 /** A release folder tree served like github.com/<repo>/releases/download/<tag>/. */
-async function fakeReleases(root, {corrupt = false} = {}) {
+async function fakeReleases(root, {corrupt = false, limited = false} = {}) {
   const files = new Map();
   const releases = new Map();
   async function release(tool, tag, folder, executables) {
@@ -41,7 +41,12 @@ async function fakeReleases(root, {corrupt = false} = {}) {
   const server = createServer((request, response) => {
     const [path] = request.url.split('?');
     const listed = path.match(/^\/api\/repos\/(.+)\/releases$/u);
-    const body = listed ? Buffer.from(JSON.stringify(releases.get(listed[1]) ?? [])) : files.get(path);
+    const feed = path.match(/^\/(.+)\/releases\.atom$/u);
+    if (listed && limited) return response.writeHead(403).end('rate limited');
+    const body = listed ? Buffer.from(JSON.stringify(releases.get(listed[1]) ?? []))
+      : feed ? Buffer.from((releases.get(feed[1]) ?? []).filter(entry => !entry.draft)
+        .map(entry => `<entry><link rel="alternate" type="text/html" href="https://github.com/${feed[1]}/releases/tag/${entry.tag_name}"/></entry>`).join(''))
+      : files.get(path);
     response.writeHead(body ? 200 : 404).end(body);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -89,6 +94,18 @@ test('install downloads, verifies and links the newest releases', {skip: !platfo
     assert.deepEqual(JSON.parse(older.stdout).data.installed.map(entry => entry.tag), ['v0.4.0']);
     const missing = await clementina(['install', 'emulator@v9.9.9', '--json'], env);
     assert.equal(JSON.parse(missing.stdout).diagnostics[0].code, 'install.release');
+  } finally {
+    server.close();
+  }
+});
+
+test('install finds the newest release in the releases feed when the API is rate limited', {skip: !platform || platform.os === 'windows'}, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'clementina-home-'));
+  const {server, env} = await fakeReleases(undefined, {limited: true});
+  try {
+    const result = await clementina(['install', 'cc65', 'emulator', '--no-modify-path', '--json'], {...env, CLEMENTINA_HOME: home});
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout).data.installed.map(entry => entry.tag), ['cc65-v2.19', 'v0.5.0']);
   } finally {
     server.close();
   }
