@@ -62,7 +62,7 @@ jobs:
           CLEMENTINA_EMULATOR: ${{ runner.temp }}/clementina-automation
         working-directory: clementina-sdk
         run: |
-          cli="node packages/cli/dist/bin.js"
+          cli="node packages/cli/bin/clementina.mjs"
           $cli check examples/catch-the-star
           $cli new "$RUNNER_TEMP/new-game"
           $cli check "$RUNNER_TEMP/new-game"
