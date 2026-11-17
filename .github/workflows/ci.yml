@@ -26,3 +26,43 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run check:packages
+
+  # The example games build and pass `clementina check` in the real emulator,
+  # so the book chapters that follow them keep working.
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: clementina-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: fran150/clementina-6502
+          path: clementina-6502
+          token: ${{ secrets.CLEMENTINA_COMPANION_TOKEN || github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: clementina-sdk/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cc65 libasound2-dev
+      - name: Build emulator automation
+        run: go build -o "$RUNNER_TEMP/clementina-automation" ./cmd/clementina-automation
+        working-directory: clementina-6502
+      - run: npm ci
+        working-directory: clementina-sdk
+      - run: npm run build
+        working-directory: clementina-sdk
+      - name: Check the example games and the starter
+        env:
+          CLEMENTINA_EMULATOR: ${{ runner.temp }}/clementina-automation
+        working-directory: clementina-sdk
+        run: |
+          cli="node packages/cli/dist/bin.js"
+          $cli check examples/catch-the-star
+          $cli new "$RUNNER_TEMP/new-game"
+          $cli check "$RUNNER_TEMP/new-game"

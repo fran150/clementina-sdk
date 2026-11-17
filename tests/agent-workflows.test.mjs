@@ -22,11 +22,11 @@ test('code workflow checks CPU memory after a real SDK build and closes its emul
     }));
     const fake = {
       client: {
-        launchLoadPlan: async () => ({}), pause: async () => ({}),
+        launchBoot: async () => ({}), pause: async () => ({}),
         step: async () => ({pc: 0x1234, cycles: '10'}),
         video: async () => {
           const image = Buffer.alloc(68944);
-          image.set(await readFile(join(root, 'build/asset-palette.bin')), 256);
+          image.set(await readFile(join(root, 'build/sd/asset-palette.bin')), 256);
           return [...image];
         },
         readMemory: async () => [42],
@@ -53,19 +53,19 @@ test('debug workflow records a verified source stop and closes the owned session
     await cp(join(sdkRoot, 'tests/fixtures/basic-only'), root, {recursive: true});
     const result = await inspectBreakpoint(root, {line: 2, memory: {address: 512, count: 1}}, {
       createProjectDebugSession: async () => ({ok: true, diagnostics: [], value: {
-        build: {basic: {source: 'src/main.bas'}, files: [{kind: 'load-plan', path: 'build/load-plan.json'}]},
+        build: {basic: {source: 'src/main.cbas'}, files: [{kind: 'load-plan', path: 'build/load-plan.json'}]},
         endpoint: 'http://127.0.0.1:1/v1',
         session: {
           setSourceBreakpoints: async (path) => {breakpointPath = path; return [{verified: true, addresses: [0x1234]}];},
           waitForStop: async () => ({state: {stopReason: 'breakpoint', pc: 0x1234},
-            frame: {name: 'main.bas:2', source: {path: breakpointPath, line: 2}}}),
+            frame: {name: 'main.cbas:2', source: {path: breakpointPath, line: 2}}}),
           readMemory: async () => [42],
         },
         launch: async () => ({}), close: async () => {closed++;},
       }}),
       createHttpEmulatorClient: () => ({video: async () => Array(68944).fill(0)}),
     });
-    assert.ok(breakpointPath.endsWith('/src/main.bas'));
+    assert.ok(breakpointPath.endsWith('/src/main.cbas'));
     assert.equal(result.report.memory.bytes[0], 42);
     assert.equal(result.report.video.bytes, 68944);
     assert.equal(closed, 1);

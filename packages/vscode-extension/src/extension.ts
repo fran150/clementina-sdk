@@ -7,6 +7,7 @@ import {insertGlyph, styleSelection, TagDecorator} from './strings';
 const DEBUG_TYPE = 'clementina';
 
 let languageClient: LanguageClient | undefined;
+let asmClient: LanguageClient | undefined;
 
 // scripts/bundle.mjs places the bundled servers next to this file.
 function serverPath(name: string): string {
@@ -57,8 +58,35 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   }));
   context.subscriptions.push({dispose: () => { void languageClient?.stop(); }});
+  startAssemblyServer(context);
 }
 
-export function deactivate(): Thenable<void> | undefined {
-  return languageClient?.stop();
+/** The ca65 language server: hover, completion, navigation, outline and ca65's errors for .s and .inc files. */
+function startAssemblyServer(context: vscode.ExtensionContext): void {
+  const run = {command: process.execPath, args: [serverPath('asm-lsp')], transport: TransportKind.stdio};
+  const settings = vscode.workspace.getConfiguration('clementina.assembly');
+  const version = String((context.extension.packageJSON as {version?: unknown}).version ?? 'dev');
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [{scheme: 'file', language: 'clementina-asm'}],
+    initializationOptions: {
+      // The library's sources are written here so go to definition can open them.
+      libraryDirectory: path.join(context.globalStorageUri.fsPath, 'library', version),
+      ca65Path: settings.get<string>('ca65Path') || undefined,
+      diagnostics: settings.get<string>('diagnostics') ?? 'onType',
+    },
+    synchronize: {
+      configurationSection: 'clementina',
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher('**/*.{s,inc,asm,lbl}'),
+        vscode.workspace.createFileSystemWatcher('**/clementina.yaml'),
+      ],
+    },
+  };
+  asmClient = new LanguageClient('clementinaAssembly', 'Clementina Assembly Language Server', {run, debug: run}, clientOptions);
+  void asmClient.start();
+  context.subscriptions.push({dispose: () => { void asmClient?.stop(); }});
+}
+
+export async function deactivate(): Promise<void> {
+  await Promise.all([languageClient?.stop(), asmClient?.stop()]);
 }

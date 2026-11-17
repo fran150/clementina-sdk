@@ -1,0 +1,6 @@
+{
+  "settleCycles": 3000000,
+  "beforeText": "PRESS SPACE TO START",
+  "input": " ",
+  "afterText": "SCORE 0  LIVES 3  HIGH 0"
+}

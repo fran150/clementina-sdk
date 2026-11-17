@@ -5,7 +5,7 @@ target:
   machine: clementina-6502
   phi2Hz: 1200000
 program:
-  entry: src/main.bas
+  entry: src/main.cbas
 assets:
   palettes:
     - assets/palettes/main.palette.json

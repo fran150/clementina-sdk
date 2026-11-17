@@ -73,8 +73,9 @@ installed Studio app is separate and unaffected.
 For the extension, press `F5` in `packages/vscode-extension` to open a
 development window, or package it with `npm run package --workspace clementina`
 and install that `.vsix` over the released one with
-`code --install-extension --force`. Installing the release `.vsix` again
-reverts it.
+`code --install-extension clementina-<version>.vsix --force` (the file comes
+first, then `--force`). Installing the release `.vsix` again reverts it.
 
-On Windows, `npm run dev:install` writes `.cmd` launchers; put the dev folder
-first on `PATH` by hand, since the shell switch is for bash and zsh.
+On Windows, `npm run dev:install` writes `.cmd` launchers. `clementina dev on`
+switches the CLI and the tools it starts, but a dev tool typed by name in a
+shell still runs the installed copy.

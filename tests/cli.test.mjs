@@ -46,39 +46,39 @@ test('doctor reports tool readiness and strict mode fails on missing capabilitie
  assert.equal(strict.ok,false);assert.equal(strict.exitCode,1);
  assert.deepEqual(strict.diagnostics.map(d=>[d.code,d.severity]),[['doctor.ar65','error']]);
 });
-test('run composes project build, owned emulator lifecycle, and load-plan launch',async()=>{
- const plan={format:'clementina-load-plan',version:1,steps:[{kind:'prg',path:'build/game.prg',loadAddress:0x6000,length:1,runAddress:0x6000}]};
+test('run composes project build, owned emulator lifecycle, and the BOOT.BAS launch',async()=>{
+ const plan={format:'clementina-load-plan',version:1,steps:[{kind:'prg',path:'GAME.PRG',loadAddress:0x6000,length:1,runAddress:0x6000}]};
  const state={cycles:'1',pc:0x6000,a:0,x:0,y:0,sp:0xff,p:0x30,paused:false,running:true,stopReason:'running',instructionBoundary:true};
  let buildRoot,options,launched,resolveExit,closed=0;
  const exited=new Promise(resolve=>resolveExit=resolve);
- const emulator={endpoint:'http://127.0.0.1:1234/v1',pid:42,exited,client:{launchLoadPlan:async value=>(launched=value,state)},close:async()=>{closed++;const value={code:0,signal:null};resolveExit(value);return value;}};
+ const emulator={endpoint:'http://127.0.0.1:1234/v1',pid:42,exited,client:{launchBoot:async (...args)=>(launched=args,state)},close:async()=>{closed++;const value={code:0,signal:null};resolveExit(value);return value;}};
  const result=await executeCommand(['run','game','--emulator','/tools/emulator','--port','6503'],'/workspace',{
   buildProject:async root=>{buildRoot=root;return {ok:true,value:{sdRoot:'build/sd',diagnostics:[],loadPlan:plan,assembly:{entryAddress:0x6000},files:[]},diagnostics:[]}},
   startEmulatorProcess:async value=>(options=value,emulator),
  });
- assert.equal(result.ok,true);assert.equal(result.session.emulator,emulator);assert.deepEqual(launched,plan);
+ assert.equal(result.ok,true);assert.equal(result.session.emulator,emulator);assert.deepEqual(launched,[]);
  assert.equal(buildRoot,'/workspace/game');assert.deepEqual(options,{executable:'/tools/emulator',sdRoot:'/workspace/game/build/sd',port:6503});
  assert.deepEqual(result.data,{endpoint:emulator.endpoint,pid:42,assembly:{entryAddress:0x6000}});
  await result.session.emulator.close();assert.equal(closed,1);
 });
 test('build and run compose a BASIC project through the same parts contract',async()=>{
- const basicBuild={sdRoot:'.',diagnostics:[],loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'basic',path:'build/game.bas',length:2}]},
-  basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:0},
-  files:[{kind:'basic',path:'build/game.bas',length:2},{kind:'bootstrap',path:'build/bootstrap.bas',length:0},{kind:'load-plan',path:'build/load-plan.json',length:0},{kind:'memory-layout',path:'build/memory-layout.json',length:0}]};
+ const basicBuild={sdRoot:'build/sd',diagnostics:[],loadPlan:{format:'clementina-load-plan',version:1,steps:[{kind:'basic',path:'GAME.BAS',length:2}]},
+  basic:{source:'main.cbas',artifact:'build/sd/GAME.BAS',bytes:Uint8Array.of(0,0),lines:0},
+  files:[{kind:'basic',path:'build/sd/GAME.BAS',length:2},{kind:'bootstrap',path:'build/boot.cbas',length:0},{kind:'boot',path:'build/sd/BOOT.BAS',length:0},{kind:'load-plan',path:'build/load-plan.json',length:0},{kind:'memory-layout',path:'build/memory-layout.json',length:0}]};
  const built=await executeCommand(['build','game'],'/workspace',{buildProject:async()=>({ok:true,value:basicBuild,diagnostics:[]})});
  assert.equal(built.ok,true);
- assert.deepEqual(built.data,{sdRoot:'.',loadPlan:'build/load-plan.json',bootstrap:'build/bootstrap.bas',memoryLayout:'build/memory-layout.json',basic:{program:'build/game.bas',lines:0}});
+ assert.deepEqual(built.data,{sdRoot:'build/sd',loadPlan:'build/load-plan.json',bootstrap:'build/boot.cbas',memoryLayout:'build/memory-layout.json',basic:{program:'build/sd/GAME.BAS',lines:0}});
 
  const state={cycles:'1',pc:0,a:0,x:0,y:0,sp:0xff,p:0x30,paused:false,running:true,stopReason:'running',instructionBoundary:true};
  let launched,resolveExit;
  const exited=new Promise(resolve=>resolveExit=resolve);
- const emulator={endpoint:'http://127.0.0.1:1234/v1',pid:7,exited,client:{launchLoadPlan:async value=>(launched=value,state)},close:async()=>{const value={code:0,signal:null};resolveExit(value);return value;}};
+ const emulator={endpoint:'http://127.0.0.1:1234/v1',pid:7,exited,client:{launchBoot:async (...args)=>(launched=args,state)},close:async()=>{const value={code:0,signal:null};resolveExit(value);return value;}};
  const ran=await executeCommand(['run','game'],'/workspace',{
   buildProject:async()=>({ok:true,value:basicBuild,diagnostics:[]}),
   startEmulatorProcess:async()=>emulator,
  });
- assert.equal(ran.ok,true);assert.deepEqual(launched,basicBuild.loadPlan);
- assert.deepEqual(ran.data,{endpoint:emulator.endpoint,pid:7,basic:{program:'build/game.bas'}});
+ assert.equal(ran.ok,true);assert.deepEqual(launched,[]);
+ assert.deepEqual(ran.data,{endpoint:emulator.endpoint,pid:7,basic:{program:'build/sd/GAME.BAS'}});
  await ran.session.emulator.close();
 });
 test('wrong asset kind is rejected and help documents reference scope',async()=>{
@@ -88,10 +88,10 @@ test('wrong asset kind is rejected and help documents reference scope',async()=>
 });
 test('basic compile writes the ROM LOAD format through the shared tokenizer',async()=>{
  const root=await mkdtemp(join(tmpdir(),'clementina-basic-cli-'));
- await writeFile(join(root,'main.bas'),'10 PRINT "HELLO"\n20 END\n');
- const result=await executeCommand(['basic','compile','main.bas','game.bas'],root);
+ await writeFile(join(root,'main.cbas'),'10 PRINT "HELLO"\n20 END\n');
+ const result=await executeCommand(['basic','compile','main.cbas','game.bas'],root);
  assert.equal(result.ok,true,JSON.stringify(result.diagnostics));
- assert.deepEqual(result.data,{source:'main.bas',output:'game.bas',bytes:22,lines:2});
+ assert.deepEqual(result.data,{source:'main.cbas',output:'game.bas',bytes:22,lines:2});
  assert.deepEqual(Array.from((await readFile(join(root,'game.bas'))).slice(-2)),[0,0]);
 });
 test('project import turns a Studio session into a validating assembly project',async()=>{
@@ -121,8 +121,8 @@ test('new writes the embedded starter, with both program parts, that validates a
  assert.equal(r.status,0,r.stdout+r.stderr);
  const out=JSON.parse(r.stdout);
  assert.deepEqual([out.ok,out.data.name,out.data.directory],[true,'star-game',star]);
- assert.match(await readFile(join(star,'src/main.bas'),'utf8'),/SYS 28672/);
- assert.match(await readFile(join(star,'src/score.s'),'utf8'),/add_point:/);
+ assert.match(await readFile(join(star,'src/main.cbas'),'utf8'),/SYS 28672/);
+ assert.match(await readFile(join(star,'src/hello.s'),'utf8'),/^hello:/m);
  assert.match(await readFile(join(star,'clementina.yaml'),'utf8'),/^name: star-game$/m);
  assert.equal(run('project','validate',star,'--json').status,0);
  const again=run('new',star,'--json');
@@ -135,8 +135,8 @@ test('new writes the embedded starter, with both program parts, that validates a
  const loaded=await loadProject(named);
  assert.equal(loaded.ok,true,JSON.stringify(loaded.diagnostics));
  assert.equal(loaded.value.manifest.name,'Ruben\'s Underworld: "1"');
- assert.equal(loaded.value.manifest.program.entry,'src/main.bas');
- assert.equal(loaded.value.manifest.build.assembly.entrySymbol,'add_point');
+ assert.equal(loaded.value.manifest.program.entry,'src/main.cbas');
+ assert.equal(loaded.value.manifest.build.assembly.entrySymbol,'hello');
  assert.equal(loaded.value.manifest.build.basic.memoryTop,0x7000);
  if(hasTools){
   const built=run('build',named,'--json');assert.equal(built.status,0,built.stdout+built.stderr);
@@ -161,7 +161,7 @@ test('check runs smoke and code checks through an owned emulator and reports fai
  const start=65664,columns=40; // specs/video.json OV_NT and overlay.columns
  const screen=async rows=>{
   const image=Buffer.alloc(68944);
-  image.set(await readFile(join(root,'build/asset-palette.bin')),256);
+  image.set(await readFile(join(root,'build/sd/asset-palette.bin')),256);
   rows.forEach((text,row)=>image.write(text,start+row*columns,'ascii'));
   return [...image];
  };
@@ -170,7 +170,7 @@ test('check runs smoke and code checks through an owned emulator and reports fai
   buildProject:(await import('@clementina/build')).buildProject,
   startEmulatorProcess:async options=>{assert.equal(options.executable,'/tools/automation');return{
    client:{
-    launchLoadPlan:async()=>({}),pause:async()=>({}),
+    launchBoot:async()=>({}),pause:async()=>({}),
     step:async()=>({pc:0x1234,cycles:'10'}),
     video:async()=>screen(typed?['CATCH THE STAR','CAUGHT! SCORE 1']:['CATCH THE STAR','PRESS A TO CATCH IT']),
     input:async bytes=>{typed=String.fromCharCode(...bytes);},
@@ -224,7 +224,7 @@ test('debug stops at a source line and reports memory given in hex',async()=>{
    build:{basic:{},files:[{kind:'load-plan',path:'build/load-plan.json'}]},endpoint:'http://127.0.0.1:1/v1',
    session:{
     setSourceBreakpoints:async(path,lines)=>lines[0]===99?[{verified:false,message:'no code on line 99'}]:[{verified:true}],
-    waitForStop:async()=>({state:{stopReason:'breakpoint',pc:0xC123},frame:{name:'main.bas:20'}}),
+    waitForStop:async()=>({state:{stopReason:'breakpoint',pc:0xC123},frame:{name:'main.cbas:20'}}),
     readMemory:async(address,count)=>{read=[address,count];return [42,null];},
    },
    launch:async()=>({}),close:async()=>{closed++;},
@@ -236,9 +236,9 @@ test('debug stops at a source line and reports memory given in hex',async()=>{
   const r=await executeCommand(['debug',root,'--line','20','--memory','$0200:2'],dir,dependencies);
   assert.equal(r.ok,true,JSON.stringify(r.diagnostics));
   assert.deepEqual(read,[0x200,2]);assert.equal(closed,1);
-  assert.match(r.message,/^Stopped at main\.bas:20 \(PC=\$C123\)\.\nMemory \$0200: 2A \?\?\nReport: /);
+  assert.match(r.message,/^Stopped at main\.cbas:20 \(PC=\$C123\)\.\nMemory \$0200: 2A \?\?\nReport: /);
   const report=JSON.parse(await readFile(join(root,'build/inspection/debug-report.json'),'utf8'));
-  assert.equal(report.source,'src/main.bas');assert.equal(report.video.bytes,68944);
+  assert.equal(report.source,'src/main.cbas');assert.equal(report.video.bytes,68944);
   const missing=await executeCommand(['debug',root,'--line','99'],dir,dependencies);
   assert.deepEqual([missing.exitCode,missing.diagnostics[0].code,missing.diagnostics[0].message],[1,'debug.breakpoint','no code on line 99']);
   assert.equal(closed,2);

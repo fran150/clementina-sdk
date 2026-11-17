@@ -10,6 +10,7 @@ export function checkProjectManifest(value: unknown): ValidationResult<Clementin
   if (m.target.phi2Hz !== undefined && m.target.phi2Hz !== 1200000) diagnostics.push(diagnostic('project.target.phi2Hz', '/target/phi2Hz', 'Project builds and launches cannot apply a non-default PHI2 speed yet'));
   if (!m.program && !m.build?.assembly) diagnostics.push(diagnostic('project.program', '', 'A project needs a BASIC program (program.entry), assembly (build.assembly), or both'));
   const paths: [string, string][] = m.program ? [['/program/entry', m.program.entry]] : [];
+  if (m.program && !/\.cbas$/i.test(m.program.entry)) diagnostics.push({...diagnostic('project.program.extension', '/program/entry', 'BASIC source should use the .cbas extension; .BAS is for tokenized programs'), severity: 'warning'});
   if (m.build) {
     paths.push(['/build/outputDirectory', m.build.outputDirectory]);
     if (m.build.assembly) {

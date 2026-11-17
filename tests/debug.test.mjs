@@ -212,11 +212,11 @@ test('BASIC debug session filters the shared ROM statement hook by CURLIN and ma
   if(request.method==='resume')return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress,running:true,stopReason:'running'})};
   throw new Error(`unexpected ${request.method}`);
  });
- const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n20\n30 END\n');
- const breakpoints=await session.setSourceBreakpoints('/project/main.bas',[2,3]);
+ const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 PRINT "A"\n20\n30 END\n');
+ const breakpoints=await session.setSourceBreakpoints('/project/main.cbas',[2,3]);
  assert.deepEqual(breakpoints.map(item=>item.verified),[false,true]);
  const stopped=await session.waitForStop({timeoutMs:100,pollIntervalMs:1});
- assert.deepEqual(stopped.frame.source,{path:'/project/main.bas',line:3});
+ assert.deepEqual(stopped.frame.source,{path:'/project/main.cbas',line:3});
  assert.ok(requests.some(request=>request.method==='resume'));
  await session.dispose();
  assert.deepEqual(active,[]);
@@ -230,10 +230,10 @@ test('BASIC source mapping follows the final line definition and normalizes fram
   if(request.method==='removeBreakpoint'){active.splice(active.indexOf(request.address),1);return {version:1,ok:true,result:[...active]};}
   return {version:1,ok:true,result:request.method==='readMemory'?[10,0]:machineState()};
  });
- const session=new ClementinaBasicDebugSession(client,'C:\\project\\main.bas','10 PRINT "A"\n10\n10 PRINT "B"\n');
- const breakpoints=await session.setSourceBreakpoints('C:/project/main.bas',[1,2,3]);
+ const session=new ClementinaBasicDebugSession(client,'C:\\project\\main.cbas','10 PRINT "A"\n10\n10 PRINT "B"\n');
+ const breakpoints=await session.setSourceBreakpoints('C:/project/main.cbas',[1,2,3]);
  assert.deepEqual(breakpoints.map(item=>item.verified),[false,false,true]);
- assert.equal((await session.snapshot()).frame.name,'main.bas:3');
+ assert.equal((await session.snapshot()).frame.name,'main.cbas:3');
  await session.dispose();
 });
 test('BASIC source stepping allows pause while waiting for the statement hook',async()=>{
@@ -254,7 +254,7 @@ test('BASIC source stepping allows pause while waiting for the statement hook',a
   }
   throw new Error(request.method);
  });
- const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n');
+ const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 PRINT "A"\n');
  const stepping=session.stepIn({timeoutMs:200,pollIntervalMs:1});
  await resumed;
  assert.equal((await session.pause()).state.stopReason,'pause');
@@ -271,7 +271,7 @@ test('BASIC source stepping stops the emulator when its host wait expires',async
   if(request.method==='pause'){pauses++;current=machineState({stopReason:'pause'});return {version:1,ok:true,result:current};}
   throw new Error(request.method);
  });
- const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 PRINT "A"\n');
+ const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 PRINT "A"\n');
  await assert.rejects(session.stepIn({timeoutMs:20,pollIntervalMs:1}),/Timed out waiting for a BASIC statement boundary/);
  assert.equal(pauses,1);
  assert.equal((await session.snapshot()).state.stopReason,'pause');
@@ -291,7 +291,7 @@ test('BASIC variables decode numeric, integer, and string records for lookup',as
   request.method==='readMemory'
    ? Array.from({length:request.count},(_,index)=>memory.get(request.address+index)??null)
    : machineState()}));
- const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 END\n');
+ const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 END\n');
  assert.deepEqual(await session.variables(),[
   {name:'A',value:'1',type:'number'},
   {name:'B%',value:'-2',type:'integer'},
@@ -312,8 +312,8 @@ test('BASIC stop wait times out while skipping unrequested statement hooks',asyn
   if(request.method==='resume')resumes++;
   return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress})};
  });
- const session=new ClementinaBasicDebugSession(client,'/project/main.bas','10 END\n20 END\n');
- await session.setSourceBreakpoints('/project/main.bas',[2]);
+ const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 END\n20 END\n');
+ await session.setSourceBreakpoints('/project/main.cbas',[2]);
  await assert.rejects(session.waitForStop({timeoutMs:10,pollIntervalMs:1}),/Timed out waiting for emulator to stop/);
  assert.ok(resumes>0);
  await session.dispose();
@@ -366,10 +366,10 @@ test('Node debug composition reports build and emulator startup diagnostics',asy
  const notBuilt=await createProjectDebugSession('/project',{}, {build:async()=>buildFailure,startProcess:async()=>{throw new Error('must not start');}});
  assert.deepEqual(notBuilt,buildFailure);
 
- const basicBuild={kind:'basic',sdRoot:'.',diagnostics:[],basic:{source:'main.bas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:1},loadPlan:{},files:[]};
+ const basicBuild={kind:'basic',sdRoot:'.',diagnostics:[],basic:{source:'main.cbas',artifact:'build/game.bas',bytes:Uint8Array.of(0,0),lines:1},loadPlan:{},files:[]};
  const basicCreated=await createProjectDebugSession('/project',{}, {
   build:async()=>({ok:true,value:basicBuild,diagnostics:[]}),
-  readBasicSource:async()=>({path:'/project/main.bas',text:'10 END\n'}),
+  readBasicSource:async()=>({path:'/project/main.cbas',text:'10 END\n'}),
   startProcess:async()=>({endpoint:'http://127.0.0.1:1234/v1',client:new EmulatorClient(async request=>({version:1,ok:true,result:request.method==='breakpoints'?[]:machineState()})),pid:1,exited:Promise.resolve({code:0,signal:null}),close:async()=>({code:0,signal:null})}),
  });
  assert.equal(basicCreated.ok,true);

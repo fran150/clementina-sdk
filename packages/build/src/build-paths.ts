@@ -9,12 +9,12 @@ export function joinPortable(directory: string, filename: string): string {
   return `${directory}/${filename}`;
 }
 
-/** Locate a generated file under the active SD root. */
+/** Locate a generated file in the card folder. */
 export function cardFile(paths: BuildPaths, filename: string): string {
-  return paths.cardRoot === '.' ? joinPortable(paths.outputDirectory, filename) : joinPortable(paths.cardRoot, filename);
+  return joinPortable(paths.cardRoot, filename);
 }
 
-/** Convert a project-relative file path into a load-plan path. */
+/** Convert a project-relative card file path into a load-plan path, relative to the card. */
 export function loadPath(paths: BuildPaths, path: string): string {
-  return paths.cardRoot === '.' ? path : path.slice(paths.cardRoot.length + 1);
+  return path.slice(paths.cardRoot.length + 1);
 }

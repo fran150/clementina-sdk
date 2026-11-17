@@ -19,8 +19,8 @@ test('game workflow creates a portable project with a BASIC program and assembly
     const loaded = await loadProject(projectRoot);
     assert.equal(loaded.ok, true, JSON.stringify(loaded.diagnostics));
     assert.equal(loaded.value.manifest.name, 'Workflow Test');
-    assert.equal(loaded.value.manifest.program.entry, 'src/main.bas');
-    assert.deepEqual(loaded.value.manifest.build.assembly.sources, ['src/score.s']);
+    assert.equal(loaded.value.manifest.program.entry, 'src/main.cbas');
+    assert.deepEqual(loaded.value.manifest.build.assembly.sources, ['src/hello.s']);
     assert.equal(loaded.value.assets.paletteConfigs[0].banks[0], 'palette:main');
 
     const palettePath = join(projectRoot, 'assets/palettes/main.palette.json');
@@ -45,7 +45,7 @@ test('the starter builds: memoryTop, then the palette, the PRG above it and the 
     assert.deepEqual(built.diagnostics, []);
     assert.equal(built.value.assembly.entryAddress, 0x7000);
     assert.deepEqual(built.value.loadPlan.steps.map(step => step.kind), ['memoryTop', 'mia', 'prg', 'basic']);
-    assert.ok((await readFile(join(projectRoot, 'build/game.bas'))).length > 0);
+    assert.ok((await readFile(join(projectRoot, 'build/sd/GAME.BAS'))).length > 0);
   } finally {
     await rm(temporary, {recursive: true, force: true});
   }

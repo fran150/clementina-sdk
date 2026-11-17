@@ -61,7 +61,7 @@ The tokenizer mirrors the ROM behavior:
 The CLI writes the same relocatable format:
 
 ```sh
-clementina basic compile src/main.bas build/game.bas
+clementina basic compile src/main.cbas build/game.bas
 ```
 
 The output can be copied to the SD card and loaded with `LOAD "build/game.bas"`.
@@ -101,7 +101,7 @@ ordinary character. `sourceNotation` in `specs/basic.json` is the contract:
   error. The screen editor would silently store that line unstyled.
 
 `detokenizeBasicProgram` writes the same notation, so a program saved on the
-machine round-trips through a `.bas` file. Every string the editor recorded starts
+machine round-trips through a `.cbas` text file. Every string the editor recorded starts
 with its style tag (`"{c0}HELLO"` for text typed in the startup pen), glyph bytes
 become `{$hh}`, and recompiling the text gives the same bytes. The inspector checks
 that each sidecar record covers one whole quoted string, including one left open

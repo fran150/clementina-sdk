@@ -19,7 +19,7 @@ The project manifest declares the program's parts (a BASIC `program.entry`, `bui
 npm install @clementina/build
 ```
 
-A minimal BASIC project can use this `clementina.yaml` alongside `main.bas`:
+A minimal BASIC project can use this `clementina.yaml` alongside `main.cbas`:
 
 ```yaml
 format: clementina-project
@@ -28,7 +28,7 @@ name: Hello
 target:
   machine: clementina-6502
 program:
-  entry: main.bas
+  entry: main.cbas
 assets:
   palettes: []
   paletteConfigs: []
@@ -57,9 +57,9 @@ if (!built.ok) {
 }
 ```
 
-`buildProject` returns a `ValidationResult`. On success, `value.basic` and `value.assembly` are set for the parts the project has; `value.memoryLayout` maps every part in CPU memory and MIA RAM; `value.files` lists files written by this package, and `value.loadPlan` contains ordered load steps. `diagnostics` may contain asset build and memory layout warnings. If the manifest has no asset build, `sdRoot` is `.` and load-plan paths include the build directory. With an asset build, `sdRoot` is `<outputDirectory>/sd` and load-plan paths are relative to that folder.
+`buildProject` returns a `ValidationResult`. On success, `value.basic` and `value.assembly` are set for the parts the project has; `value.memoryLayout` maps every part in CPU memory and MIA RAM; `value.files` lists files written by this package, and `value.loadPlan` contains ordered load steps. `diagnostics` may contain asset build and memory layout warnings. `sdRoot` is always `<outputDirectory>/sd`, the card folder with tokenized `BOOT.BAS`, the program and its data files, and load-plan paths are relative to that folder. `RUN "BOOT.BAS"` starts the project.
 
-Every assembly build, with or without assets, writes the [Clementina library](../lib/) into `lib/` and links `lib/clementina.lib`. For an assembly project with assets, see the [library demo](../../examples/library-demo/clementina.yaml). Its build produces `assets.inc`, `assets.s`, a `lib/` folder with `clementina.lib`, `memory-report.json`, a card folder containing asset files and a PRG, `BOOT.BAS`, `bootstrap.bas`, and `load-plan.json`. The generated asset declarations and file formats are described in the [builder guide](../../docs/gamedev/builder.md). The [loading guide](../../docs/program-loading.md) describes how to use the load plan.
+Every assembly build, with or without assets, writes the [Clementina library](../lib/) into `lib/` and links `lib/clementina.lib`. For an assembly project with assets, see the [library demo](../../examples/library-demo/clementina.yaml). Its build produces `assets.inc`, `assets.s`, a `lib/` folder with `clementina.lib`, `memory-report.json`, a card folder containing asset files and a PRG, `BOOT.BAS`, `boot.cbas`, and `load-plan.json`. The generated asset declarations and file formats are described in the [builder guide](../../docs/gamedev/builder.md). The [loading guide](../../docs/program-loading.md) describes how to use the load plan.
 
 ## Library helpers
 

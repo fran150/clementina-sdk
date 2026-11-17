@@ -9,7 +9,7 @@ the ROM tokenizer, parser, token tables, and source limits.
 ## Requirements
 
 - Node.js 20 or newer for the server.
-- An editor with a generic LSP client for server use. Associate `.bas` files
+- An editor with a generic LSP client for server use. Associate `.cbas` files
   with the `clementina-basic-lsp` executable and use stdio transport.
 - Numbered Clementina BASIC source encoded as printable 7-bit ASCII. The ROM
   accepts line numbers from 0 through 63999 and at most 80 input characters

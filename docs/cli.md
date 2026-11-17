@@ -30,7 +30,7 @@ npx clementina project import "My game.cstudio" path/to/new-project --name "My G
 npx clementina asset validate examples/minimal-game/assets/palettes/main.palette.json
 npx clementina sprite validate examples/minimal-game/assets/shapes/player_idle.shape.json
 npx clementina animation validate examples/minimal-game/assets/animations/player_idle.animation.json
-npx clementina basic compile src/main.bas build/game.bas
+npx clementina basic compile src/main.cbas build/game.bas
 npx clementina build path/to/project
 npx clementina run path/to/project --emulator /path/to/clementina-automation
 npx clementina check path/to/project --renderer clementina-render
@@ -40,10 +40,13 @@ npx clementina doctor
 
 `new <directory>` starts a project from the starter built into the CLI, so it
 needs no SDK checkout. The starter has both [program parts](project-format.md#program-parts):
-a BASIC `program.entry` (`src/main.bas`, an input loop with a palette) that calls
-an assembly routine (`src/score.s`, linked by `link.cfg` at `$7000`, above a
-`build.basic.memoryTop` of `$7000`) with `SYS`. A project keeps either part on its
-own by removing the other. It includes a `README.md` and the `checks/` files used
+a BASIC `program.entry` (`src/main.cbas`, which prints a line and waits for a key) that calls
+an assembly routine (`src/hello.s`, which prints a line, linked by `link.cfg` at `$7000`, above a
+`build.basic.memoryTop` of `$7000`) with `SYS`. It is deliberately minimal;
+`examples/catch-the-star` is a complete game built from it. A project keeps either part on its
+own by removing the other. It includes a `README.md`, a `.vscode/settings.json` that
+opens `.s`, `.inc` and `.cbas` files with the Clementina languages (other extensions,
+such as Go's, also claim `.s`), and the `checks/smoke.json` used
 by the [agent workflows](../agents/workflows/create-game.md); building it needs cc65.
 The destination must not exist or must be an empty directory, and no file is
 overwritten. `--name` sets the manifest `name` (1..80 characters); it defaults
@@ -100,20 +103,21 @@ it is not a PRG and must not overwrite the source file. See
 [BASIC tooling](basic-tooling.md).
 
 `run` performs the same validated build, starts one owned headless emulator, mounts
-the build result's `sdRoot` (`<outputDirectory>/sd` for asset builds, otherwise
-the project root), enters the generated load plan through the ROM
-(a numbered bootstrap for an assembly project, direct commands for a BASIC project),
-and prints the loopback automation endpoint. It remains attached so debugger clients
+the build result's `sdRoot` (`<outputDirectory>/sd`), types `RUN "BOOT.BAS"`
+as a person would, and prints the loopback automation endpoint. It remains attached so debugger clients
 can use that endpoint; press Ctrl-C to stop and dispose of the emulator. The default
 executable is `clementina-automation` from `PATH`. Override it with `--emulator` or
 the host-only `CLEMENTINA_EMULATOR` environment variable. `--port 0` selects an
 available loopback port; values 1-65535 request a fixed port. These host settings
 are deliberately absent from the portable project manifest.
 
-With `build.assets`, copy the contents of `<outputDirectory>/sd` to the SD
-card. It contains the program, asset files and tokenized `BOOT.BAS`; from that
-directory, `LOAD "BOOT.BAS"` then `RUN`. The build message and JSON assembly
-result include `sdRoot`.
+Every build writes the card folder `<outputDirectory>/sd`: tokenized `BOOT.BAS`,
+the program (`<NAME>.BAS`, `<NAME>.PRG`), palette and CHR files, and any asset
+files. Mount it with `clementina-emulator --sd build/sd`, or copy its contents
+to an SD card, then type `RUN "BOOT.BAS"`. `BOOT.BAS` runs the load plan and
+starts the program (its BASIC program with `RUN "<NAME>.BAS"`). Its readable
+source is `<outputDirectory>/boot.cbas`. The build message and JSON result
+include `sdRoot`.
 
 `install [tool[@version] ...] [--force] [--no-modify-path]` downloads cc65,
 `emulator`, `video-client` and `studio` into `~/.clementina` and adds them to

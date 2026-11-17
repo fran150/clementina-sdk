@@ -2,5 +2,5 @@
   "format": "clementina-code-check",
   "version": 1,
   "settleCycles": 3000000,
-  "memory": [{"address": 640, "bytes": [1], "phase": "after"}]
+  "memory": [{"address": 640, "bytes": [18], "phase": "after"}]
 }

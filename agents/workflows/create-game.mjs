@@ -26,7 +26,7 @@ function options(args, names) {
 }
 
 /** Same as `clementina new`. */
-export async function initGame(destination, name = 'Catch the Star') {
+export async function initGame(destination, name = 'My Game') {
   return (await createProject(destination, {name})).root;
 }
 

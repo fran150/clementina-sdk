@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.s": "clementina-asm",
+    "*.inc": "clementina-asm",
+    "*.cbas": "clementina-basic"
+  }
+}

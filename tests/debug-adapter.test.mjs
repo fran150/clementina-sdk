@@ -10,11 +10,11 @@ const binPath = new URL('../packages/debug-adapter/bin/clementina-debug-adapter.
 
 async function basicProjectFixture() {
   const root = await mkdtemp(join(tmpdir(), 'clementina-debug-adapter-'));
-  await writeFile(join(root, 'main.bas'), '10 PRINT "HI"\n20 END\n');
+  await writeFile(join(root, 'main.cbas'), '10 PRINT "HI"\n20 END\n');
   await writeFile(join(root, 'clementina.yaml'), [
     'format: clementina-project', 'version: 1', 'name: Adapter Test',
     'target:', '  machine: clementina-6502',
-    'program:', '  entry: main.bas',
+    'program:', '  entry: main.cbas',
     'assets:', '  palettes: []', '  paletteConfigs: []',
     '  tilesets: []', '  backgrounds: []', '  overlays: []', '  shapes: []', '  animations: []',
     'build:', '  outputDirectory: build', '  basic:', '    outputName: game', '',
@@ -151,7 +151,7 @@ test('breakpoints pipelined with launch wait for preparation and preserve unveri
   const launch = adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project'});
   const breakpointResponse = {command: 'setBreakpoints', request_seq: 2, success: true};
   const breakpointRequest = adapter.setBreakPointsRequest(breakpointResponse, {
-    source: {path: '/tmp/project/main.bas'},
+    source: {path: '/tmp/project/main.cbas'},
     breakpoints: [{line: 3}],
   });
   finishPreparation({ok: true, value: {session: {
@@ -162,7 +162,7 @@ test('breakpoints pipelined with launch wait for preparation and preserve unveri
   }}});
 
   await Promise.all([launch, breakpointRequest]);
-  assert.deepEqual(calls, [['main.bas', [3]]]);
+  assert.deepEqual(calls, [['main.cbas', [3]]]);
   assert.equal(breakpointResponse.body.breakpoints[0].verified, false);
   assert.equal(breakpointResponse.body.breakpoints[0].message, 'No effective BASIC statement at this line');
   assert.equal(responses.length, 2);
