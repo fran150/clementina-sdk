@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    {"path": "packages/asm-lsp"},
     {"path": "packages/assembler"},
     {"path": "packages/assets"},
     {"path": "packages/basic"},

@@ -122,7 +122,7 @@ npx clementina-basic-lsp
 
 The server always uses stdio (it passes explicit streams to `createConnection`
 rather than relying on a `--stdio` flag, so it works with any launcher). Point
-an editor's generic LSP client configuration at this binary for `.bas` files.
+an editor's generic LSP client configuration at this binary for `.cbas` files.
 
 The formatter and renumberer intentionally operate on the effective program the
 ROM would retain after numbered lines are entered in order. Duplicate line numbers

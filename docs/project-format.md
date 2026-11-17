@@ -12,7 +12,7 @@ editor integrations can all read and write.
 my-game/
 ├── clementina.yaml
 ├── src/
-│   └── main.bas
+│   └── main.cbas
 └── assets/
     ├── palettes/
     ├── palette-configs/
@@ -39,7 +39,7 @@ target:
   machine: clementina-6502
   phi2Hz: 1200000
 program:
-  entry: src/main.bas
+  entry: src/main.cbas
 assets:
   palettes:
     - assets/palettes/main.palette.json
@@ -85,7 +85,9 @@ A project needs at least one of them:
 | BASIC and assembly | Loads the assets, `BLOAD`s the PRG (it returns to BASIC), then `LOAD`s and `RUN`s the program, which calls the code with `SYS`. |
 
 `program.entry` needs `build.basic` settings, and `build.basic` needs
-`program.entry`. Asset builds (`build.assets`) need `build.assembly`, because the
+`program.entry`. BASIC source is text and uses the `.cbas` extension; `.BAS` is
+for tokenized programs, the files the machine's `SAVE` and `LOAD` use, so an
+entry with another extension gets the `project.program.extension` warning. Asset builds (`build.assets`) need `build.assembly`, because the
 Clementina library that loads them is ca65 code.
 
 ## Build declaration
@@ -127,7 +129,7 @@ memory ends:
 
 ```yaml
 program:
-  entry: src/main.bas
+  entry: src/main.cbas
 build:
   outputDirectory: build
   basic:
@@ -157,8 +159,9 @@ assembly-only program takes over with `BRUN`, so overlapping BASIC is not report
 for it; overlapping the kernel, which holds the loader, is.
 
 `@clementina/build` and `clementina build` produce the linked binary and PRG,
-debug artifacts, palette/CHR files, `load-plan.json`, `memory-layout.json` and
-`bootstrap.bas` inside `outputDirectory`. With `build.assets`, sprite files contain each tileset's
+debug artifacts, `load-plan.json`, `memory-layout.json` and `boot.cbas` inside
+`outputDirectory`, and the card folder `<outputDirectory>/sd` with `BOOT.BAS`,
+the program and the palette/CHR files ([program loading](program-loading.md)). With `build.assets`, sprite files contain each tileset's
 shapes followed by animations, with generated item/location tables.
 
 ## Asset build (`build.assets`)
@@ -199,7 +202,7 @@ Output includes `assets.inc`, `assets.s` and `memory-report.json`, next to the
 Clementina library's sources, listings, `lib/clementina.lib` and
 `lib/code-sizes.json`, which every assembly build writes. The deployable card is
 `build/sd`, containing `BOOT.BAS`, `GAME.PRG` and `ASSETS/`, plus the compiled
-`<NAME>.BAS` when the project has a BASIC program. Library calls own
+`<NAME>.BAS` when the project has a BASIC program, as for every build. Library calls own
 loading and playback; merely including an asset does not load or use it.
 See [the Builder](gamedev/builder.md), [the Clementina library](gamedev/library.md)
 and `examples/library-demo`.

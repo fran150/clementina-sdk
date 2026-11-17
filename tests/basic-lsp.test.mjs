@@ -448,57 +448,57 @@ async function exerciseStdioServer(binPath) {
     assert.equal(initialized.result.capabilities.documentFormattingProvider, true);
     notify('initialized', {});
     notify('textDocument/didOpen', {
-      textDocument: {uri: 'file:///test.bas', languageId: 'basic', version: 1, text: 'BADLINE\n10 PRINT "OK"\n'},
+      textDocument: {uri: 'file:///test.cbas', languageId: 'basic', version: 1, text: 'BADLINE\n10 PRINT "OK"\n'},
     });
     const published = await waitFor(m => m.method === 'textDocument/publishDiagnostics');
-    assert.equal(published.params.uri, 'file:///test.bas');
+    assert.equal(published.params.uri, 'file:///test.cbas');
     assert.equal(published.params.diagnostics.length, 1);
     assert.deepEqual(published.params.diagnostics[0].range, {start: {line: 0, character: 0}, end: {line: 0, character: 7}});
     assert.match(published.params.diagnostics[0].message, /expected a numbered BASIC line/);
 
-    const hoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 4}});
+    const hoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.cbas'}, position: {line: 1, character: 4}});
     const hover = await waitFor(m => m.id === hoverId);
     assert.match(hover.result.contents.value, /\*\*PRINT\*\*/);
     assert.ok(hover.result.contents.value.includes(basicKeywordByName.get('PRINT').summary));
 
-    const completionId = request('textDocument/completion', {textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 6}});
+    const completionId = request('textDocument/completion', {textDocument: {uri: 'file:///test.cbas'}, position: {line: 1, character: 6}});
     const completion = await waitFor(m => m.id === completionId);
     assert.deepEqual(completion.result.map(item => item.label), ['PRINT']);
 
     notify('textDocument/didChange', {
-      textDocument: {uri: 'file:///test.bas', version: 2},
+      textDocument: {uri: 'file:///test.cbas', version: 2},
       contentChanges: [{text: '10 x=padbtn(0,1):goto 30\n30 end\n'}],
     });
-    const definitionId = request('textDocument/definition', {textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 22}});
+    const definitionId = request('textDocument/definition', {textDocument: {uri: 'file:///test.cbas'}, position: {line: 0, character: 22}});
     const definition = await waitFor(m => m.id === definitionId);
     assert.deepEqual(definition.result.range, {start: {line: 1, character: 0}, end: {line: 1, character: 2}});
 
-    const signatureId = request('textDocument/signatureHelp', {textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 14}});
+    const signatureId = request('textDocument/signatureHelp', {textDocument: {uri: 'file:///test.cbas'}, position: {line: 0, character: 14}});
     const signature = await waitFor(m => m.id === signatureId);
     assert.equal(signature.result.signatures[0].label, 'PADBTN(pad, button)');
     assert.deepEqual(signature.result.signatures[0].parameters, [{label: [7, 10]}, {label: [12, 18]}]);
     assert.equal(signature.result.activeParameter, 1);
 
     const referencesId = request('textDocument/references', {
-      textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 3}, context: {includeDeclaration: true},
+      textDocument: {uri: 'file:///test.cbas'}, position: {line: 0, character: 3}, context: {includeDeclaration: true},
     });
     const references = await waitFor(m => m.id === referencesId);
     assert.equal(references.result.length, 1);
 
-    const symbolsId = request('textDocument/documentSymbol', {textDocument: {uri: 'file:///test.bas'}});
+    const symbolsId = request('textDocument/documentSymbol', {textDocument: {uri: 'file:///test.cbas'}});
     const symbols = await waitFor(m => m.id === symbolsId);
     assert.ok(symbols.result.some(symbol => symbol.name === 'X'));
 
-    const semanticId = request('textDocument/semanticTokens/full', {textDocument: {uri: 'file:///test.bas'}});
+    const semanticId = request('textDocument/semanticTokens/full', {textDocument: {uri: 'file:///test.cbas'}});
     const semantic = await waitFor(m => m.id === semanticId);
     assert.ok(semantic.result.data.length > 0);
 
-    const formatId = request('textDocument/formatting', {textDocument: {uri: 'file:///test.bas'}, options: {tabSize: 2, insertSpaces: true}});
+    const formatId = request('textDocument/formatting', {textDocument: {uri: 'file:///test.cbas'}, options: {tabSize: 2, insertSpaces: true}});
     const formatting = await waitFor(m => m.id === formatId);
     assert.equal(formatting.result[0].newText, '10 X=PADBTN(0,1):GOTO 30\n30 END\n');
 
     const actionId = request('textDocument/codeAction', {
-      textDocument: {uri: 'file:///test.bas'},
+      textDocument: {uri: 'file:///test.cbas'},
       range: {start: {line: 0, character: 0}, end: {line: 1, character: 6}},
       context: {diagnostics: []},
     });
@@ -506,17 +506,17 @@ async function exerciseStdioServer(binPath) {
     assert.equal(actions.result[0].command.command, 'clementina.basic.renumber');
 
     const renumberId = request('workspace/executeCommand', {
-      command: 'clementina.basic.renumber', arguments: ['file:///test.bas', 100, 100],
+      command: 'clementina.basic.renumber', arguments: ['file:///test.cbas', 100, 100],
     });
     const applyEdit = await waitFor(m => m.method === 'workspace/applyEdit');
-    assert.equal(applyEdit.params.edit.changes['file:///test.bas'][0].newText,
+    assert.equal(applyEdit.params.edit.changes['file:///test.cbas'][0].newText,
       '100 x=padbtn(0,1):goto 200\n200 end\n');
     send({jsonrpc: '2.0', id: applyEdit.id, result: {applied: true}});
     const renumbered = await waitFor(m => m.id === renumberId);
     assert.equal(renumbered.result, true);
 
     const overflowId = request('workspace/executeCommand', {
-      command: 'clementina.basic.renumber', arguments: ['file:///test.bas', 63995, 10],
+      command: 'clementina.basic.renumber', arguments: ['file:///test.cbas', 63995, 10],
     });
     const failure = await waitFor(m => m.method === 'window/showMessageRequest');
     assert.equal(failure.params.type, 1);
@@ -526,22 +526,22 @@ async function exerciseStdioServer(binPath) {
 
     assert.deepEqual(initialized.result.capabilities.completionProvider, {triggerCharacters: ['{', '$', ' '], resolveProvider: true});
     notify('textDocument/didChange', {
-      textDocument: {uri: 'file:///test.bas', version: 3},
+      textDocument: {uri: 'file:///test.cbas', version: 3},
       contentChanges: [{text: '10 PRINT "{c2 fy}F{c3}r";"{$81}"\n20 PRINT "{\n'}],
     });
-    const tagsId = request('clementina/basicTags', {textDocument: {uri: 'file:///test.bas'}});
+    const tagsId = request('clementina/basicTags', {textDocument: {uri: 'file:///test.cbas'}});
     const tags = (await waitFor(m => m.id === tagsId)).result;
     assert.deepEqual(tags[0], {start: {line: 0, character: 10}, end: {line: 0, character: 17}});
     assert.equal(tags.length, 3);
     // A selection ending at the start of a line leaves that line out; line 20 does not parse.
     const screenId = request('clementina/basicScreen', {
-      textDocument: {uri: 'file:///test.bas'},
+      textDocument: {uri: 'file:///test.cbas'},
       ranges: [{start: {line: 0, character: 3}, end: {line: 1, character: 0}}, {start: {line: 1, character: 2}, end: {line: 1, character: 2}}],
     });
     const screen = (await waitFor(m => m.id === screenId)).result;
     assert.deepEqual([screen.lines, screen.rows, screen.placeholders, screen.notes], [[10], 1, false, []]);
     assert.match(Buffer.from(screen.image.split(',')[1], 'base64').toString(), /^<svg [^>]*width="320" height="8"/u);
-    const noScreenId = request('clementina/basicScreen', {textDocument: {uri: 'file:///test.bas'}, ranges: 'all'});
+    const noScreenId = request('clementina/basicScreen', {textDocument: {uri: 'file:///test.cbas'}, ranges: 'all'});
     assert.deepEqual((await waitFor(m => m.id === noScreenId)).result, {lines: [], placeholders: false, notes: []});
 
     const glyphsId = request('clementina/basicGlyphs', {cellSize: 16});
@@ -553,7 +553,7 @@ async function exerciseStdioServer(binPath) {
     assert.deepEqual([styles.colors.length, styles.colors[2].name, styles.flags.map(flag => flag.word)], [16, 'orange', ['fx', 'fy', 'rev']]);
 
     const tagCompletionId = request('textDocument/completion', {
-      textDocument: {uri: 'file:///test.bas'}, position: {line: 1, character: 11}, context: {triggerKind: 2, triggerCharacter: '{'},
+      textDocument: {uri: 'file:///test.cbas'}, position: {line: 1, character: 11}, context: {triggerKind: 2, triggerCharacter: '{'},
     });
     const tagCompletion = (await waitFor(m => m.id === tagCompletionId)).result;
     const color = tagCompletion.find(item => item.label === 'c2');
@@ -565,19 +565,19 @@ async function exerciseStdioServer(binPath) {
     const resolved = (await waitFor(m => m.id === resolveId)).result;
     assert.match(resolved.documentation.value, /^\*\*Tile \$81\*\* — glyph mode 1, key `!`\n\n!\[tile \$81\]\(data:image\/svg\+xml;base64,/u);
     const spaceId = request('textDocument/completion', {
-      textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 8}, context: {triggerKind: 2, triggerCharacter: ' '},
+      textDocument: {uri: 'file:///test.cbas'}, position: {line: 0, character: 8}, context: {triggerKind: 2, triggerCharacter: ' '},
     });
     assert.deepEqual((await waitFor(m => m.id === spaceId)).result, []);
 
-    const tagHoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.bas'}, position: {line: 0, character: 12}});
+    const tagHoverId = request('textDocument/hover', {textDocument: {uri: 'file:///test.cbas'}, position: {line: 0, character: 12}});
     assert.match((await waitFor(m => m.id === tagHoverId)).result.contents.value, /^\*\*\{c2 fy\}\*\* — color 2 \(orange\), flip Y\n\n!\[styled characters\]/u);
 
     const styleId = request('workspace/executeCommand', {
       command: 'clementina.basic.styleStrings',
-      arguments: ['file:///test.bas', [{start: {line: 0, character: 17}, end: {line: 0, character: 17}}], 0x85],
+      arguments: ['file:///test.cbas', [{start: {line: 0, character: 17}, end: {line: 0, character: 17}}], 0x85],
     });
     const styleEdit = await waitFor(m => m.method === 'workspace/applyEdit' && m.id !== applyEdit.id);
-    assert.deepEqual(styleEdit.params.edit.changes['file:///test.bas'], [{range: {start: {line: 0, character: 10}, end: {line: 0, character: 23}}, newText: '{c5 rev}Fr'}]);
+    assert.deepEqual(styleEdit.params.edit.changes['file:///test.cbas'], [{range: {start: {line: 0, character: 10}, end: {line: 0, character: 23}}, newText: '{c5 rev}Fr'}]);
     send({jsonrpc: '2.0', id: styleEdit.id, result: {applied: true}});
     assert.equal((await waitFor(m => m.id === styleId)).result, true);
   } finally {

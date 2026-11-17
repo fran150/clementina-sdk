@@ -1,0 +1,33 @@
+format: clementina-project
+version: 1
+name: Catch the Star
+target:
+  machine: clementina-6502
+program:
+  entry: src/main.cbas
+assets:
+  palettes:
+    - assets/palettes/main.palette.json
+    - assets/palettes/star.palette.json
+    - assets/palettes/basket.palette.json
+  paletteConfigs:
+    - assets/palette-configs/main.palette-config.json
+  tilesets: []
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  basic:
+    outputName: game
+    memoryTop: 28672 # $7000: BASIC stays below the assembly code
+  assembly:
+    sources:
+      - src/stars.s
+    linkerConfig: link.cfg
+    outputName: code
+    loadAddress: 28672 # $7000
+    entrySymbol: play
+  video:
+    paletteConfigId: palette-config:main

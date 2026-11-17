@@ -137,6 +137,13 @@ parser/tokenizer/token tables rather than re-deriving them; a
 separate Node entry (`clementina-basic-lsp`, built on `vscode-languageserver`) wires
 that core to stdio JSON-RPC. See [the BASIC language server](basic-lsp.md).
 
+`@clementina/asm-lsp` is the Language Server Protocol server for ca65 assembly:
+ca65's own diagnostics on the unsaved text with a build's include path, hover for
+W65C02S instructions, directives and symbols, completion, navigation, rename,
+outline and folding across a workspace and the Clementina library from
+`@clementina/lib`. Its stdio entry is `clementina-asm-lsp`. See
+[the assembly language server](asm-lsp.md).
+
 `@clementina/debug-adapter` is a standalone stdio Debug Adapter Protocol server
 (`clementina-debug-adapter`, built on `@vscode/debugadapter`) translating DAP
 requests directly into `ClementinaDebugSession`/`createProjectDebugSession` calls —
@@ -146,8 +153,8 @@ The `clementina` VS Code extension (`packages/vscode-extension`, npm name
 `clementina` since extension manifests cannot use a scoped package name) is a thin
 client registering both: a `DebugAdapterDescriptorFactory` spawning
 `clementina-debug-adapter`, and a `vscode-languageclient` spawning
-`clementina-basic-lsp` for `.bas` files, plus BASIC syntax coloring and configurable
-renumbering. See [the VS Code extension](vscode-extension.md).
+`clementina-basic-lsp` for `.cbas` files and one spawning `clementina-asm-lsp` for
+`.s` and `.inc` files, plus syntax coloring and configurable renumbering. See [the VS Code extension](vscode-extension.md).
 
 `@clementina/build` loads and validates a portable project, emits explicitly
 selected asset placements, and writes a validated load plan. With
@@ -158,11 +165,10 @@ each part the project declares (see [program parts](project-format.md#program-pa
 `assembly`, from `build.assembly` through `@clementina/assembler` with
 `clementina.inc` and `mia.inc` on its include path (see
 [machine includes](assembly.md#machine-includes)), and `basic`, from
-`program.entry` through `@clementina/basic`. Every build writes a numbered
-`bootstrap.bas`, `load-plan.json` and `memory-layout.json` (`memoryLayout`). A plan
-ending in the BASIC program launches in the emulator with direct ROM commands (see
-[program loading](program-loading.md)); one ending in the PRG's `BRUN`, with the
-numbered bootstrap. This is the API used by CLI `build`/`run`; other consumers should call it instead
+`program.entry` through `@clementina/basic`. Every build writes the card folder
+`<outputDirectory>/sd` (`sdRoot`) with tokenized `BOOT.BAS`, plus its source
+`boot.cbas`, `load-plan.json` and `memory-layout.json` (`memoryLayout`). Projects
+start with `RUN "BOOT.BAS"` (see [program loading](program-loading.md)). This is the API used by CLI `build`/`run`; other consumers should call it instead
 of reproducing the artifact ordering or filenames.
 
 `@clementina/mcp` is a stdio server that exposes project and asset validation,

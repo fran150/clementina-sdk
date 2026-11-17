@@ -3,7 +3,7 @@ import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-// Bundles the extension and the two SDK servers it spawns into dist/, so the
+// Bundles the extension and the three SDK servers it spawns into dist/, so the
 // .vsix carries no node_modules (vsce cannot collect dependencies from an npm
 // workspace). Run after `tsc -b` has built the server packages.
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -20,6 +20,7 @@ await Promise.all([
     entryPoints: {
       'debug-adapter': bin('@clementina/debug-adapter', 'clementina-debug-adapter.mjs'),
       'basic-lsp': bin('@clementina/basic-lsp', 'clementina-basic-lsp.mjs'),
+      'asm-lsp': bin('@clementina/asm-lsp', 'clementina-asm-lsp.mjs'),
     },
     outdir: 'dist',
     outExtension: {'.js': '.mjs'},

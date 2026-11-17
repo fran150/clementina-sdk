@@ -234,6 +234,25 @@ export class EmulatorClient {
     return this.run();
   }
 
+  /**
+   * Reset, boot the ROM and type `RUN "BOOT.BAS"`, as a person starts a built
+   * project: the build writes BOOT.BAS into the card folder, and it loads the
+   * project and starts it. The automation server must have that card folder
+   * (the build's sdRoot) mounted as its SD root.
+   */
+  async launchBoot(options: LaunchLoadPlanOptions & {path?: string} = {}): Promise<ExecutionState> {
+    const path = options.path ?? 'BOOT.BAS';
+    if (!/^[\x20-\x7e]+$/u.test(path) || path.includes('"')) throw new TypeError('boot path must be printable ASCII without quotes');
+    const bootCycles = options.bootCycles ?? 4_000_000;
+    const chunkBytes = options.inputChunkBytes ?? 48;
+    requireCycleBudget(bootCycles, 'bootCycles');
+    if (!isInteger(chunkBytes, 64) || chunkBytes === 0) throw new RangeError('inputChunkBytes must be 1..64');
+    await this.reset();
+    await this.step(bootCycles);
+    await this.enterBasicLine(`RUN "${path}"`, 0, chunkBytes);
+    return this.run();
+  }
+
   /** Send an ASCII BASIC line in FIFO-sized chunks, optionally stepping after each chunk. */
   private async enterBasicLine(line: string, inputCycles: number, chunkBytes: number): Promise<void> {
     const bytes = Array.from(line, character => character.charCodeAt(0));

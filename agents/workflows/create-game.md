@@ -28,10 +28,11 @@ does the same from an SDK checkout.
 
 The destination must be new or an empty directory. The starter has both
 [program parts](../../docs/project-format.md#program-parts): `clementina.yaml`,
-`src/main.bas`, JSON palette assets, `src/score.s` with `link.cfg`, and
-`checks/smoke.json` and `checks/code.json`. Its input loop accepts `A` to score
-and `R` to restart; scoring calls the assembly routine `add_point` with
-`SYS 28672`, which adds one to CPU RAM `$0280`. `build.basic.memoryTop` keeps
+`src/main.cbas`, JSON palette assets, `src/hello.s` with `link.cfg`, and
+`checks/smoke.json`. The program prints a line, calls the assembly routine
+`hello` with `SYS 28672`, which prints another through the kernel, and waits
+for a key; the smoke check presses `A`. `examples/catch-the-star` is a
+complete game built from the starter. `build.basic.memoryTop` keeps
 BASIC below the routine at `$7000`. Remove `build.assembly` (and the `SYS`) for
 a BASIC-only project, or `program.entry` and `build.basic` for an assembly
 program that takes over the machine. The manifest uses project-relative source paths. Keep reusable
@@ -55,7 +56,7 @@ clementina build /path/to/my-game
 Project validation checks every listed asset against its schema, cross-asset IDs,
 manifest paths, build settings, and source files. To examine one asset while
 editing, use `asset validate <file>`; follow it with project validation to catch
-broken references. The BASIC build compiles `src/main.bas` to `build/game.bas`;
+broken references. The BASIC build compiles `src/main.cbas` to `build/sd/GAME.BAS`;
 the assembly build links `src/main.s` with `link.cfg`. Both emit
 `build/load-plan.json`. Build output is generated; `clementina.yaml`, source,
 and JSON assets remain the editable project.

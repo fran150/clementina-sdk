@@ -36,7 +36,7 @@ test('MCP stdio server lists tools, validates assets/projects, builds, and retur
     const built = data(await client.callTool({name: 'project_build', arguments: {projectRoot: root}}));
     assert.equal(built.ok, true);
     assert.deepEqual(built.parts, {basic: true, assembly: false});
-    assert.ok((await readFile(join(root, 'build/game.bas'))).length > 0);
+    assert.ok((await readFile(join(root, 'build/sd/GAME.BAS'))).length > 0);
     assert.equal(data(await client.callTool({name: 'emulator_stop', arguments: {}})).stopped, false);
   } finally {
     await client.close().catch(() => undefined);

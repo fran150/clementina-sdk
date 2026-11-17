@@ -1,10 +1,10 @@
 format: clementina-project
 version: 1
-name: Catch the Star
+name: My Game
 target:
   machine: clementina-6502
 program:
-  entry: src/main.bas
+  entry: src/main.cbas
 assets:
   palettes:
     - assets/palettes/main.palette.json
@@ -22,10 +22,10 @@ build:
     memoryTop: 28672 # $7000: BASIC stays below the assembly code
   assembly:
     sources:
-      - src/score.s
+      - src/hello.s
     linkerConfig: link.cfg
     outputName: code
     loadAddress: 28672 # $7000
-    entrySymbol: add_point
+    entrySymbol: hello
   video:
     paletteConfigId: palette-config:main

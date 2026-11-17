@@ -85,7 +85,7 @@ export function createClementinaMcpServer(): McpServer {
         sdRoot: resolve(root, built.value.sdRoot),
       });
       try {
-        const state = await emulator.client.launchLoadPlan(built.value.loadPlan);
+        const state = await emulator.client.launchBoot();
         active = {root, process: emulator, output: dirname(built.value.files.find(file => file.kind === 'load-plan')!.path)};
         return reply({ok: true, projectRoot: root, parts: {assembly: built.value.assembly !== undefined, basic: built.value.basic !== undefined}, endpoint: emulator.endpoint, state});
       } catch (error) {

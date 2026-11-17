@@ -162,7 +162,7 @@ function editorLine(statement: string, diagnostics: ClementinaDiagnostic[], path
  * as the user had it until the first PRG step, and a later BASIC program gets
  * bank 0 back.
  */
-function loadStatements(steps: readonly LoadStep[]): string[] {
+function loadStatements(steps: readonly LoadStep[], chain = false): string[] {
   let bank: number | undefined;
   return steps.map(step => {
     if (step.kind === 'memoryTop') return `POKE 63,${step.address & 0xff}:POKE 64,${step.address >> 8}:CLEAR`;
@@ -170,7 +170,7 @@ function loadStatements(steps: readonly LoadStep[]): string[] {
     const wanted = step.kind === 'prg' ? step.bank ?? 0 : bank === undefined ? undefined : 0;
     const select = wanted === undefined || wanted === bank ? '' : `BANK ${wanted}:`;
     bank = wanted;
-    if (step.kind === 'basic') return `${select}LOAD "${step.path}"`;
+    if (step.kind === 'basic') return `${select}${chain ? 'RUN' : 'LOAD'} "${step.path}"`;
     if (step.runAddress === undefined) return `${select}BLOAD "${step.path}"`;
     return `${select}BRUN "${step.path}"${step.runAddress === step.loadAddress ? '' : `,${step.runAddress}`}`;
   });
@@ -178,12 +178,12 @@ function loadStatements(steps: readonly LoadStep[]): string[] {
 
 /**
  * Render numbered lines after the shared load-plan validation has passed. A
- * plan ending in a BASIC program ends with its LOAD, which stops at READY: the
- * program then starts with a second RUN.
+ * plan ending in a BASIC program ends with `RUN "path"`, which loads the
+ * program in place of the bootstrap and starts it, keeping MEMSIZ.
  */
 function numberedBootstrap(plan: LoadPlan): ValidationResult<string[]> {
   const diagnostics: ClementinaDiagnostic[] = [];
-  const statements = loadStatements(plan.steps);
+  const statements = loadStatements(plan.steps, true);
   const lines = plan.steps.map((_, index) => editorLine(statements[index]!, diagnostics, `/steps/${index}/path`, (index + 1) * 10));
   return result(lines, diagnostics);
 }

@@ -1,7 +1,7 @@
 # VS Code extension
 
 The `clementina` extension (`packages/vscode-extension`) is a thin protocol/UI
-client over two editor-neutral SDK layers — it implements no
+client over editor-neutral SDK layers — it implements no
 debugging or language logic of its own:
 
 - **Debugging**: `@clementina/debug-adapter` (`packages/debug-adapter`) is a
@@ -14,15 +14,23 @@ debugging or language logic of its own:
   in the adapter itself.
 - **BASIC language support**: `@clementina/basic-lsp`'s existing
   `clementina-basic-lsp` server (see [the BASIC language server](basic-lsp.md)),
-  registered for `.bas` files through `vscode-languageclient`. It provides
+  registered for `.cbas` files through `vscode-languageclient`. It provides
   diagnostics, hover, contextual completion, symbols/references/rename,
   line-target navigation, signatures, semantic tokens, formatting, and renumbering.
+- **Assembly language support**: `@clementina/asm-lsp`'s `clementina-asm-lsp`
+  server (see [the assembly language server](asm-lsp.md)), registered for `.s` and
+  `.inc` files. It shows ca65's errors and warnings as you type, explains
+  instructions (with their addressing modes, opcodes and cycles), directives and
+  symbols on hover, completes instructions, macros, symbols and directives, and
+  provides go to definition, references, rename, signature help for macros, the
+  outline and folding, across the workspace and the Clementina library.
 
 `packages/vscode-extension/src/extension.ts` is the entire integration: it
 registers a `DebugAdapterDescriptorFactory` that spawns
-`clementina-debug-adapter` and a `LanguageClient` that spawns
-`clementina-basic-lsp`, both spawned through `process.execPath` for
-cross-platform reliability. The build bundles the extension and both servers,
+`clementina-debug-adapter` and `LanguageClient`s that spawn
+`clementina-basic-lsp` and `clementina-asm-lsp`, all spawned through
+`process.execPath` for cross-platform reliability. The build bundles the
+extension and the three servers,
 with their SDK dependencies, into `dist/` (`scripts/bundle.mjs`, using
 esbuild), so the `.vsix` needs no `node_modules` and no separate SDK install;
 the servers always match the extension's version. Only the emulator is
@@ -41,7 +49,7 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
 - Assembly projects use ld65 source maps. BASIC projects use the ROM statement
   boundary and current-line state for source breakpoints and line stepping, plus a
   **BASIC Variables** scope and simple-variable hover/watch evaluation.
-- `.bas` files have a TextMate grammar and language configuration, and the
+- `.cbas` files have a TextMate grammar and language configuration, and the
   **Clementina BASIC: Renumber Program…** command prompts for start and step.
 - `.s` and `.inc` files open as **Clementina Assembly** (ca65 syntax for the
   W65C02S, including the Rockwell bit instructions and `WAI`/`STP`), with a
@@ -52,10 +60,15 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
   `generate-includes.mjs` writes into `clementina.inc` and `mia.inc` from
   `specs/*.json`. It is generated from those files by
   `scripts/generate-asm-grammar.mjs` (`npm run generate:asm-grammar`), and
-  `npm test` fails if it is stale. There is no assembly language server yet:
-  no hover, completion or go-to-definition.
+  `npm test` fails if it is stale. The assembly language server adds the rest
+  (see above).
+- Two settings control the assembly checks: `clementina.assembly.ca65Path` (empty:
+  the ca65 `clementina install` installed, then `PATH`) and
+  `clementina.assembly.diagnostics` (`onType`, `onSave` or `off`). The extension
+  passes its global storage folder as the server's `libraryDirectory`, so go to
+  definition opens the library's sources there.
 - Both languages contribute `breakpoints`, so source breakpoints can be set
-  from the gutter in `.bas`, `.s` and `.inc` files; the debugger resolves
+  from the gutter in `.cbas`, `.s` and `.inc` files; the debugger resolves
   assembly breakpoints through the ld65 source map.
 
 ## Glyphs and styled strings

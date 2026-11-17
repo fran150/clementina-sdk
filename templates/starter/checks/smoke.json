@@ -1,6 +1,6 @@
 {
   "settleCycles": 3000000,
-  "beforeText": "PRESS A TO CATCH IT",
+  "beforeText": "HELLO FROM ASSEMBLY",
   "input": "A",
-  "afterText": "CAUGHT! SCORE 1"
+  "afterText": "YOU PRESSED A"
 }

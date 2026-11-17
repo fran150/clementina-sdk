@@ -2,16 +2,18 @@
 
 ## Builder card folder
 
-An assembly project with `build.assets` emits a standalone SD folder at
-`<outputDirectory>/sd`: `<NAME>.PRG`, tokenized `BOOT.BAS` and the configured
-asset folder (default `ASSETS`). `assets.inc`, `assets.s`, the Clementina library's
-sources, `clementina.lib` and reports stay in the parent output folder. Copy the **contents**
-of `sd` to the card. From that directory, `LOAD "BOOT.BAS"` and `RUN` load the
-program. The game then loads its assets through the Clementina library.
+Every build emits a standalone SD folder at `<outputDirectory>/sd`: tokenized
+`BOOT.BAS`, the program (`<NAME>.BAS` for a BASIC program, `<NAME>.PRG` for
+assembly), the palette and CHR files from `build.video`, and with `build.assets`
+the configured asset folder (default `ASSETS`). `assets.inc`, `assets.s`, the
+Clementina library's sources, `clementina.lib`, debug files and reports stay in
+the parent output folder. Copy the **contents** of `sd` to the card, or mount it
+in the emulator. From that directory, `RUN "BOOT.BAS"` loads and starts the
+program. An asset game then loads its assets through the Clementina library.
 
-`buildProject().value.sdRoot` is project-relative. CLI `run`, SDK debug sessions
-and Studio mount `resolve(projectRoot, build.sdRoot)`; load-plan paths are
-relative to that mount. Builds without `build.assets` retain `sdRoot: "."`.
+`buildProject().value.sdRoot` is project-relative and is always
+`<outputDirectory>/sd`. CLI `run`/`check`, SDK debug sessions and Studio mount
+`resolve(projectRoot, build.sdRoot)`; load-plan paths are relative to that mount.
 Load assembly games at `$1800` or higher so BRUN's resident loader survives: the
 kernel, which holds the loader, ends below `$1600`, and `$1800` leaves some room.
 
@@ -21,7 +23,8 @@ generated assets into MIA RAM, loads any returning banked CPU images, and finall
 hands control to the main machine-code image. This uses the ROM's filesystem and
 loaders on hardware and in the emulator. A project with assembly and no BASIC
 program gets this bootstrap. With a BASIC program, the PRG is `BLOAD`ed instead
-and the bootstrap ends by loading the program (see [BASIC terminal step](#basic-terminal-step)).
+and the bootstrap ends with `RUN "<NAME>.BAS"`, which loads the program in its
+place and starts it (see [BASIC terminal step](#basic-terminal-step)).
 See [program parts](project-format.md#program-parts).
 
 Multiple assembly source files are a build concern. The assembler and linker
@@ -143,17 +146,18 @@ assembly plan (ending in a `prg` step with `runAddress`) instead renders `mode: 
 a temporary numbered bootstrap program, executed with `RUN`. Both modes share the
 same `startCommand: 'RUN'`.
 
-A BASIC plan also renders as a numbered bootstrap (`bootstrap.bas`, and `BOOT.BAS`
-on a card) for starting it from the card: its last line is the `LOAD`, which ends
-at `READY` even inside a program, so on hardware `LOAD "BOOT.BAS"`, `RUN`, then a
-second `RUN` starts the game.
+Every plan also renders as a numbered bootstrap, tokenized as `BOOT.BAS` on the
+card and as text in `boot.cbas`. In it, a BASIC plan's last line is
+`RUN "GAME.BAS"`: ROM `RUN "path"` loads the program in place of the bootstrap
+and starts it, keeping MEMSIZ and anything `BLOAD`ed above it. So
+`RUN "BOOT.BAS"` starts any project, on hardware and in the emulator.
 
 ## Emulator launch
 
 Start the Go automation server with the generated output mounted as its SD root:
 
 ```sh
-clementina-automation -sd build
+clementina-automation -sd build/sd
 ```
 
 The path must be an existing directory. The server still binds only to loopback.
@@ -164,6 +168,11 @@ The SDK can then exercise the real ROM editor, tokenizer, MIA filesystem, `MIALO
 await client.addBreakpoint(0x6000);
 await client.launchLoadPlan(plan);
 ```
+
+`launchBoot()` instead resets, boots and types `RUN "BOOT.BAS"`, the way a
+person starts the card; CLI `run`, `check` and the MCP server use it. Debug
+sessions use `launchLoadPlan`, so the bootstrap's own line numbers can't trip
+breakpoints on the program's lines.
 
 `launchLoadPlan` resets the machine, advances a bounded boot budget, enters each
 line from `renderLoadPlanLaunch` (numbered bootstrap lines for an assembly plan,

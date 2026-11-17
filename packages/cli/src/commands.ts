@@ -250,10 +250,9 @@ const build: Command = {
     const loadPlan = value.files.find(file => file.kind === 'load-plan')!.path;
     const bootstrap = value.files.find(file => file.kind === 'bootstrap')!.path;
     const memoryLayout = value.files.find(file => file.kind === 'memory-layout')!.path;
-    const outputs = [value.assembly?.artifacts.prg, value.basic?.artifact].filter(Boolean).join(', ');
     return {
       ok: true, diagnostics: value.diagnostics, exitCode: EXIT_OK,
-      message: `Built ${outputs} and ${loadPlan}. SD card: ${value.sdRoot}.`,
+      message: `Built the SD card in ${value.sdRoot}. Start it with RUN "BOOT.BAS".`,
       data: {
         sdRoot: value.sdRoot, loadPlan, bootstrap, memoryLayout,
         ...(value.assembly ? {assembly: {prg: value.assembly.artifacts.prg, entryAddress: value.assembly.entryAddress}} : {}),
@@ -275,7 +274,7 @@ const run: Command = {
     let emulator: EmulatorProcess | undefined;
     try {
       emulator = await dependencies.startEmulatorProcess({executable: parsed.executable, sdRoot: resolve(root, built.value.sdRoot), port: parsed.port});
-      const initialState = await emulator.client.launchLoadPlan(built.value.loadPlan);
+      const initialState = await emulator.client.launchBoot();
       return {
         ok: true, diagnostics: [], exitCode: EXIT_OK, session: {emulator, initialState},
         message: `Running at ${emulator.endpoint}. Press Ctrl-C to stop.`,

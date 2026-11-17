@@ -31,3 +31,16 @@ test('the assembly grammar names every public library macro', () => {
   const macros = [...library.matchAll(/^\s*\.macro\s+(\w+)/gmu)].map(match => match[1]);
   for (const name of macros) assert.equal(macroPattern.test(name), !name.startsWith('cl__'), name);
 });
+
+test('assembly sources get the bundled Clementina assembly language server and its settings', () => {
+  assert.ok(manifest.activationEvents.includes('onLanguage:clementina-asm'));
+  assert.ok(manifest.files.includes('dist/asm-lsp.mjs'));
+  assert.equal(manifest.devDependencies['@clementina/asm-lsp'], manifest.version);
+  const properties = contributes.configuration.properties;
+  assert.deepEqual(properties['clementina.assembly.diagnostics'].enum, ['onType', 'onSave', 'off']);
+  assert.equal(properties['clementina.assembly.ca65Path'].type, 'string');
+  const source = readFileSync(new URL('src/extension.ts', extension), 'utf8');
+  assert.match(source, /serverPath\('asm-lsp'\)/u);
+  assert.match(source, /language: 'clementina-asm'/u);
+  assert.match(readFileSync(new URL('scripts/bundle.mjs', extension), 'utf8'), /'asm-lsp': bin\('@clementina\/asm-lsp', 'clementina-asm-lsp\.mjs'\)/u);
+});

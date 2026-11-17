@@ -15,6 +15,7 @@
   "activationEvents": [
     "onDebug",
     "onLanguage:clementina-basic",
+    "onLanguage:clementina-asm",
     "onCommand:clementina.basic.renumberInteractive",
     "onCommand:clementina.basic.insertGlyph",
     "onCommand:clementina.basic.styleSelection",
@@ -33,7 +34,7 @@
     "languages": [
       {
         "id": "clementina-basic",
-        "extensions": [".bas"],
+        "extensions": [".cbas"],
         "aliases": ["Clementina BASIC"],
         "configuration": "./language-configuration.json"
       },
@@ -54,6 +55,24 @@
       {"command": "clementina.basic.styleSelection", "title": "Clementina BASIC: Style Selected Text…"},
       {"command": "clementina.basic.showScreen", "title": "Clementina BASIC: Show Screen Preview"}
     ],
+    "configuration": {
+      "title": "Clementina",
+      "properties": {
+        "clementina.assembly.ca65Path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The ca65 that checks assembly as you type. Empty: the one `clementina install` installed, then ca65 on PATH."
+        },
+        "clementina.assembly.diagnostics": {
+          "type": "string",
+          "enum": ["onType", "onSave", "off"],
+          "enumDescriptions": ["Check with ca65 as you type", "Check with ca65 when a file is saved", "Do not run ca65"],
+          "default": "onType",
+          "description": "When the editor runs ca65 on assembly sources to show its errors and warnings."
+        }
+      }
+    },
     "breakpoints": [
       {"language": "clementina-basic"},
       {"language": "clementina-asm"}
@@ -118,6 +137,7 @@
     ]
   },
   "devDependencies": {
+    "@clementina/asm-lsp": "0.3.0-alpha.4",
     "@clementina/basic-lsp": "0.3.0-alpha.4",
     "@clementina/debug-adapter": "0.3.0-alpha.4",
     "@types/node": "^26.6.2",
@@ -126,5 +146,5 @@
     "typescript": "^5.8.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "media", "LICENSE"]
+  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "dist/asm-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "media", "LICENSE"]
 }

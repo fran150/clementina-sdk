@@ -38,7 +38,7 @@ export interface ProjectBuildResult {
   sdRoot: string;
   /** Warnings from the asset build and the memory layout. */
   diagnostics: ClementinaDiagnostic[];
-  /** The numbered loader written to bootstrap.bas (and BOOT.BAS on a card). */
+  /** The numbered loader: tokenized as BOOT.BAS on the card, and as text in boot.cbas. */
   bootstrapSource: string;
   /** Where every part lands in CPU memory and MIA RAM, written to memory-layout.json. */
   memoryLayout: MemoryLayout;
@@ -153,12 +153,10 @@ async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild
     libraries,
   }, runner);
   if (!assembled.ok) return assembled as ValidationResult<never>;
-  let step = assembled.value.loadStep;
-  if (plan) {
-    const program = cardFile(paths, `${config.outputName.toUpperCase()}.PRG`);
-    stage(state, 'program', program, assembled.value.prg);
-    step = {...step, path: loadPath(paths, program)};
-  }
+  // The card gets its own copy of the PRG, next to BOOT.BAS.
+  const program = cardFile(paths, `${config.outputName.toUpperCase()}.PRG`);
+  stage(state, 'program', program, assembled.value.prg);
+  const step = {...assembled.value.loadStep, path: loadPath(paths, program)};
   return result({assembly: assembled.value, step}, []);
 }
 
@@ -172,9 +170,7 @@ async function buildBasicPart(state: BuildState, config: ProjectBasicBuild): Pro
   } catch (error) {
     return result(undefined, [{...diagnostic('basic.compile', '', errorMessage(error)), source: sourcePath}]);
   }
-  const artifact = state.assetPlan
-    ? cardFile(state.paths, `${config.outputName.toUpperCase()}.BAS`)
-    : joinPortable(state.paths.outputDirectory, `${config.outputName}.bas`);
+  const artifact = cardFile(state.paths, `${config.outputName.toUpperCase()}.BAS`);
   stage(state, 'basic', artifact, bytes);
   return result({
     basic: {source: sourcePath, artifact, bytes, lines: inspectBasicProgram(bytes).lines.length},
@@ -212,8 +208,9 @@ async function buildParts(state: BuildState, runner: ProcessRunner): Promise<Val
   const checkedBootstrap = checkBootstrapSource(loadPlan);
   if (!checkedBootstrap.ok) return checkedBootstrap as ValidationResult<never>;
   const bootstrapSource = checkedBootstrap.value.join('\n') + '\n';
-  stage(state, 'bootstrap', joinPortable(state.paths.outputDirectory, 'bootstrap.bas'), utf8Bytes(bootstrapSource));
-  if (state.assetPlan) stage(state, 'boot', cardFile(state.paths, 'BOOT.BAS'), compileBasicProgram(bootstrapSource));
+  // BOOT.BAS on the card is what RUN "BOOT.BAS" starts; boot.cbas is its readable source.
+  stage(state, 'bootstrap', joinPortable(state.paths.outputDirectory, 'boot.cbas'), utf8Bytes(bootstrapSource));
+  stage(state, 'boot', cardFile(state.paths, 'BOOT.BAS'), compileBasicProgram(bootstrapSource));
   return result({parts, loadPlan, bootstrapSource}, []);
 }
 
@@ -231,7 +228,7 @@ export async function buildProject(projectRoot: string, runner: ProcessRunner = 
   const config = loaded.value.manifest.build;
   if (!config) return result(undefined, [diagnostic('build.configuration', '/build', 'Project has no build configuration')]);
 
-  const paths: BuildPaths = {outputDirectory: config.outputDirectory, cardRoot: config.assets ? joinPortable(config.outputDirectory, 'sd') : '.'};
+  const paths: BuildPaths = {outputDirectory: config.outputDirectory, cardRoot: joinPortable(config.outputDirectory, 'sd')};
   const state: BuildState = {projectRoot, project: loaded.value, paths, pending: [], videoSteps: [], warnings: []};
   if (config.assets) {
     const planned = planAssetBuild(loaded.value);

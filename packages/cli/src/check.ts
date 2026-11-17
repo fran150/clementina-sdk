@@ -179,9 +179,7 @@ export async function checkProject(directory: string, options: CheckOptions, dep
           found: item.bytes.every((byte, index) => observed[index] === byte)});
       }
     };
-    // A palette load can still be completing after the ROM has echoed a command.
-    // This is an automation processing budget, not a hardware timing constant.
-    await client.launchLoadPlan(build.loadPlan, {inputCycles: 1_000_000});
+    await client.launchBoot();
     await client.pause();
     const beforeState = await client.step(smoke?.settleCycles ?? code?.settleCycles ?? DEFAULT_SETTLE_CYCLES);
     const beforeVideo = await client.video();
