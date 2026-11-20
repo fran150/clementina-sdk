@@ -2,6 +2,14 @@ import type {
   AssemblySourceMap, Ca65DebugInfo, DebugLine, DebugSegment, DebugSpan, SourceLocation,
 } from './types.js';
 
+/** Banks for code linked at $8000-$BFFF. */
+export interface SourceMapOptions {
+  /** The bank of the main image's code there (build.assembly.bank). */
+  bank?: number;
+  /** Banks by segment name, for build.assembly.banks; they win over `bank`. */
+  segmentBanks?: Readonly<Record<string, number>>;
+}
+
 /**
  * Normalize debug source paths for consistent, case-sensitive lookups.
  *
@@ -21,7 +29,7 @@ function normalizeSourcePath(path: string): string {
  * @param spanId - Referenced debug span identifier.
  * @param spans - Debug spans indexed by identifier.
  * @param segments - Debug segments indexed by identifier.
- * @param selectedBank - Bank supplied by the build request, if any.
+ * @param banks - Bank options: the image's bank and each banked segment's.
  * @returns A source location, or undefined for missing or invalid ranges.
  */
 function locationForSpan(
@@ -30,7 +38,7 @@ function locationForSpan(
   spanId: number,
   spans: Map<number, DebugSpan>,
   segments: Map<number, DebugSegment>,
-  selectedBank: number | undefined,
+  banks: SourceMapOptions,
 ): SourceLocation | undefined {
   const span = spans.get(spanId);
   const segment = span === undefined ? undefined : segments.get(span.segmentId);
@@ -38,8 +46,9 @@ function locationForSpan(
 
   const address = segment.start + span.start;
   if (address < 0 || address > 0xffff || address + span.size > 0x10000) return undefined;
-  const bank = selectedBank !== undefined && address >= 0x8000 && address <= 0xbfff
-    ? selectedBank
+  // A segment from build.assembly.banks has its own bank; the rest of the window is the image's.
+  const bank = address >= 0x8000 && address <= 0xbfff
+    ? banks.segmentBanks?.[segment.name] ?? banks.bank
     : undefined;
   return {
     path,
@@ -72,10 +81,10 @@ function compareLocations(left: SourceLocation, right: SourceLocation): number {
  * Resolve, deduplicate, and sort valid line-to-span mappings.
  *
  * @param debug - Parsed linker debug records.
- * @param bank - Bank supplied by the build request, if any.
+ * @param bank - Bank options from the build.
  * @returns Source locations in deterministic order.
  */
-function collectLocations(debug: Ca65DebugInfo, bank: number | undefined): SourceLocation[] {
+function collectLocations(debug: Ca65DebugInfo, bank: SourceMapOptions): SourceLocation[] {
   const files = new Map(debug.files.map(file => [file.id, normalizeSourcePath(file.path)]));
   const segments = new Map(debug.segments.map(segment => [segment.id, segment]));
   const spans = new Map(debug.spans.map(span => [span.id, span]));
@@ -122,15 +131,17 @@ function indexBySource(locations: readonly SourceLocation[]): Map<string, Map<nu
  * Build a source/address index from ld65 debug records.
  *
  * @param debug - Parsed linker debug records.
- * @param options - Optional bank to associate with banked CPU addresses.
+ * @param options - The bank of the image's code at $8000-$BFFF, and the bank
+ * of each segment from build.assembly.banks (AssemblyBuildResult.segmentBanks).
  * @returns Queries for source locations, address locations, and executable lines.
- * @throws RangeError if the selected bank is not an integer from 1 through 31.
+ * @throws RangeError if a bank is not an integer from 1 through 31.
  */
-export function createAssemblySourceMap(debug: Ca65DebugInfo, options: {bank?: number} = {}): AssemblySourceMap {
-  if (options.bank !== undefined && (!Number.isInteger(options.bank) || options.bank < 1 || options.bank > 31)) {
+export function createAssemblySourceMap(debug: Ca65DebugInfo, options: SourceMapOptions = {}): AssemblySourceMap {
+  const banks = [options.bank, ...Object.values(options.segmentBanks ?? {})];
+  if (banks.some(bank => bank !== undefined && (!Number.isInteger(bank) || bank < 1 || bank > 31))) {
     throw new RangeError('bank must be 1..31');
   }
-  const locations = collectLocations(debug, options.bank);
+  const locations = collectLocations(debug, options);
   const bySource = indexBySource(locations);
 
   return {

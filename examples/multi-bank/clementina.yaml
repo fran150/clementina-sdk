@@ -1,0 +1,34 @@
+format: clementina-project
+version: 1
+name: Multi-bank rooms
+target:
+  machine: clementina-6502
+program:
+  entry: src/main.cbas
+assets:
+  palettes: []
+  paletteConfigs: []
+  tilesets: []
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  basic:
+    outputName: rooms
+    memoryTop: $7000 # BASIC stays below the shared code
+  assembly:
+    sources:
+      - src/common.s
+      - src/bank1.s
+      - src/bank2.s
+    linkerConfig: link.cfg
+    outputName: code
+    loadAddress: $7000
+    entrySymbol: show_room
+    banks: # each MEMORY area becomes its own PRG, loaded with BANK n:BLOAD
+      - bank: 1
+        memory: BANK1
+      - bank: 2
+        memory: BANK2

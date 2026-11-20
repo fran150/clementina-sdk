@@ -1,0 +1,6 @@
+{
+  "settleCycles": 3000000,
+  "beforeText": "WHICH ROOM (1 OR 2, 0 ENDS)",
+  "input": "2\r",
+  "afterText": "|   THE CAVE   |"
+}
