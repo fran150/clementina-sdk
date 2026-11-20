@@ -117,7 +117,7 @@ async function updateLibraryReport(state: BuildState): Promise<void> {
 }
 
 /** Assemble build.assembly into a PRG and return its load step. */
-async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild, runner: ProcessRunner): Promise<ValidationResult<{assembly: AssemblyBuildResult; step: PrgLoadStep}>> {
+async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild, runner: ProcessRunner): Promise<ValidationResult<{assembly: AssemblyBuildResult; step: PrgLoadStep; bankSteps: PrgLoadStep[]}>> {
   const {projectRoot, paths, assetPlan: plan} = state;
   const sources = [...config.sources];
   // The project's own include directories come first, so a program can override the generated ones.
@@ -148,6 +148,7 @@ async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild
     loadAddress: config.loadAddress,
     entrySymbol: config.entrySymbol,
     ...(config.bank === undefined ? {} : {bank: config.bank}),
+    ...(config.banks?.length ? {banks: config.banks} : {}),
     includeDirectories,
     ...(config.defines === undefined ? {} : {defines: config.defines}),
     libraries,
@@ -157,7 +158,13 @@ async function buildAssemblyPart(state: BuildState, config: ProjectAssemblyBuild
   const program = cardFile(paths, `${config.outputName.toUpperCase()}.PRG`);
   stage(state, 'program', program, assembled.value.prg);
   const step = {...assembled.value.loadStep, path: loadPath(paths, program)};
-  return result({assembly: assembled.value, step}, []);
+  // Each bank's PRG too: CODE.BANK1.PRG, loaded with BANK 1:BLOAD.
+  const bankSteps = assembled.value.banks.map(bank => {
+    const file = cardFile(paths, `${config.outputName.toUpperCase()}.BANK${bank.bank}.PRG`);
+    stage(state, 'program', file, bank.prg);
+    return {...bank.loadStep, path: loadPath(paths, file)};
+  });
+  return result({assembly: assembled.value, step, bankSteps}, assembled.diagnostics);
 }
 
 /** Compile program.entry and return its terminal load step. */
@@ -178,21 +185,30 @@ async function buildBasicPart(state: BuildState, config: ProjectBasicBuild): Pro
   }, []);
 }
 
+/** The PHI2 clock MIA starts the board at (specs/mia-config.json CFG_SPEED default $124F80). */
+const DEFAULT_PHI2_HZ = 1_200_000;
+
 /**
- * Build each declared part and combine them into one load plan: MEMSIZ, the
- * video and asset loads, the PRG, then the BASIC program. Without a BASIC
+ * Build each declared part and combine them into one load plan: the CPU
+ * speed when `target.phi2Hz` is not the board's 1.2 MHz, MEMSIZ, the
+ * video and asset loads, each bank's PRG (BANK n:BLOAD), the PRG, then the BASIC program. Without a BASIC
  * program the PRG is the terminal BRUN step; with one, it is BLOADed and returns.
  */
 async function buildParts(state: BuildState, runner: ProcessRunner): Promise<ValidationResult<{parts: BuiltParts; loadPlan: LoadPlan; bootstrapSource: string}>> {
   const config = state.project.manifest.build!;
   const parts: BuiltParts = {};
   const steps: LoadStep[] = [];
+  const phi2Hz = state.project.manifest.target.phi2Hz;
+  if (phi2Hz !== undefined && phi2Hz !== DEFAULT_PHI2_HZ) steps.push({kind: 'speed', hz: phi2Hz});
   if (config.basic?.memoryTop !== undefined) steps.push({kind: 'memoryTop', address: config.basic.memoryTop});
   steps.push(...state.videoSteps);
   if (config.assembly) {
     const built = await buildAssemblyPart(state, config.assembly, runner);
     if (!built.ok) return built as ValidationResult<never>;
     parts.assembly = built.value.assembly;
+    state.warnings.push(...built.diagnostics);
+    // The banks load first, so the main image's BRUN or the BASIC program can call them.
+    steps.push(...built.value.bankSteps);
     const {runAddress, ...returning} = built.value.step;
     steps.push(state.project.manifest.program ? returning : {...returning, runAddress});
   }

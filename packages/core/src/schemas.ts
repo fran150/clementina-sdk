@@ -903,19 +903,23 @@ export const schemas = {
     ],
     "properties": {
       "format": {
-        "const": "clementina-project"
+        "const": "clementina-project",
+        "description": "Always `clementina-project`."
       },
       "version": {
-        "const": 1
+        "const": 1,
+        "description": "The manifest format's version. Always 1."
       },
       "name": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 80
+        "maxLength": 80,
+        "description": "The project's display name, up to 80 characters."
       },
       "description": {
         "type": "string",
-        "maxLength": 500
+        "maxLength": 500,
+        "description": "Optional. What the project is, up to 500 characters."
       },
       "target": {
         "type": "object",
@@ -925,14 +929,17 @@ export const schemas = {
         ],
         "properties": {
           "machine": {
-            "const": "clementina-6502"
+            "const": "clementina-6502",
+            "description": "Always `clementina-6502`."
           },
           "phi2Hz": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 8000000
+            "maximum": 8000000,
+            "description": "The CPU clock in Hz the program runs at, 1 to 8000000. Optional; the default is 1200000 (1.2 MHz), the speed the board starts at. Any other value makes the generated loader set it before loading the program."
           }
-        }
+        },
+        "description": "The machine the project runs on."
       },
       "program": {
         "type": "object",
@@ -943,9 +950,11 @@ export const schemas = {
         "properties": {
           "entry": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The BASIC source, a `.cbas` file such as `src/main.cbas`. It needs `build.basic`."
           }
-        }
+        },
+        "description": "The project's BASIC program. Leave it out for a program that is all assembly."
       },
       "assets": {
         "type": "object",
@@ -966,7 +975,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Palette files (`*.palette.json`): eight colors each."
           },
           "paletteConfigs": {
             "type": "array",
@@ -974,7 +984,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Palette configuration files (`*.palette-config.json`): which palette goes in each of the 16 palette banks."
           },
           "tilesets": {
             "type": "array",
@@ -982,7 +993,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Tileset files (`*.tileset.json`): 256 tiles for one CHR bank."
           },
           "backgrounds": {
             "type": "array",
@@ -990,7 +1002,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Background files (`*.background.json`): tile maps."
           },
           "overlays": {
             "type": "array",
@@ -998,7 +1011,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Overlay files (`*.overlay.json`): the 40x25 overlay layer."
           },
           "shapes": {
             "type": "array",
@@ -1006,7 +1020,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Shape files (`*.shape.json`): sprites built from a tileset's tiles."
           },
           "animations": {
             "type": "array",
@@ -1014,7 +1029,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Animation files (`*.animation.json`): frames of shapes."
           },
           "instruments": {
             "type": "array",
@@ -1022,7 +1038,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Optional. Instrument files (`*.instrument.json`)."
           },
           "sounds": {
             "type": "array",
@@ -1030,7 +1047,8 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Optional. Sound effect files (`*.sound.json`)."
           },
           "songs": {
             "type": "array",
@@ -1038,9 +1056,11 @@ export const schemas = {
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "description": "Optional. Song files (`*.song.json`)."
           }
-        }
+        },
+        "description": "Every asset file in the project, one list per kind. Listing an asset makes it part of the project (validated, opened by Studio); `build` decides what reaches the SD card."
       },
       "build": {
         "type": "object",
@@ -1073,7 +1093,8 @@ export const schemas = {
         "properties": {
           "outputDirectory": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Where the build writes everything, such as `build`. The card folder is `<outputDirectory>/sd`."
           },
           "assembly": {
             "type": "object",
@@ -1093,29 +1114,43 @@ export const schemas = {
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "The assembly source files (`.s`), assembled and linked into one PRG."
               },
               "linkerConfig": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "ld65's configuration file, such as `link.cfg`. It decides where the code goes; `loadAddress` must match it."
               },
               "outputName": {
                 "type": "string",
-                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$",
+                "description": "The output files' name: `code` makes `CODE.PRG`. Letters, digits, `_` and `-`, starting with a letter."
               },
               "loadAddress": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 49151
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 49151
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(\\$|0[xX])[0-9A-Fa-f]{1,5}$"
+                  }
+                ],
+                "description": "Where the PRG loads, `$0001`-`$BFFF`: `$7000`, `0x7000` or 28672. Must be where the linker puts the first byte. `$8000`-`$BFFF` needs `bank`."
               },
               "bank": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 31
+                "maximum": 31,
+                "description": "The bank (1-31) for code linked at `$8000`-`$BFFF`. Required there, rejected elsewhere."
               },
               "entrySymbol": {
                 "type": "string",
-                "pattern": "^[A-Za-z_@][A-Za-z0-9_@.$]*$"
+                "pattern": "^[A-Za-z_@][A-Za-z0-9_@.$]*$",
+                "description": "The exported label where the code starts, such as `start`. A program with BASIC calls the code with `SYS` instead."
               },
               "includeDirectories": {
                 "type": "array",
@@ -1123,7 +1158,8 @@ export const schemas = {
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "Folders searched for `.include` files, before the SDK's own."
               },
               "defines": {
                 "type": "object",
@@ -1140,12 +1176,40 @@ export const schemas = {
                       "type": "integer"
                     }
                   ]
-                }
+                },
+                "description": "Symbols passed to ca65 (`-D NAME=value`), such as `DEBUG: 1` or `BASE: $7000`."
               },
               "checks": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether the Clementina library checks its routines' arguments (CL_CHECKS). Default true."
+              },
+              "banks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "bank",
+                    "memory"
+                  ],
+                  "properties": {
+                    "bank": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 31,
+                      "description": "The extended RAM bank, 1-31, that `BANK n:BLOAD` loads this code into."
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                      "description": "The ld65 MEMORY area in the linker configuration that holds this bank's code, such as `BANK1`. It needs its own output file (`file = \"%O.bank1\"`) and should say `bank = 1`."
+                    }
+                  }
+                },
+                "description": "Optional. More code linked at `$8000`-`$BFFF`, one bank each. Each MEMORY area becomes its own PRG, loaded into its bank before the program starts."
               }
-            }
+            },
+            "description": "The ca65 assembly: sources, linker configuration, where it loads and where it starts."
           },
           "basic": {
             "type": "object",
@@ -1156,14 +1220,25 @@ export const schemas = {
             "properties": {
               "outputName": {
                 "type": "string",
-                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$"
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,47}$",
+                "description": "The compiled program's name: `game` makes `GAME.BAS`. Letters, digits, `_` and `-`, starting with a letter."
               },
               "memoryTop": {
-                "type": "integer",
-                "minimum": 5632,
-                "maximum": 49152
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 5632,
+                    "maximum": 49152
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(\\$|0[xX])[0-9A-Fa-f]{1,5}$"
+                  }
+                ],
+                "description": "Optional. Lowers BASIC's top of memory (MEMSIZ), `$1600`-`$C000`, so bank-0 RAM from here to `$BFFF` is free for assembly: `$7000`, `0x7000` or 28672."
               }
-            }
+            },
+            "description": "The BASIC program's build settings. Needed with `program.entry`."
           },
           "assets": {
             "type": "object",
@@ -1175,7 +1250,8 @@ export const schemas = {
             "properties": {
               "folder": {
                 "type": "string",
-                "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$"
+                "pattern": "^[A-Za-z0-9_-]{1,32}(/[A-Za-z0-9_-]{1,32}){0,3}$",
+                "description": "The card folder for asset files. Default `ASSETS`."
               },
               "slots": {
                 "type": "array",
@@ -1190,30 +1266,60 @@ export const schemas = {
                   "properties": {
                     "name": {
                       "type": "string",
-                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+                      "description": "The slot's name, used by `include` and as an assembly constant."
                     },
                     "mia": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 262143
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 262143
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^(\\$|0[xX])[0-9A-Fa-f]{1,5}$"
+                        }
+                      ],
+                      "description": "A MIA RAM slot's start, in `$14000`-`$3FFFF`, such as `$14000`. Use `mia`, or `bank` and `address`."
                     },
                     "bank": {
                       "type": "integer",
                       "minimum": 1,
-                      "maximum": 31
+                      "maximum": 31,
+                      "description": "A CPU slot's first bank, 1-31. Goes with `address`."
                     },
                     "address": {
-                      "type": "integer",
-                      "minimum": 32768,
-                      "maximum": 49151
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 32768,
+                          "maximum": 49151
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^(\\$|0[xX])[0-9A-Fa-f]{1,5}$"
+                        }
+                      ],
+                      "description": "A CPU slot's start in the bank window, `$8000`-`$BFFF`. Goes with `bank`; may run on into the next banks."
                     },
                     "size": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "maximum": 507904
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 507904
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^(\\$|0[xX])[0-9A-Fa-f]{1,5}$"
+                        }
+                      ],
+                      "description": "The slot's size in bytes, such as `$1000` or 4096."
                     }
                   }
-                }
+                },
+                "description": "Your named places in memory assets load into. Built-in slots: `palettes`, `chr0`-`chr7`, `overlay`."
               },
               "include": {
                 "type": "array",
@@ -1236,24 +1342,30 @@ export const schemas = {
                         "sprites",
                         "song",
                         "sound"
-                      ]
+                      ],
+                      "description": "What the asset is written as."
                     },
                     "id": {
                       "type": "string",
-                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+                      "description": "The asset's `id`, such as `tileset:player`. A `sprites` entry names its tileset."
                     },
                     "slot": {
                       "type": "string",
-                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$"
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+                      "description": "The slot the asset loads into: a built-in slot or one from `slots`."
                     },
                     "file": {
                       "type": "string",
-                      "pattern": "^[A-Za-z0-9_-]{1,32}(\\.[A-Za-z0-9_-]{1,8})?$"
+                      "pattern": "^[A-Za-z0-9_-]{1,32}(\\.[A-Za-z0-9_-]{1,8})?$",
+                      "description": "Optional. The file's 8.3 name on the card, instead of the generated one."
                     }
                   }
-                }
+                },
+                "description": "The assets written to the card, each with the slot it loads into by default."
               }
-            }
+            },
+            "description": "The assets the build writes to the SD card for the Clementina library, and the slots they load into. Needs `build.assembly`."
           },
           "video": {
             "type": "object",
@@ -1261,7 +1373,8 @@ export const schemas = {
             "properties": {
               "paletteConfigId": {
                 "type": "string",
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+                "description": "The palette configuration to load into palette RAM, such as `palette-config:main`."
               },
               "tilesets": {
                 "type": "array",
@@ -1276,21 +1389,27 @@ export const schemas = {
                   "properties": {
                     "tilesetId": {
                       "type": "string",
-                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$",
+                      "description": "The tileset's `id`, such as `tileset:player`."
                     },
                     "bank": {
                       "type": "integer",
                       "minimum": 0,
-                      "maximum": 7
+                      "maximum": 7,
+                      "description": "The CHR bank, 0-7. BASIC's font is in banks 0 and 1."
                     }
                   }
-                }
+                },
+                "description": "Tilesets to load into CHR banks before the program starts."
               }
-            }
+            },
+            "description": "Video data the build loads before the program starts."
           }
-        }
+        },
+        "description": "How to build the project. Needs `outputDirectory` and a section for each part: `basic` with `program.entry`, `assembly` for ca65 code, or both."
       }
-    }
+    },
+    "description": "A Clementina project: clementina.yaml. Build it with `clementina build`; `clementina project validate` checks it."
   },
   "load-plan": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1425,6 +1544,24 @@ export const schemas = {
                   "type": "integer",
                   "minimum": 5632,
                   "maximum": 49152
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "hz"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "speed"
+                },
+                "hz": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8000000
                 }
               }
             }

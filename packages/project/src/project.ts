@@ -40,7 +40,8 @@ export function checkProject(value: PortableProject): ValidationResult<PortableP
       });
     }
   }
-  return result(value, diagnostics);
+  // The checked manifest has its hex addresses as numbers.
+  return result(m.ok ? {...value, manifest: m.value} : value, diagnostics);
 }
 /** IDs are scoped by asset kind; paths pair with assets by manifest array order. */
 export function createAssetResolver(project: PortableProject) {

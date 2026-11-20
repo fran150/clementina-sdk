@@ -660,7 +660,7 @@
           "size": 2,
           "name": "MEMSIZ",
           "owner": "basic",
-          "description": "Top of BASIC memory plus one ($C000 at cold start). Lower it with POKE 63/64 and CLEAR to reserve RAM."
+          "description": "Top of BASIC memory plus one ($C000 at cold start). Lower it with POKE $3F/$40 and CLEAR to reserve RAM."
         },
         {
           "address": 65,

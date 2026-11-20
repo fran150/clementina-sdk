@@ -48,8 +48,12 @@ inside the project are rejected, including dangling links. The project root itse
 may resolve through a symlink. This protects ordinary local editing; callers must
 serialize saves and must not allow concurrent hostile filesystem mutation. Saving
 is atomic per file, not transactional across a whole project: an I/O failure can
-leave a mixture of old and new assets. YAML comments and original formatting are
-not retained.
+leave a mixture of old and new assets. `clementina.yaml` is updated in place
+(`manifestText`): values that did not change keep their text, so comments, key
+order and hex addresses stay. An unchanged manifest is written back byte for
+byte; a changed one is re-printed by the `yaml` library, which keeps the
+comments but can change spacing, such as the spaces before a `#`. New addresses
+are written in `$` hex, four digits for the CPU and five for MIA.
 
 ## Schema and version policy
 

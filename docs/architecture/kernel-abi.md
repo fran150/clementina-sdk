@@ -36,7 +36,7 @@ the ROM build, including the BASIC routine each `BAS_*` entry jumps to.
 
 The `BAS_*` entries jump into BASIC, for machine code that BASIC calls with
 `SYS` or `USR`: they read arguments written after `SYS`'s address
-(`SYS 49152,10,4660` reads the 10 with `BAS_CHKCOM` and `BAS_GETBYT`), print a
+(`SYS $C000,10,4660` reads the 10 with `BAS_CHKCOM` and `BAS_GETBYT`), print a
 number or raise a BASIC error. They work only while BASIC is in memory, not in
 a program that has loaded over it. A BASIC error maps bank 0 back, so a routine
 running in another bank can raise one. Each entry's registers are in

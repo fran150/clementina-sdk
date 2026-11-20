@@ -63,9 +63,11 @@ assets:
     - assets/songs/theme.song.json
 ```
 
-`target.phi2Hz` is optional; the machine default is 1.2 MHz. The hardware can
-request other speeds, but SDK project builds and launches do not apply this
-setting yet, so project validation rejects non-default values. The three audio
+`target.phi2Hz` is optional: the CPU clock in Hz the program runs at, from 1
+to 8,000,000. The board starts at 1,200,000 (1.2 MHz); any other value makes
+the generated loader set the speed before it loads anything (a `speed` step,
+see `docs/program-loading.md`), and a real-time debug session starts the
+emulator at it. The three audio
 lists are optional, and a missing list means no assets of that kind; every other
 list is required, even when it is empty.
 
@@ -74,7 +76,8 @@ list is required, even when it is empty.
 A project is described by the parts it has, not by a kind:
 
 - `program.entry` (optional) is a BASIC program. It runs last.
-- `build.assembly` (optional) is ca65 code linked into one PRG.
+- `build.assembly` (optional) is ca65 code linked into one PRG, plus one PRG
+  for each bank listed in `build.assembly.banks`.
 
 A project needs at least one of them:
 
@@ -96,6 +99,26 @@ The build is explicit and reproducible. All paths remain project-relative.
 The linker configuration owns CPU memory placement; the SDK verifies its output
 against `loadAddress` rather than choosing an address.
 
+### Addresses
+
+Addresses and sizes (`loadAddress`, `memoryTop`, and a slot's `mia`,
+`address` and `size`) take a decimal number or hex written as `$7000` or
+`0x7000`; the three below are the same address. Neither hex form needs quotes:
+YAML reads `$7000` as text, which the SDK turns into a number, and `0x7000` as
+a number already.
+
+```yaml
+loadAddress: $7000
+loadAddress: 0x7000
+loadAddress: 28672
+```
+
+Other spellings, such as `7000h` or a hex string without its prefix, are
+rejected with `project.address`. An address out of its range is reported in
+hex: `$C000 (49152) must be at most $BFFF (49151)`. Bank numbers and CHR banks
+stay plain numbers. Assembly `defines` are passed to ca65 as written, so a
+define such as `BASE: $7000` is ca65's own hex.
+
 ```yaml
 build:
   outputDirectory: build
@@ -105,7 +128,7 @@ build:
       - src/player.s
     linkerConfig: config/game.cfg
     outputName: game
-    loadAddress: 24576       # $6000
+    loadAddress: $6000
     entrySymbol: game_start
     includeDirectories:
       - src/include
@@ -120,6 +143,60 @@ build:
 ```
 
 Images linked at `$8000-$BFFF` must also declare a CPU `bank` from 1 through 31.
+
+### Code in several banks
+
+`build.assembly` links one image at `loadAddress`. More code can go in the
+banked window `$8000-$BFFF`, one bank at a time: `banks` lists each extended
+RAM bank (1-31) and the ld65 MEMORY area that holds its code.
+
+```yaml
+build:
+  assembly:
+    sources: [src/common.s, src/bank1.s, src/bank2.s]
+    linkerConfig: link.cfg
+    outputName: code
+    loadAddress: $7000
+    entrySymbol: show_room
+    banks:
+      - bank: 1
+        memory: BANK1
+      - bank: 2
+        memory: BANK2
+```
+
+In the linker configuration, each of those areas starts in `$8000-$BFFF`, has
+an output file of its own and says its bank:
+
+```
+MEMORY {
+  MAIN:  start = $7000, size = $1000, file = %O;
+  BANK1: start = $8000, size = $4000, file = "%O.bank1", bank = 1;
+  BANK2: start = $8000, size = $4000, file = "%O.bank2", bank = 2;
+}
+```
+
+The build links once, so code in any bank can call or name a label in any
+other, and ca65's `.bank(label)` gives the bank that `bank = n` sets. It
+then packs each bank's file as its own PRG (`build/code.bank1.prg`, on the card
+`CODE.BANK1.PRG`), and the loader puts each in its bank with
+`BANK 1:BLOAD "CODE.BANK1.PRG"` before it loads the main image. The build
+stops with an error when a listed area is missing, is written to the main
+output (ld65 writes an area without `file` there), has another `bank`, or holds
+bytes outside `$8000-$BFFF`; an area without `bank` gets a warning, because
+`.bank()` of its labels then fails to link. A bank listed with no code yet is a
+warning and loads nothing. A segment written to any other file is still an
+error (`assembler.image.multiple-output`). Each bank number may hold one image,
+so `banks` may not repeat a bank or the main image's `bank`.
+
+Code running in `$8000-$BFFF` must not switch banks itself: the store to
+`VIA_ORA` maps another bank under it, and the next instruction comes from
+there. Switch from code below `$8000`, such as a far-call routine in the main
+image; [`examples/multi-bank`](../examples/multi-bank) does. The assembly
+language server warns about such stores ([asm-lsp](asm-lsp.md)), and the
+debugger can stop on them ([debugger](debugger.md)).
+
+
 Each tileset placement names a distinct CHR bank from 0 through 7. The build emits
 the selected complete palette configuration at MIA `$00100` and each tileset at
 its declared CHR bank. No placement is inferred from manifest array order.
@@ -134,10 +211,10 @@ build:
   outputDirectory: build
   basic:
     outputName: game
-    memoryTop: 40960         # $A000
+    memoryTop: $A000
 ```
 
-`memoryTop` lowers `MEMSIZ` before the program loads (`POKE 63,lo:POKE 64,hi:CLEAR`).
+`memoryTop` lowers `MEMSIZ` before the program loads (`POKE $3F,lo:POKE $40,hi:CLEAR`).
 BASIC then keeps its program, variables and strings below it, so bank-0 RAM from
 `memoryTop` to `$BFFF` is free for assembly the program calls with `SYS`. `FRE`
 reports correspondingly less memory. The program text starts at the bottom of
@@ -148,7 +225,8 @@ ROM build) to `$C000` (the default).
 
 ## Memory layout
 
-The manifest places every part: the PRG with `loadAddress` and `bank`, video data
+The manifest places every part: the PRG with `loadAddress` and `bank` (and each
+bank's code with `banks` and the linker configuration), video data
 with `build.video`, assets with `build.assets` slots, and BASIC's top with
 `memoryTop`. The build never moves a part. It writes `memory-layout.json`, a map of
 every part in CPU memory and MIA RAM next to the machine's own areas (system RAM,
@@ -175,13 +253,13 @@ build:
     sources: [src/main.s]
     linkerConfig: link.cfg
     outputName: game
-    loadAddress: 6144       # $1800; retain the resident kernel loader
+    loadAddress: $1800      # retain the resident kernel loader
     entrySymbol: game_start
   assets:
     folder: ASSETS
     slots:
-      - {name: maps, mia: 0x14000, size: 32768}
-      - {name: actors, bank: 1, address: 0x8000, size: 16384}
+      - {name: maps, mia: $14000, size: $8000}
+      - {name: actors, bank: 1, address: $8000, size: $4000}
     include:
       - {kind: paletteConfig, id: palette-config:main, slot: palettes}
       - {kind: tileset, id: tileset:player, slot: chr2}

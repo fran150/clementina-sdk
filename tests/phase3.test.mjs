@@ -110,3 +110,24 @@ test('Studio conversion rejects an explicit dangling tileset reference', async (
   studio.shapes[0].tilesetId='missing';
   assert.throws(()=>fromStudioProjectV2(studio),/does not resolve/);
 });
+
+test('manifest addresses take numbers or $/0x hex, unquoted in YAML', async t => {
+  const root = await example(t);
+  const text = await readFile(join(root, 'clementina.yaml'), 'utf8');
+  await writeFile(join(root, 'link.cfg'), 'MEMORY {}\n');
+  await writeFile(join(root, 'src/code.s'), 'rts\n');
+  const build = (top, load, slot) => `build:\n  outputDirectory: build\n  basic:\n    outputName: game\n    memoryTop: ${top}\n  assembly:\n    sources: [src/code.s]\n    linkerConfig: link.cfg\n    outputName: code\n    loadAddress: ${load}\n    entrySymbol: start\n  assets:\n    slots:\n      - {name: level, ${slot}}\n    include: []\n`;
+  await writeFile(join(root, 'clementina.yaml'), text + build('$7000', '0x7000', 'bank: 1, address: $8000, size: 0x4000'));
+  const loaded = await loadProject(root);
+  assert.equal(loaded.ok, true, JSON.stringify(loaded.diagnostics));
+  const {basic, assembly, assets} = loaded.value.manifest.build;
+  assert.deepEqual([basic.memoryTop, assembly.loadAddress, assets.slots[0]], [0x7000, 0x7000, {name: 'level', bank: 1, address: 0x8000, size: 0x4000}]);
+  await writeFile(join(root, 'clementina.yaml'), text + build('28672', '"$7000"', 'mia: $14000, size: 256'));
+  assert.equal((await loadProject(root)).ok, true);
+  await writeFile(join(root, 'clementina.yaml'), text + build('7000h', '$7000', 'mia: $14000, size: 256'));
+  const bad = await loadProject(root);
+  assert.deepEqual(bad.diagnostics.map(d => [d.code, d.path, d.message]), [['project.address', '/build/basic/memoryTop', 'Expected a number or a hex address such as $7000 or 0x7000, not "7000h"']]);
+  await writeFile(join(root, 'clementina.yaml'), text + build('$7000', '$C000', 'mia: $14000, size: 256'));
+  const high = await loadProject(root);
+  assert.deepEqual(high.diagnostics.map(d => [d.code, d.path, d.message]), [['schema.maximum', '/build/assembly/loadAddress', '$C000 (49152) must be at most $BFFF (49151)']]);
+});

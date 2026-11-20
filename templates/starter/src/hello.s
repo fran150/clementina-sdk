@@ -1,4 +1,4 @@
-; A routine the BASIC program calls with SYS 28672. It prints a line
+; A routine the BASIC program calls with SYS $7000. It prints a line
 ; through the kernel and returns to BASIC with RTS.
 .setcpu "65C02"
 .include "clementina.inc"       ; names the kernel's routines, like KERN_CHROUT

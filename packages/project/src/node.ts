@@ -1,12 +1,13 @@
 import {readFile, writeFile, realpath, lstat, mkdir, rename, rm} from 'node:fs/promises';
 import {resolve, relative, dirname, isAbsolute, sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {parseDocument, stringify} from 'yaml';
+import {parseDocument} from 'yaml';
 import {assetKinds, checkAsset, type PortableAssetSet} from '@clementina/assets';
 import {assertValid, diagnostic, errorMessage, result, ValidationError, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {checkProjectManifest, isProjectPath} from './validate.js';
 import {checkProject, type PortableProject} from './project.js';
 import {assetPaths, programSources} from './types.js';
+import {manifestText} from './manifest-text.js';
 
 /** Reject symlinks in project paths, including dangling links and parent directories. */
 export async function resolveProjectPath(root: string, path: string): Promise<string> {
@@ -28,11 +29,16 @@ export async function resolveProjectPath(root: string, path: string): Promise<st
 function ioDiagnostics(error: unknown, source: string): ClementinaDiagnostic[] {
   return error instanceof ValidationError ? error.diagnostics.map(d => ({...d, source})) : [{...diagnostic('project.io', '', errorMessage(error)), source}];
 }
-export async function loadProject(root: string): Promise<ValidationResult<PortableProject>> {
+/** Options for loadProject. */
+export interface LoadProjectOptions {
+  /** The manifest's text, such as an editor's unsaved buffer, in place of clementina.yaml on disk. */
+  manifestText?: string;
+}
+export async function loadProject(root: string, options: LoadProjectOptions = {}): Promise<ValidationResult<PortableProject>> {
   const diagnostics: ClementinaDiagnostic[] = [];
   let manifest;
   try {
-    const text = await readFile(await resolveProjectPath(root, 'clementina.yaml'), 'utf8');
+    const text = options.manifestText ?? await readFile(await resolveProjectPath(root, 'clementina.yaml'), 'utf8');
     const doc = parseDocument(text, {uniqueKeys: true});
     if (doc.errors.length) return result(undefined, doc.errors.map(e => ({...diagnostic('project.yaml', '', e.message), source: 'clementina.yaml'})));
     const r = checkProjectManifest(doc.toJS({maxAliasCount: 100}));
@@ -74,6 +80,7 @@ export async function loadProject(root: string): Promise<ValidationResult<Portab
 }
 
 /** Validate all data/paths first; replace files atomically one at a time, manifest last.
+ * The manifest keeps its comments, formatting and hex addresses (see manifestText).
  * Source files are owned by the caller. This is not a multi-file transaction.
  */
 export async function saveProject(root: string, project: PortableProject): Promise<void> {
@@ -81,7 +88,11 @@ export async function saveProject(root: string, project: PortableProject): Promi
   await mkdir(root, {recursive: true});
   const files: {path: string; text: string}[] = [];
   for (const kind of assetKinds) project.assets[kind].forEach((asset, i) => files.push({path: assetPaths(project.manifest, kind)[i], text: JSON.stringify(asset, null, 2) + '\n'}));
-  files.push({path: 'clementina.yaml', text: stringify(project.manifest)});
+  // Keep the manifest as its author wrote it: only changed values are rewritten.
+  let previous: string | undefined;
+  try { previous = await readFile(await resolveProjectPath(root, 'clementina.yaml'), 'utf8'); }
+  catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+  files.push({path: 'clementina.yaml', text: manifestText(project.manifest, previous)});
   for (const file of files) {
     const target = await resolveProjectPath(root, file.path);
     try { if (!(await lstat(target)).isFile()) throw Error(`Target is not a regular file: ${file.path}`); }
@@ -95,3 +106,4 @@ export async function saveProject(root: string, project: PortableProject): Promi
     finally { await rm(temporary, {force: true}); }
   }
 }
+export * from './editing.js';

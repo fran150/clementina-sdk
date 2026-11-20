@@ -28,15 +28,18 @@ place and starts it (see [BASIC terminal step](#basic-terminal-step)).
 See [program parts](project-format.md#program-parts).
 
 Multiple assembly source files are a build concern. The assembler and linker
-normally produce one logical PRG image; separate PRGs are useful for banked data,
-overlays, or independently loaded modules. Portable project assets remain authoring
+normally produce one logical PRG image. Code in several banks
+(`build.assembly.banks`, see [code in several banks](project-format.md#code-in-several-banks))
+links in the same pass but becomes one PRG per bank, which the bootstrap loads
+into its bank with `BANK n:BLOAD` before the main image; separate PRGs are also
+useful for banked data, overlays, or independently loaded modules. Portable project assets remain authoring
 inputs. PRGs, raw MIA binaries, and the bootstrap are generated build outputs.
 
 Each PRG step picks its bank with `BANK` first, and the final line uses `BRUN`:
 
 ```basic
-10 MIALOAD "PALETTE.BIN",256
-20 MIALOAD "TILES.BIN",512
+10 MIALOAD "PALETTE.BIN",$00100
+20 MIALOAD "TILES.BIN",$00200
 30 BANK 1:BLOAD "BANK1.PRG"
 40 BANK 0:BRUN "GAME.PRG"
 ```
@@ -50,7 +53,7 @@ standard takeover path: the ROM loads wherever the file says, so a returning loa
 at or above `$0400` may overwrite the kernel or the interpreter it returns to.
 `SYS` remains appropriate for a machine-code subroutine that was loaded without
 destroying BASIC and returns with `RTS`: below `$0400` (`$0280-$02F7` is free), in
-banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE 63,lo:POKE 64,hi:CLEAR`,
+banks 1-31, or in bank 0 above a lowered `MEMSIZ` (`POKE $3F,lo:POKE $40,hi:CLEAR`,
 which a `memoryTop` step emits). Only a cold start sets `MEMSIZ`, so the lowered
 value survives `LOAD`, `RUN` and `CLEAR`, and `LOAD` refuses a program that would
 reach it.
@@ -116,9 +119,31 @@ claim on that range: sequencer tracks have no default address (see
 ## Memory top step
 
 `{kind: 'memoryTop', address}` lowers BASIC's `MEMSIZ` to `address` (`$1600` to
-`$C000`) with `POKE 63,lo:POKE 64,hi:CLEAR`. A plan may have one. A returning
+`$C000`) with `POKE $3F,lo:POKE $40,hi:CLEAR`. A plan may have one. A returning
 bank-0 PRG step that lies wholly from `address` to `$BFFF` does not warn.
-`build.basic.memoryTop` puts this step first.
+`build.basic.memoryTop` puts this step first, after a speed step.
+
+## Speed step
+
+`{kind: 'speed', hz}` sets the CPU clock to `hz` (1 to 8,000,000) by writing
+MIA's `CFG_SPEED_L`, `_M` and `_H` fields through `CFG_SELECT` (`$FFE2`) and
+`CFG_PORT` (`$FFE3`). The six POKEs don't fit one 80-character line, so the
+step takes two:
+
+```basic
+POKE $FFE2,$20:POKE $FFE3,$80:POKE $FFE2,$21:POKE $FFE3,$84
+POKE $FFE2,$22:POKE $FFE3,$1E
+```
+
+Writing `CFG_SPEED_H` commits the change, so the rest of the plan and the
+program run at the new speed, on the board and in the emulator, whose pacing
+follows MIA's speed. A plan may have one. A `target.phi2Hz` other than
+1,200,000 puts this step first; the default speed adds no step.
+
+In a numbered bootstrap (`boot.cbas`, `BOOT.BAS`) the two POKE-only steps get
+a short `REM` line before them, `REM SET CPU SPEED` and `REM MOVE BASIC MEMORY
+TOP`, so the loader reads without the memory map. Direct launches leave them
+out.
 
 ## BASIC terminal step
 

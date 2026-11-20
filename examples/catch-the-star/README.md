@@ -13,23 +13,23 @@ starting from `clementina new`.
   screen, the score, the lives, how fast the stars fall, where each new star
   starts, game over and the high score.
 - `src/stars.s` is the assembly routine `play`, which BASIC calls with
-  `SYS 28672`. It runs the game 60 frames a second: it reads the arrows,
+  `SYS $7000`. It runs the game 60 frames a second: it reads the arrows,
   moves and draws the basket, and moves and draws the stars. It returns to
   BASIC when a star is caught or missed, or when it has started the new star
   BASIC chose. Running the frames in assembly keeps the stars falling at a
   steady pace; a BASIC loop at 1.2 MHz is too slow to.
-- The two parts share the bytes at `$0280`-`$0294` (640-660), which BASIC
+- The two parts share the bytes at `$0280`-`$0294`, which BASIC
   reads and writes with `PEEK` and `POKE`:
 
   | Address | What it holds |
   | --- | --- |
-  | 640 | The basket's left column; BASIC sets the start, `play` moves it |
-  | 641 | Stars caught since BASIC last looked; `play` adds to it |
-  | 642 | Stars missed since BASIC last looked; `play` adds to it |
-  | 643 | The column of the next new star plus one, or 0 for none |
-  | 644 | Frames between two star moves; BASIC lowers it to speed up |
-  | 645-652 | Each star's column |
-  | 653-660 | Each star's row, or 0 for an unused slot |
+  | `$0280` | The basket's left column; BASIC sets the start, `play` moves it |
+  | `$0281` | Stars caught since BASIC last looked; `play` adds to it |
+  | `$0282` | Stars missed since BASIC last looked; `play` adds to it |
+  | `$0283` | The column of the next new star plus one, or 0 for none |
+  | `$0284` | Frames between two star moves; BASIC lowers it to speed up |
+  | `$0285`-`$028C` | Each star's column |
+  | `$028D`-`$0294` | Each star's row, or 0 for an unused slot |
 
 - The palette config puts the main palette (white text on black) in bank 0,
   the star palette (yellow) in bank 1 and the basket palette (green) in

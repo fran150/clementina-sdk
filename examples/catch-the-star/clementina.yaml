@@ -21,13 +21,13 @@ build:
   outputDirectory: build
   basic:
     outputName: game
-    memoryTop: 28672 # $7000: BASIC stays below the assembly code
+    memoryTop: $7000 # BASIC stays below the assembly code
   assembly:
     sources:
       - src/stars.s
     linkerConfig: link.cfg
     outputName: code
-    loadAddress: 28672 # $7000
+    loadAddress: $7000
     entrySymbol: play
   video:
     paletteConfigId: palette-config:main

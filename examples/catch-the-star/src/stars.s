@@ -1,5 +1,5 @@
 ; The real-time part of Catch the Star. The BASIC program calls play with
-; SYS 28672. It runs the game 60 frames a second: it moves the basket while
+; SYS $7000. It runs the game 60 frames a second: it moves the basket while
 ; an arrow is held and moves the stars down at the speed BASIC sets. It
 ; returns to BASIC when a star is caught or missed, or when it has used the
 ; new star BASIC gave it. It shares the bytes below with BASIC, which reads
@@ -21,13 +21,13 @@ STAR_COLOR   = 1                ; palette bank 1, the star palette: yellow
 BASKET_COLOR = 2                ; palette bank 2, the basket palette: green
 TEXT_ATTR    = $0302            ; the kernel's pen for new characters
 
-BASKET     = $0280              ; 640: the basket's left column
-CAUGHT     = $0281              ; 641: stars caught (play adds, BASIC clears)
-MISSED     = $0282              ; 642: stars missed (play adds, BASIC clears)
-SPAWN      = $0283              ; 643: column+1 of the next star, 0 for none
-SPEED      = $0284              ; 644: frames between star moves (BASIC)
-STAR_COL   = $0285              ; 645-652: each star's column
-STAR_ROW   = $028D              ; 653-660: each star's row, 0 when unused
+BASKET     = $0280              ; the basket's left column
+CAUGHT     = $0281              ; stars caught (play adds, BASIC clears)
+MISSED     = $0282              ; stars missed (play adds, BASIC clears)
+SPAWN      = $0283              ; column+1 of the next star, 0 for none
+SPEED      = $0284              ; frames between star moves (BASIC)
+STAR_COL   = $0285              ; each star's column
+STAR_ROW   = $028D              ; each star's row, 0 when unused
 
 .data                           ; these start at 0 when the code loads
 slot:        .byte 0            ; the star being moved
@@ -38,7 +38,7 @@ spawn_wait:  .byte 0            ; star moves until a new star may start
 
 .code
 
-; SYS 28672: play until something happens.
+; SYS $7000: play until something happens.
 play:
   jsr draw_basket
 @frame:
