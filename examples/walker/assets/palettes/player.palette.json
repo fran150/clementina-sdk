@@ -1,0 +1,16 @@
+{
+  "format": "clementina-palette",
+  "version": 1,
+  "id": "palette:player",
+  "name": "Player",
+  "colors": [
+    0,
+    65106,
+    55621,
+    10907,
+    6305,
+    65535,
+    0,
+    0
+  ]
+}

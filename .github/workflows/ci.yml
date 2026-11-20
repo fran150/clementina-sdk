@@ -27,7 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run check:packages
 
-  # The example games build and pass `clementina check` in the real emulator,
+  # The examples build and pass `clementina check` in the real emulator,
   # so the book chapters that follow them keep working.
   examples:
     runs-on: ubuntu-latest
@@ -64,5 +64,9 @@ jobs:
         run: |
           cli="node packages/cli/bin/clementina.mjs"
           $cli check examples/catch-the-star
+          $cli check examples/walker
+          $cli check examples/sprite-from-studio
+          $cli check examples/cpu-speed
+          $cli check examples/multi-bank
           $cli new "$RUNNER_TEMP/new-game"
           $cli check "$RUNNER_TEMP/new-game"

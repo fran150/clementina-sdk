@@ -1,0 +1,27 @@
+format: clementina-project
+version: 1
+name: Sprite from Studio
+target:
+  machine: clementina-6502
+program:
+  entry: src/main.cbas
+assets:
+  palettes:
+    - assets/palettes/main.palette.json
+    - assets/palettes/ship.palette.json
+  paletteConfigs:
+    - assets/palette-configs/main.palette-config.json
+  tilesets:
+    - assets/tilesets/ship.tileset.json
+  backgrounds: []
+  overlays: []
+  shapes: []
+  animations: []
+build:
+  outputDirectory: build
+  basic:
+    outputName: ship
+  video:
+    paletteConfigId: palette-config:main
+    tilesets:
+      - {tilesetId: tileset:ship, bank: 2} # the sprites read CHR bank 2

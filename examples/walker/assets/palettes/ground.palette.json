@@ -1,0 +1,16 @@
+{
+  "format": "clementina-palette",
+  "version": 1,
+  "id": "palette:ground",
+  "name": "Ground",
+  "colors": [
+    2182,
+    15943,
+    31300,
+    20834,
+    7173,
+    0,
+    0,
+    0
+  ]
+}
