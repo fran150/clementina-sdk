@@ -1,0 +1,9 @@
+{
+  "comments": {"lineComment": "#"},
+  "brackets": [["{", "}"], ["(", ")"]],
+  "autoClosingPairs": [{"open": "{", "close": "}"}, {"open": "(", "close": ")"}, {"open": "\"", "close": "\"", "notIn": ["string", "comment"]}],
+  "surroundingPairs": [{"open": "{", "close": "}"}, {"open": "(", "close": ")"}, {"open": "\"", "close": "\""}],
+  "wordPattern": "%[OS]|\\$[0-9A-Fa-f]+|[A-Za-z_][A-Za-z0-9_]*|[0-9]+",
+  "indentationRules": {"increaseIndentPattern": "\\{[^}]*$", "decreaseIndentPattern": "^\\s*\\}"},
+  "folding": {"markers": {"start": "\\{\\s*(#.*)?$", "end": "^\\s*\\}"}}
+}

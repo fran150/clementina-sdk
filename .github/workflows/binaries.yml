@@ -26,7 +26,7 @@ jobs:
       - name: Package the VS Code extension
         run: |
           npm run package --workspace clementina
-          mv packages/vscode-extension/clementina-*.vsix dist/bin/
+          mv packages/vscode-extension/build/clementina-*.vsix dist/bin/
           (cd dist/bin && sha256sum clementina-*.vsix >> SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:

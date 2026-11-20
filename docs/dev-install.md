@@ -19,6 +19,23 @@ the checkout's `packages/cli/bin/clementina.mjs` and
 is enough to update them. The Go repositories build their executables straight
 into the folder; run `make dev-install` again after a change.
 
+## Rebuilding after a change
+
+From the SDK checkout:
+
+```sh
+npm install                                  # only when dependencies changed
+npm run build                                # updates the dev clementina and clementina-mcp
+npm run package --workspace clementina       # the VS Code extension
+code --install-extension "packages/vscode-extension/build/clementina-$(node -p "require('./packages/vscode-extension/package.json').version").vsix" --force
+```
+
+Then reload the VS Code window. The first time, run `npm run dev:install` in
+place of `npm run build`, then `clementina dev on`. The
+[CLI](../packages/cli/README.md#rebuilding-a-dev-install) and
+[extension](../packages/vscode-extension/README.md#rebuilding-a-dev-install)
+READMEs repeat these steps.
+
 ## Dev mode
 
 ```text
@@ -73,7 +90,7 @@ installed Studio app is separate and unaffected.
 For the extension, press `F5` in `packages/vscode-extension` to open a
 development window, or package it with `npm run package --workspace clementina`
 and install that `.vsix` over the released one with
-`code --install-extension clementina-<version>.vsix --force` (the file comes
+`code --install-extension build/clementina-<version>.vsix --force` (the file comes
 first, then `--force`). Installing the release `.vsix` again reverts it.
 
 On Windows, `npm run dev:install` writes `.cmd` launchers. `clementina dev on`

@@ -17,6 +17,23 @@ test('the extension contributes a Clementina assembly language for .s and .inc',
   }
 });
 
+test('link.cfg opens as an ld65 linker configuration served by the assembly language server', () => {
+  const language = contributes.languages.find(entry => entry.id === 'clementina-ld65');
+  assert.ok(language.filenames.includes('link.cfg'));
+  const configuration = JSON.parse(readFileSync(new URL(language.configuration, extension), 'utf8'));
+  assert.equal(configuration.comments.lineComment, '#');
+  const grammar = contributes.grammars.find(entry => entry.language === 'clementina-ld65');
+  assert.equal(JSON.parse(readFileSync(new URL(grammar.path, extension), 'utf8')).scopeName, grammar.scopeName);
+  for (const file of [language.configuration, grammar.path]) {
+    assert.ok(manifest.files.some(entry => file.replace(/^\.\//u, '').startsWith(entry)), `${file} is packaged`);
+  }
+  assert.ok(manifest.activationEvents.includes('onLanguage:clementina-ld65'));
+  assert.equal(contributes.configuration.properties['clementina.assembly.ld65Path'].type, 'string');
+  const source = readFileSync(new URL('src/extension.ts', extension), 'utf8');
+  assert.match(source, /language: 'clementina-ld65'/u);
+  assert.match(source, /setTextDocumentLanguage\(document, 'clementina-ld65'\)/u);
+});
+
 test('assembly and BASIC sources accept gutter breakpoints for the Clementina debugger', () => {
   const languages = contributes.breakpoints.map(entry => entry.language);
   assert.deepEqual(languages.sort(), ['clementina-asm', 'clementina-basic']);
@@ -43,4 +60,18 @@ test('assembly sources get the bundled Clementina assembly language server and i
   assert.match(source, /serverPath\('asm-lsp'\)/u);
   assert.match(source, /language: 'clementina-asm'/u);
   assert.match(readFileSync(new URL('scripts/bundle.mjs', extension), 'utf8'), /'asm-lsp': bin\('@clementina\/asm-lsp', 'clementina-asm-lsp\.mjs'\)/u);
+});
+
+test('clementina.yaml gets the project schema through the YAML extension, and the SDK checks and path completion', () => {
+  assert.deepEqual(manifest.extensionDependencies, ['redhat.vscode-yaml']);
+  const [validation] = contributes.yamlValidation;
+  assert.ok(validation.fileMatch.includes('clementina.yaml'));
+  assert.equal(validation.url, './dist/project.schema.json');
+  assert.ok(manifest.files.includes('dist/project.schema.json'));
+  assert.ok(manifest.activationEvents.includes('workspaceContains:**/clementina.yaml'));
+  assert.match(readFileSync(new URL('scripts/bundle.mjs', extension), 'utf8'), /specs\/schema\/project\.schema\.json/u);
+  const source = readFileSync(new URL('src/manifest.ts', extension), 'utf8');
+  assert.match(source, /checkManifestText/u);
+  assert.match(source, /registerCompletionItemProvider/u);
+  assert.match(readFileSync(new URL('src/extension.ts', extension), 'utf8'), /registerManifestSupport\(context\)/u);
 });
