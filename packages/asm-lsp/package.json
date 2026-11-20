@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test ../../tests/asm-lsp.test.mjs"
+    "test": "node --test ../../tests/asm-lsp.test.mjs ../../tests/linker-config.test.mjs"
   },
   "bin": {
     "clementina-asm-lsp": "./bin/clementina-asm-lsp.mjs"

@@ -15,8 +15,13 @@ import {isCpuAddress, isSourceBank, SourceBreakpointManager} from './breakpoints
 import {stopWaitInterval, waitForPoll} from './polling.js';
 import {DebugSessionError} from './errors.js';
 import {cpuAddressLabel, sourceName} from './format.js';
+import type {DebugSymbol} from '@clementina/assembler';
+import {AssemblySymbols, describeSymbol, evaluateRegister, LABEL_PREVIEW_BYTES, type DebugEvaluation} from './assembly-evaluate.js';
 export * from './basic.js';
+export * from './project.js';
 export * from './disassembly.js';
+export * from './assembly-evaluate.js';
+export * from './bank-stops.js';
 
 export const CLEMENTINA_CPU_THREAD_ID = 1;
 export const CLEMENTINA_CPU_FRAME_ID = 1;
@@ -25,6 +30,8 @@ export interface DebugSessionOptions {
   /** Select source metadata for a particular Clementina extended-RAM bank. */
   bank?: number;
   threadName?: string;
+  /** ld65 debug-info symbols, so a hover can show a label's address or a constant's value. */
+  symbols?: readonly DebugSymbol[];
 }
 
 export interface DebugBreakpoint {
@@ -93,6 +100,7 @@ export class ClementinaDebugSession {
   private readonly bank?: number;
   private readonly threadName: string;
   private readonly breakpoints: SourceBreakpointManager;
+  private readonly symbols: AssemblySymbols;
   private readonly commands = new SerialQueue();
   private disposed = false;
 
@@ -107,6 +115,27 @@ export class ClementinaDebugSession {
     this.bank = options.bank;
     this.threadName = options.threadName ?? 'Clementina 65C02';
     this.breakpoints = new SourceBreakpointManager(client, sourceMap, this.bank);
+    this.symbols = new AssemblySymbols(options.symbols ?? []);
+  }
+
+  /**
+   * Evaluate a register (A, X, Y, SP, P, PC) or an assembly symbol: a label
+   * shows its address and the bytes there, a constant (such as KERN_CHROUT
+   * from clementina.inc) its value. Undefined when the name is neither.
+   */
+  evaluate(expression: string): Promise<DebugEvaluation | undefined> {
+    if (typeof expression !== 'string') return Promise.reject(new TypeError('expression must be a string'));
+    return this.command(async () => {
+      const state = await this.client.executionState();
+      const register = evaluateRegister(expression, state);
+      if (register) return register;
+      const symbol = this.symbols.find(expression, state.pc);
+      if (!symbol) return undefined;
+      const bytes = symbol.type === 'lab' && !state.running && isCpuAddress(symbol.value)
+        ? await this.client.readMemory(symbol.value, Math.min(LABEL_PREVIEW_BYTES, 0x10000 - symbol.value)).catch(() => undefined)
+        : undefined;
+      return describeSymbol(symbol, bytes);
+    });
   }
 
   /** Return the single CPU thread presented to editor clients. */
@@ -246,7 +275,7 @@ export class ClementinaDebugSession {
   }
 
   /** Convert an emulator state into the editor-neutral thread and leaf frame. */
-  private snapshotFromState(state: ExecutionState): DebugSnapshot {
+  snapshotFromState(state: ExecutionState): DebugSnapshot {
     const locations = this.sourceLocations(state.pc, state.bank ?? this.bank);
     const primary = locations[0];
     return {
@@ -265,7 +294,7 @@ export class ClementinaDebugSession {
   }
 
   /** Validate and sort all mapped source locations at a CPU address. */
-  private sourceLocations(address: number, bank = this.bank): SourceStepLocation[] {
+  sourceLocations(address: number, bank = this.bank): SourceStepLocation[] {
     const locations = this.sourceMap.locationsForAddress(address, bank);
     if (!Array.isArray(locations)) throw new TypeError('Invalid source map result');
     return locations.map(location => {

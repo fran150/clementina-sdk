@@ -10,6 +10,7 @@
   "references": [
     {"path": "../asm-lsp"},
     {"path": "../basic-lsp"},
-    {"path": "../debug-adapter"}
+    {"path": "../debug-adapter"},
+    {"path": "../project"}
   ]
 }

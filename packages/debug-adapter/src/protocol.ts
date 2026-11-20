@@ -1,12 +1,24 @@
-import {basename, isAbsolute, relative} from 'node:path';
+import {basename, isAbsolute, relative, resolve} from 'node:path';
 import {Breakpoint, Source, StackFrame, Variable} from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
 import {formatHex} from '@clementina/core';
-import type {DebugBreakpoint, DebugInstruction, DebugRegisters, DebugStack} from '@clementina/debug';
+import {formatStatusRegister, type DebugBreakpoint, type DebugInstruction, type DebugRegisters, type DebugStack} from '@clementina/debug';
 
-/** Create a DAP source from a path reported by the debugger. */
-function source(path: string): Source {
-  return new Source(basename(path), path);
+/**
+ * Create a DAP source from a path reported by the debugger. Debug info names
+ * files relative to the project (`src/hello.s`), and VS Code can open only an
+ * absolute path, so a relative one is resolved against the project root.
+ */
+function source(path: string, projectRoot?: string): Source {
+  return new Source(basename(path), projectRoot && !isAbsolute(path) ? resolve(projectRoot, path) : path);
+}
+
+/** The language of a hovered file: BASIC text, assembly, or unknown. */
+export function sourceLanguage(path: string | undefined): 'basic' | 'assembly' | undefined {
+  if (!path) return undefined;
+  if (/\.(?:cbas|bas)$/iu.test(path)) return 'basic';
+  if (/\.(?:s|asm|inc|a65|ca65)$/iu.test(path)) return 'assembly';
+  return undefined;
 }
 
 /** Use a project-relative breakpoint path when the client supplies an absolute path. */
@@ -15,18 +27,18 @@ export function breakpointPath(projectRoot: string | undefined, path: string): s
 }
 
 /** Convert source breakpoint results without losing an unverified-line message. */
-export function dapBreakpoints(path: string, resolved: readonly DebugBreakpoint[]): Breakpoint[] {
+export function dapBreakpoints(path: string, resolved: readonly DebugBreakpoint[], projectRoot?: string): Breakpoint[] {
   return resolved.map(item => {
-    const breakpoint = new Breakpoint(item.verified, item.line, undefined, source(path));
+    const breakpoint = new Breakpoint(item.verified, item.line, undefined, source(path, projectRoot));
     if (item.message) (breakpoint as DebugProtocol.Breakpoint).message = item.message;
     return breakpoint;
   });
 }
 
 /** Convert verified debugger frames and the optional unknown-caller boundary. */
-export function dapStackFrames(stack: DebugStack): StackFrame[] {
+export function dapStackFrames(stack: DebugStack, projectRoot?: string): StackFrame[] {
   const frames = stack.frames.map(frame => {
-    const item = new StackFrame(frame.id, frame.name, frame.source ? source(frame.source.path) : undefined, frame.source?.line ?? 0);
+    const item = new StackFrame(frame.id, frame.name, frame.source ? source(frame.source.path, projectRoot) : undefined, frame.source?.line ?? 0);
     item.instructionPointerReference = `0x${frame.instructionPointer.toString(16).toUpperCase()}${frame.bank !== undefined && frame.instructionPointer >= 0x8000 && frame.instructionPointer < 0xc000 ? `@${frame.bank}` : ''}`;
     return item;
   });
@@ -55,12 +67,12 @@ export function disassemblyRange(args: DebugProtocol.DisassembleArguments): Disa
 }
 
 /** Convert decoded instructions and fill any unavailable slots required by DAP. */
-export function dapInstructions(decoded: readonly DebugInstruction[], range: DisassemblyRange): DebugProtocol.DisassembledInstruction[] {
+export function dapInstructions(decoded: readonly DebugInstruction[], range: DisassemblyRange, projectRoot?: string): DebugProtocol.DisassembledInstruction[] {
   const instructions: DebugProtocol.DisassembledInstruction[] = decoded.slice(range.skip).map(item => ({
     address: `0x${item.address.toString(16).toUpperCase().padStart(4, '0')}`,
     instructionBytes: item.bytes.map(byte => byte.toString(16).toUpperCase().padStart(2, '0')).join(' '),
     instruction: item.text,
-    ...(item.source ? {location: source(item.source.path), line: item.source.line} : {}),
+    ...(item.source ? {location: source(item.source.path, projectRoot), line: item.source.line} : {}),
   }));
   while (instructions.length < range.count) {
     instructions.push({
@@ -81,7 +93,7 @@ export function registerVariables(registers: DebugRegisters): Variable[] {
     new Variable('X', formatHex(registers.x, 2)),
     new Variable('Y', formatHex(registers.y, 2)),
     new Variable('SP', formatHex(registers.sp, 2)),
-    new Variable('P', formatHex(registers.p, 2)),
+    new Variable('P', formatStatusRegister(registers.p)),
     new Variable('cycles', registers.cycles),
     new Variable('MIA paused', String(registers.miaPaused)),
   ];

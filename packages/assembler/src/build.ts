@@ -1,11 +1,12 @@
-import {writeFile} from 'node:fs/promises';
+import {readFile, rm, writeFile} from 'node:fs/promises';
 import {encodePrg, type PrgLoadStep} from '@clementina/basic';
-import {diagnostic, errorMessage, result, type ValidationResult} from '@clementina/core';
+import {diagnostic, errorMessage, result, type ClementinaDiagnostic, type ValidationResult} from '@clementina/core';
 import {prepareBuildPaths, projectRelativePath, type BuildPaths} from './build-paths.js';
-import {readLinkedImage, verifyLinkedImage, type LinkedImage} from './linked-image.js';
+import {bankOutputs, readLinkedImage, verifyLinkedImage, type LinkedImage, type VerifiedImage} from './linked-image.js';
+import {readLinkerMemory} from './linker-memory.js';
 import {runProcess} from './process.js';
 import {assembleSources, linkImage, type AssembledSources} from './toolchain.js';
-import type {AssemblyBuildRequest, AssemblyBuildResult, ProcessRunner} from './types.js';
+import type {AssemblyBankImage, AssemblyBuildRequest, AssemblyBuildResult, ProcessRunner} from './types.js';
 import {validateRequest} from './validation.js';
 
 /**
@@ -14,7 +15,7 @@ import {validateRequest} from './validation.js';
  * @param paths - Resolved locations for build outputs.
  * @param request - Build request supplying the load address and optional bank.
  * @param image - Linked binary and parsed debug records.
- * @param entryAddress - Verified address of the entry symbol.
+ * @param verified - Verified entry address and bank images.
  * @param assembled - Object and listing paths from ca65.
  * @returns The completed build or a PRG encoding diagnostic.
  */
@@ -22,12 +23,16 @@ async function writeBuildResult(
   paths: BuildPaths,
   request: AssemblyBuildRequest,
   image: LinkedImage,
-  entryAddress: number,
+  verified: VerifiedImage,
   assembled: AssembledSources,
+  warnings: ClementinaDiagnostic[],
 ): Promise<ValidationResult<AssemblyBuildResult>> {
+  const {entryAddress} = verified;
   let prg: Uint8Array;
+  const bankPrgs: Uint8Array[] = [];
   try {
     prg = encodePrg(image.binary, request.loadAddress, request.bank);
+    for (const bank of verified.banks) bankPrgs.push(encodePrg(image.bankFiles.get(bank.file)!, bank.loadAddress, bank.request.bank));
   } catch (error) {
     return result<AssemblyBuildResult>(undefined, [
       diagnostic('assembler.prg', '', errorMessage(error)),
@@ -42,6 +47,18 @@ async function writeBuildResult(
    * @returns Portable project-relative path.
    */
   const relativePath = (path: string): string => projectRelativePath(paths.root, path);
+  const banks: AssemblyBankImage[] = [];
+  for (const [index, bank] of verified.banks.entries()) {
+    // build/code.bank1.prg next to build/code.prg.
+    const prgPath = paths.output.prg.replace(/\.prg$/u, `.bank${bank.request.bank}.prg`);
+    await writeFile(prgPath, bankPrgs[index]!);
+    const binary = image.bankFiles.get(bank.file)!;
+    banks.push({
+      bank: bank.request.bank, memory: bank.request.memory, binary, prg: bankPrgs[index]!, segments: bank.segments,
+      loadStep: {kind: 'prg', path: relativePath(prgPath), loadAddress: bank.loadAddress, length: binary.length, bank: bank.request.bank},
+      artifacts: {binary: relativePath(bank.file), prg: relativePath(prgPath)},
+    });
+  }
   const loadStep: PrgLoadStep = {
     kind: 'prg',
     path: relativePath(paths.output.prg),
@@ -56,6 +73,8 @@ async function writeBuildResult(
     loadStep,
     entryAddress,
     debug: image.debug,
+    banks,
+    segmentBanks: verified.segmentBanks,
     artifacts: {
       binary: relativePath(paths.output.binary),
       prg: relativePath(paths.output.prg),
@@ -65,11 +84,12 @@ async function writeBuildResult(
       objects: assembled.objects.map(relativePath),
       listings: assembled.listings.map(relativePath),
     },
-  }, []);
+  }, warnings);
 }
 
 /**
- * Assemble, link, verify placement, and package a contiguous Clementina PRG.
+ * Assemble, link, verify placement, and package a contiguous Clementina PRG,
+ * plus one PRG for each entry of request.banks.
  *
  * @param projectRoot - Directory containing the sources and linker configuration.
  * @param request - Explicit sources, output paths, load address, and entry symbol.
@@ -89,14 +109,22 @@ export async function buildAssembly(
     const assembled = await assembleSources(paths, request, runner);
     if (!assembled.ok) return assembled;
 
+    // Each bank's MEMORY area is written to a file of its own, named in the linker configuration.
+    const outputs = request.banks?.length
+      ? bankOutputs(paths, request, readLinkerMemory(await readFile(paths.linkerConfig, 'utf8'), paths.output.binary))
+      : result<[]>([], []);
+    if (!outputs.ok) return outputs as ValidationResult<never>;
+    // A bank file left by an earlier build must not pass for this one's.
+    for (const output of outputs.value) await rm(output.file, {force: true});
+
     const linkFailure = await linkImage(paths, request, assembled.value.objects, runner);
     if (linkFailure) return result(undefined, [linkFailure]);
 
-    const image = await readLinkedImage(paths);
-    const entry = verifyLinkedImage(paths, request, image);
-    if (!entry.ok) return entry;
+    const image = await readLinkedImage(paths, outputs.value);
+    const verified = verifyLinkedImage(paths, request, image, outputs.value);
+    if (!verified.ok) return result(undefined, [...outputs.diagnostics, ...verified.diagnostics]);
 
-    return await writeBuildResult(paths, request, image, entry.value, assembled.value);
+    return await writeBuildResult(paths, request, image, verified.value, assembled.value, [...outputs.diagnostics, ...verified.diagnostics]);
   } catch (error) {
     return result(undefined, [
       diagnostic('assembler.io', '', errorMessage(error)),

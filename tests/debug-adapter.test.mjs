@@ -92,7 +92,9 @@ test('DAP translates verified callers and banked disassembly from the shared ses
   assert.deepEqual(disassemblyResponse.body.instructions,[{
     address:'0x8000',instructionBytes:'20 03 60',instruction:'JSR $6003',location:disassemblyResponse.body.instructions[0].location,line:7,
   }]);
-  assert.equal(disassemblyResponse.body.instructions[0].location.path,'bank2.s');
+  // Debug info paths are project-relative; VS Code needs them absolute to open the file.
+  assert.equal(disassemblyResponse.body.instructions[0].location.path,'/tmp/project/bank2.s');
+  assert.equal(stackResponse.body.stackFrames[0].source.path,'/tmp/project/bank2.s');
   assert.equal(responses.length,3);
 });
 test('DAP resolves absolute assembly breakpoint paths against the project root', async () => {
@@ -248,4 +250,72 @@ test('pause and terminate cancel pending stop polls without emitting stale stops
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(events.filter(event => event.event === 'stopped').map(event => event.body.reason), ['pause']);
   assert.ok(events.some(event => event.event === 'terminated'));
+});
+
+test('real-time launches pass speed, open the video client, answer speed requests and restart', async () => {
+  const {EventEmitter} = await import('node:events');
+  const options = [], calls = [], spawned = [], events = [];
+  let finishLaunch;
+  const launched = new Promise(resolve => { finishLaunch = resolve; });
+  const adapter = new ClementinaDebugAdapter();
+  const responses = [];
+  adapter.sendResponse = response => responses.push(response);
+  adapter.sendErrorResponse = (response, code, message) => responses.push({...response, success: false, message});
+  adapter.sendEvent = event => events.push(event);
+  adapter.spawnVideoClient = executable => {
+    const child = Object.assign(new EventEmitter(), {exitCode: null, signalCode: null, kill: () => { child.exitCode = 0; calls.push('kill'); }});
+    spawned.push(executable);
+    return child;
+  };
+  const speed = {realtime: true, targetMHz: 4, unthrottled: false, measuredMHz: 3.98};
+  adapter.createSession = async (_program, given) => {
+    options.push(given);
+    return {ok: true, value: {
+      session: {waitForStop: () => new Promise(() => {}), snapshot: async () => ({})},
+      client: {speed: async () => speed, setSpeed: async mhz => { calls.push(['setSpeed', mhz]); return {...speed, targetMHz: mhz}; }},
+      launch: async () => { calls.push('launch'); finishLaunch(); },
+      close: async () => { calls.push('close'); },
+    }};
+  };
+  await adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project', speed: 2, videoClient: '/opt/video'});
+  assert.deepEqual(options, [{realtime: {speedMhz: 2}}]);
+  adapter.configurationDoneRequest({command: 'configurationDone', request_seq: 2, success: true});
+  await launched;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(spawned, ['/opt/video']);
+
+  const read = {command: 'clementina.speed', request_seq: 3, success: true};
+  adapter.customRequest('clementina.speed', read, {});
+  const set = {command: 'clementina.setSpeed', request_seq: 4, success: true};
+  adapter.customRequest('clementina.setSpeed', set, {mhz: 8});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(read.body, speed);
+  assert.equal(set.body.targetMHz, 8);
+
+  await adapter.restartRequest({command: 'restart', request_seq: 5, success: true});
+  assert.deepEqual(calls.filter(call => call === 'launch'), ['launch', 'launch']);
+  assert.ok(events.some(event => event.event === 'continued'));
+
+  await adapter.disconnectRequest({command: 'disconnect', request_seq: 6, success: true});
+  assert.deepEqual(calls.slice(-2), ['kill', 'close']);
+});
+
+test('non-real-time launches keep the automation emulator and open no video client', async () => {
+  const options = [], spawned = [];
+  const adapter = new ClementinaDebugAdapter();
+  adapter.sendResponse = () => {};
+  adapter.sendEvent = () => {};
+  adapter.spawnVideoClient = executable => { spawned.push(executable); throw new Error('unexpected'); };
+  let finishLaunch;
+  const launched = new Promise(resolve => { finishLaunch = resolve; });
+  adapter.createSession = async (_program, given) => {
+    options.push(given);
+    return {ok: true, value: {session: {waitForStop: () => new Promise(() => {})}, launch: async () => finishLaunch(), close: async () => {}}};
+  };
+  await adapter.launchRequest({command: 'launch', request_seq: 1, success: true}, {program: '/tmp/project', realtime: false});
+  assert.deepEqual(options, [{}]);
+  adapter.configurationDoneRequest({command: 'configurationDone', request_seq: 2, success: true});
+  await launched;
+  assert.deepEqual(spawned, []);
+  await adapter.disconnectRequest({command: 'disconnect', request_seq: 3, success: true});
 });

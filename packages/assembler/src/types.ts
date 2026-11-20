@@ -20,11 +20,37 @@ export interface AssemblyBuildRequest {
   entrySymbol: string;
   /** Required when loadAddress is in $8000-$BFFF. */
   bank?: number;
+  /**
+   * More code linked at $8000-$BFFF, one bank each. Each names an ld65 MEMORY
+   * area with its own output file (`file = "%O.bank1"`); its bytes become a
+   * PRG of their own that BANK n:BLOAD puts in that bank.
+   */
+  banks?: AssemblyBankRequest[];
   includeDirectories?: string[];
   defines?: Record<string, string | number>;
   /** Project-relative ar65 libraries ld65 searches after the objects. */
   libraries?: string[];
   toolchain?: Ca65Toolchain;
+}
+
+export interface AssemblyBankRequest {
+  /** The extended RAM bank, 1-31. */
+  bank: number;
+  /** The ld65 MEMORY area that holds this bank's code. */
+  memory: string;
+}
+
+/** One bank's code from build.assembly.banks, packed as its own PRG. */
+export interface AssemblyBankImage {
+  bank: number;
+  memory: string;
+  binary: Uint8Array;
+  prg: Uint8Array;
+  /** A BLOAD step (no run address) with this bank. */
+  loadStep: PrgLoadStep;
+  /** Names of the ld65 segments in this bank. */
+  segments: string[];
+  artifacts: {binary: string; prg: string};
 }
 
 export interface DebugSourceFile {
@@ -122,6 +148,10 @@ export interface AssemblyBuildResult {
   loadStep: PrgLoadStep;
   entryAddress: number;
   debug: Ca65DebugInfo;
+  /** The images for build.assembly.banks, in request order; empty without banks. */
+  banks: AssemblyBankImage[];
+  /** The bank of each banked segment by name, for source maps (`createAssemblySourceMap`). */
+  segmentBanks: Record<string, number>;
   artifacts: {
     binary: string;
     prg: string;

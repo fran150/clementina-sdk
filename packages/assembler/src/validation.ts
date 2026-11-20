@@ -17,6 +17,7 @@ function portablePath(value: string): boolean {
 
 const symbolPattern = /^[A-Za-z_@][A-Za-z0-9_@.$]*$/u;
 const definePattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+const memoryPattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const outputPattern = /^[A-Za-z][A-Za-z0-9_-]{0,47}$/u;
 
 /**
@@ -78,6 +79,22 @@ export function validateRequest(request: AssemblyBuildRequest): ClementinaDiagno
   }
   if (request.loadAddress < 0x8000 && request.bank !== undefined) {
     diagnostics.push(diagnostic('assembler.bank', '/bank', 'A bank is only valid for images linked at $8000-$BFFF'));
+  }
+  const banks = new Set<number>(request.bank === undefined ? [] : [request.bank]);
+  const areas = new Set<string>();
+  for (const [index, entry] of (request.banks ?? []).entries()) {
+    if (!Number.isInteger(entry.bank) || entry.bank < 1 || entry.bank > 31) {
+      diagnostics.push(diagnostic('assembler.bank', `/banks/${index}/bank`, 'Expected a bank from 1 through 31'));
+    } else if (banks.has(entry.bank)) {
+      diagnostics.push(diagnostic('assembler.bank', `/banks/${index}/bank`, `Bank ${entry.bank} is used twice`));
+    }
+    banks.add(entry.bank);
+    if (!memoryPattern.test(entry.memory)) {
+      diagnostics.push(diagnostic('assembler.bank.memory', `/banks/${index}/memory`, 'Expected an ld65 MEMORY area name'));
+    } else if (areas.has(entry.memory)) {
+      diagnostics.push(diagnostic('assembler.bank.memory', `/banks/${index}/memory`, `MEMORY area ${entry.memory} is listed twice`));
+    }
+    areas.add(entry.memory);
   }
   for (const key of Object.keys(request.defines ?? {})) {
     if (!definePattern.test(key)) {

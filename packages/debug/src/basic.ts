@@ -32,12 +32,16 @@ function effectiveLines(source: string): BasicLineLocation[] {
   return [...physicalByNumber].map(([number, physicalLine]) => ({number, physicalLine})).sort((a, b) => a.number - b.number);
 }
 
-/** BASIC source debugger using the ROM's NEWSTT2 statement hook and CURLIN. */
+/** BASIC source debugger using the ROM's new-line hook in NEWSTT and CURLIN. */
 export class ClementinaBasicDebugSession {
   private readonly lineByNumber: Map<number, BasicLineLocation>;
   private readonly numberByPhysical: Map<number, number>;
   private readonly requestedLines = new Set<number>();
   private hookOwned = false;
+  /** Whether the emulator filters the statement hook by line by itself; unknown until asked. */
+  private filterSupported?: boolean;
+  /** Whether this session's line filter is installed on the statement hook. */
+  private filtered = false;
   private disposed = false;
   private readonly commands = new SerialQueue();
   private pauseSequence = 0;
@@ -50,6 +54,8 @@ export class ClementinaBasicDebugSession {
     private readonly sourcePath: string,
     source: string,
     private readonly threadName = 'Clementina BASIC',
+    /** Other spellings of the source path, such as its project-relative path. */
+    private readonly aliases: readonly string[] = [],
   ) {
     if (!sourcePath) throw new TypeError('sourcePath must not be empty');
     const lines = effectiveLines(source);
@@ -121,16 +127,16 @@ export class ClementinaBasicDebugSession {
   setSourceBreakpoints(path: string, physicalLines: readonly number[]): Promise<DebugBreakpoint[]> {
     return this.command(async () => {
       if (!Array.isArray(physicalLines) || physicalLines.some(line => !Number.isInteger(line) || line < 1)) throw new RangeError('lines must contain positive integers');
-      const sameSource = path.replaceAll('\\', '/') === this.sourcePath.replaceAll('\\', '/');
+      const sameSource = this.matchesPath(path);
       this.requestedLines.clear();
       const resolved = physicalLines.map(line => {
         const number = sameSource ? this.numberByPhysical.get(line) : undefined;
         if (number !== undefined) this.requestedLines.add(number);
         return number === undefined
           ? {path, requestedLine: line, verified: false, addresses: [], message: 'No effective BASIC statement at this line'}
-          : {path, requestedLine: line, verified: true, line, addresses: [basicRuntimeDebug.statementBoundaryAddress]};
+          : {path, requestedLine: line, verified: true, line, addresses: [basicRuntimeDebug.lineStartAddress]};
       });
-      if (this.requestedLines.size) await this.ensureHook();
+      if (this.requestedLines.size) { await this.ensureHook(); await this.applyFilter(); }
       else await this.releaseHook();
       return resolved;
     });
@@ -149,13 +155,10 @@ export class ClementinaBasicDebugSession {
       if (options.signal?.aborted) throw new DebugSessionError('Stop wait aborted');
       const state = await this.client.executionState();
       if (!state.running) {
-        if (state.stopReason === 'breakpoint' && state.pc === basicRuntimeDebug.statementBoundaryAddress && this.requestedLines.size) {
-          const number = await this.currentLine();
-          if (!this.requestedLines.has(number)) {
-            if (Date.now() >= deadline) throw new DebugSessionError('Timed out waiting for emulator to stop');
-            await this.client.resume();
-            continue;
-          }
+        if (!await this.isRequestedStop(state)) {
+          if (Date.now() >= deadline) throw new DebugSessionError('Timed out waiting for emulator to stop');
+          await this.client.resume();
+          continue;
         }
         return this.snapshotFromState(state);
       }
@@ -192,29 +195,79 @@ export class ClementinaBasicDebugSession {
         || !Number.isInteger(pollIntervalMs) || pollIntervalMs < 1) throw new RangeError('Invalid BASIC source-step limits');
       const deadline = Date.now() + timeoutMs;
       await this.ensureHook();
-      const startState = await this.client.executionState();
-      const startLine = await this.currentLine();
-      const startLocation = this.location(startLine);
-      let state = startState;
-      for (let statements = 1; statements <= limit; statements++) {
-        state = await this.resumeToStop(sequence, deadline, pollIntervalMs);
-        if (sequence !== this.pauseSequence) {
-          state = (await this.lastPause!).state;
-          return this.stepResult(state, 'stopped', statements, startLocation);
-        }
-        if (state.stopReason !== 'breakpoint' || state.pc !== basicRuntimeDebug.statementBoundaryAddress) {
-          const reason = state.stopReason === 'cpu-stopped' ? 'cpu-stopped' : state.stopReason === 'mia-paused' ? 'mia-paused' : 'stopped';
-          return this.stepResult(state, reason, statements, startLocation);
-        }
-        const currentLine = await this.currentLine();
-        if (currentLine !== startLine) {
-          const current = this.location(currentLine);
-          return this.stepResult(state, current ? 'source-location' : 'unmapped', statements, startLocation, current);
-        }
+      // A step stops at the next line start, whatever line it is; the filter comes back afterwards.
+      await this.clearFilter();
+      try {
+        return await this.stepLines(sequence, limit, deadline, pollIntervalMs);
+      } finally {
+        await this.applyFilter();
       }
-      const current = this.location(await this.currentLine());
-      return this.stepResult(state, 'instruction-limit', limit, startLocation, current);
     });
+  }
+
+  /** Resume statement by statement until the BASIC line changes. */
+  private async stepLines(sequence: number, limit: number, deadline: number, pollIntervalMs: number): Promise<SourceStepResult> {
+    const startState = await this.client.executionState();
+    const startLine = await this.currentLine();
+    const startLocation = this.location(startLine);
+    let state = startState;
+    for (let statements = 1; statements <= limit; statements++) {
+      state = await this.resumeToStop(sequence, deadline, pollIntervalMs);
+      if (sequence !== this.pauseSequence) {
+        state = (await this.lastPause!).state;
+        return this.stepResult(state, 'stopped', statements, startLocation);
+      }
+      if (state.stopReason !== 'breakpoint' || state.pc !== basicRuntimeDebug.lineStartAddress) {
+        const reason = state.stopReason === 'cpu-stopped' ? 'cpu-stopped' : state.stopReason === 'mia-paused' ? 'mia-paused' : 'stopped';
+        return this.stepResult(state, reason, statements, startLocation);
+      }
+      // The hook runs only when a numbered line starts, before it runs, so the
+      // first stop is the next line, even when it is the same line again (a loop).
+      const current = this.location(await this.currentLine());
+      return this.stepResult(state, current ? 'source-location' : 'unmapped', statements, startLocation, current);
+    }
+    const current = this.location(await this.currentLine());
+    return this.stepResult(state, 'instruction-limit', limit, startLocation, current);
+  }
+
+  /**
+   * Run to the next BASIC statement, whatever its line, as after leaving an
+   * assembly routine. Stops early on any other breakpoint or machine stop.
+   */
+  runToNextStatement(options: BasicSourceStepOptions = {}): Promise<SourceStepResult> {
+    const sequence = this.pauseSequence;
+    return this.command(async () => {
+      const deadline = Date.now() + (options.timeoutMs ?? 30000);
+      await this.ensureHook();
+      await this.clearFilter();
+      try {
+        const state = await this.resumeToStop(sequence, deadline, options.pollIntervalMs ?? 10);
+        const atStatement = state.stopReason === 'breakpoint' && state.pc === basicRuntimeDebug.lineStartAddress;
+        const current = atStatement ? this.location(await this.currentLine()) : undefined;
+        return this.stepResult(state, current ? 'source-location' : 'stopped', 1, undefined, current);
+      } finally {
+        if (this.requestedLines.size) await this.applyFilter();
+        else await this.releaseHook();
+      }
+    });
+  }
+
+  /**
+   * False for a statement-hook stop on a line nobody asked to stop on, which
+   * the caller should resume. True for every other stop.
+   */
+  async isRequestedStop(state: ExecutionState): Promise<boolean> {
+    if (state.stopReason !== 'breakpoint' || state.pc !== basicRuntimeDebug.lineStartAddress || !this.requestedLines.size) return true;
+    return this.requestedLines.has(await this.currentLine());
+  }
+
+  /** Whether this session has BASIC line breakpoints. */
+  hasLineBreakpoints(): boolean { return this.requestedLines.size > 0; }
+
+  /** Whether a breakpoint path names the BASIC source this session debugs. */
+  matchesPath(path: string): boolean {
+    const normalized = path.replaceAll('\\', '/');
+    return [this.sourcePath, ...this.aliases].some(candidate => candidate.replaceAll('\\', '/') === normalized);
   }
 
   /** Construct the source-step result shared by each stop condition. */
@@ -253,16 +306,35 @@ export class ClementinaBasicDebugSession {
   private async ensureHook(): Promise<void> {
     if (this.hookOwned) return;
     const active = await this.client.breakpoints();
-    if (!active.includes(basicRuntimeDebug.statementBoundaryAddress)) {
-      await this.client.addBreakpoint(basicRuntimeDebug.statementBoundaryAddress);
+    if (!active.includes(basicRuntimeDebug.lineStartAddress)) {
+      await this.client.addBreakpoint(basicRuntimeDebug.lineStartAddress);
       this.hookOwned = true;
     }
   }
 
+  /** Let the emulator skip statement hooks on other lines, when it can. */
+  private async applyFilter(): Promise<void> {
+    if (!this.hookOwned || !this.requestedLines.size) return this.clearFilter();
+    // An emulator without the method, or one that cannot list its methods, filters here instead.
+    this.filterSupported ??= await this.client.capabilities()
+      .then(capabilities => capabilities.methods.includes('setBreakpointFilter'), () => false);
+    if (!this.filterSupported) return;
+    await this.client.setBreakpointFilter(basicRuntimeDebug.lineStartAddress, basicRuntimeDebug.currentLineAddress, [...this.requestedLines]);
+    this.filtered = true;
+  }
+
+  /** Remove this session's line filter so the hook stops on every statement. */
+  private async clearFilter(): Promise<void> {
+    if (!this.filtered) return;
+    await this.client.clearBreakpointFilter(basicRuntimeDebug.lineStartAddress);
+    this.filtered = false;
+  }
+
   /** Remove the ROM statement breakpoint only if this session installed it. */
   private async releaseHook(): Promise<void> {
+    await this.clearFilter();
     if (!this.hookOwned) return;
-    await this.client.removeBreakpoint(basicRuntimeDebug.statementBoundaryAddress);
+    await this.client.removeBreakpoint(basicRuntimeDebug.lineStartAddress);
     this.hookOwned = false;
   }
 
@@ -276,11 +348,11 @@ export class ClementinaBasicDebugSession {
   /** Map a BASIC line number to its current physical source line. */
   private location(number: number) {
     const line = this.lineByNumber.get(number);
-    return line && {path: this.sourcePath, line: line.physicalLine, address: basicRuntimeDebug.statementBoundaryAddress};
+    return line && {path: this.sourcePath, line: line.physicalLine, address: basicRuntimeDebug.lineStartAddress};
   }
 
   /** Combine emulator state with the current BASIC source location. */
-  private async snapshotFromState(state: ExecutionState): Promise<DebugSnapshot> {
+  async snapshotFromState(state: ExecutionState): Promise<DebugSnapshot> {
     const number = await this.currentLine();
     const location = this.location(number);
     return {

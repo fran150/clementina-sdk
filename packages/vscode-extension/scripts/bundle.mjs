@@ -1,4 +1,5 @@
 import {build} from 'esbuild';
+import {copyFile, mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -10,6 +11,10 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const require = createRequire(import.meta.url);
 const bin = (name, file) => join(dirname(require.resolve(`${name}/package.json`)), 'bin', file);
 const options = {absWorkingDir: root, bundle: true, minify: true, platform: 'node', target: 'node20', logLevel: 'warning'};
+
+// The YAML extension checks clementina.yaml against the SDK's project schema.
+await mkdir(join(root, 'dist'), {recursive: true});
+await copyFile(join(root, '../../specs/schema/project.schema.json'), join(root, 'dist/project.schema.json'));
 
 await Promise.all([
   build({...options, entryPoints: ['src/extension.ts'], outfile: 'dist/extension.js', format: 'cjs', external: ['vscode']}),

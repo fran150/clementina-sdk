@@ -2,13 +2,16 @@
  * The Clementina assembly language server (stdio). It indexes the workspace's
  * `.s` and `.inc` files and the Clementina library, answers hover, completion,
  * navigation, rename, outline and folding requests, and reports ca65's own
- * errors as the code is typed.
+ * errors as the code is typed. It also serves ld65 linker configurations
+ * (`link.cfg`, language id `clementina-ld65`): their checks, against ld65 and
+ * Clementina's memory map, hover, completion, definitions and outline.
  *
  * Initialization options (all optional):
  * - `libraryDirectory`: where to write the library's sources so the editor can open them.
  * - `ca65Path`: the ca65 executable; by default the installed tools, then PATH.
- * - `diagnostics`: `onType` (default), `onSave` or `off`.
- * The `clementina.assembly` settings section can change `ca65Path` and `diagnostics` later.
+ * - `ld65Path`: the ld65 executable, found the same way.
+ * - `diagnostics`: `onType` (default), `onSave` or `off`: when ca65 and ld65 run.
+ * The `clementina.assembly` settings section can change these later.
  */
 import {mkdirSync, readdirSync, readFileSync, statSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -18,6 +21,7 @@ import {
   createConnection,
   CompletionItemKind,
   DiagnosticSeverity,
+  InsertTextFormat,
   DocumentHighlightKind,
   FoldingRangeKind,
   MarkupKind,
@@ -40,6 +44,10 @@ import {TextDocument} from 'vscode-languageserver-textdocument';
 import {libraryFiles} from '@clementina/lib';
 import {assembleForDiagnostics, findCa65, type Ca65Message} from './ca65.js';
 import {completionsAt, documentOutline, explainCa65, hoverAt, signatureHelpAt, type CompletionKind, type OutlineSymbol} from './features.js';
+import {configCompletions, configDefinition, configDiagnostics, configHover, configOutline, type ConfigCompletionKind, type ConfigDiagnostic, type ConfigOutlineSymbol, type ConfigProject} from './ld65-features.js';
+import {parseConfig, type ParsedConfig} from './ld65-config.js';
+import {checkWithLd65, findLd65} from './ld65.js';
+import {bankedSegments, workspaceBankWarnings} from './bank-check.js';
 import {qualifiedName, type AsmSymbolKind, type Span} from './parser.js';
 import {findProjectRoot, readAsmProject, readLabels, type AsmProject} from './project.js';
 import {AsmWorkspace, type Occurrence} from './workspace.js';
@@ -49,6 +57,7 @@ const documents = new TextDocuments(TextDocument);
 
 interface Settings {
   ca65Path?: string;
+  ld65Path?: string;
   diagnostics: 'onType' | 'onSave' | 'off';
 }
 
@@ -135,14 +144,18 @@ function loadLabels(): void {
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   const options = (params.initializationOptions ?? {}) as Partial<Settings> & {libraryDirectory?: string};
   if (options.libraryDirectory) libraryDirectory = options.libraryDirectory;
-  settings = {...settings, ...(options.ca65Path ? {ca65Path: options.ca65Path} : {}), ...(options.diagnostics ? {diagnostics: options.diagnostics} : {})};
+  settings = {
+    ...settings, ...(options.ca65Path ? {ca65Path: options.ca65Path} : {}), ...(options.ld65Path ? {ld65Path: options.ld65Path} : {}),
+    ...(options.diagnostics ? {diagnostics: options.diagnostics} : {}),
+  };
   roots = (params.workspaceFolders ?? []).map(folder => toPath(folder.uri));
   if (!roots.length && params.rootUri) roots = [toPath(params.rootUri)];
   return {
     capabilities: {
       textDocumentSync: {openClose: true, change: TextDocumentSyncKind.Full, save: true},
       hoverProvider: true,
-      completionProvider: {triggerCharacters: ['.', '@']},
+      // `=`, `,`, `:` and space are for linker configurations; assembly ignores them.
+      completionProvider: {triggerCharacters: ['.', '@', '=', ',', ':', ' ']},
       signatureHelpProvider: {triggerCharacters: [' ', ',']},
       definitionProvider: true,
       referencesProvider: true,
@@ -165,8 +178,9 @@ connection.onInitialized(() => {
 connection.onDidChangeConfiguration(change => {
   const section = (change.settings as {clementina?: {assembly?: Partial<Settings>}} | undefined)?.clementina?.assembly;
   if (!section) return;
-  settings = {ca65Path: section.ca65Path || undefined, diagnostics: section.diagnostics ?? 'onType'};
+  settings = {ca65Path: section.ca65Path || undefined, ld65Path: section.ld65Path || undefined, diagnostics: section.diagnostics ?? 'onType'};
   missingReported = false;
+  ld65MissingReported = false;
   for (const document of documents.all()) scheduleDiagnostics(document);
 });
 
@@ -175,12 +189,14 @@ connection.onDidChangeWatchedFiles(change => {
     const path = toPath(event.uri);
     if (path.endsWith('clementina.yaml')) {
       projects.clear();
+      scheduleConfigChecks();
       continue;
     }
     if (path.endsWith('.lbl')) continue;
     if (!SOURCE_EXTENSIONS.has(extname(path).toLowerCase()) || isBuildCopy(path)) continue;
     if (event.type === 3) workspace.delete(path);
     else loadFromDisk(path);
+    scheduleConfigChecks();
   }
   loadLabels();
 });
@@ -230,15 +246,40 @@ function toDiagnostics(messages: Ca65Message[], owner: string): Map<string, Diag
   return out;
 }
 
+/** The linker configuration of a source file's project, parsed: the open document's text, else the file's. */
+function projectConfig(project: AsmProject | undefined): ParsedConfig | undefined {
+  if (!project?.linkerConfig) return undefined;
+  const open = documents.all().find(document => toPath(document.uri) === normalize(project.linkerConfig!));
+  if (open) return parsedConfig(open);
+  try { return parseConfig(readFileSync(project.linkerConfig, 'utf8')); } catch { return undefined; }
+}
+
+/** Warnings for stores to VIA Port A in code linked at $8000-$BFFF. */
+function bankDiagnostics(path: string): Diagnostic[] {
+  const project = projectFor(path);
+  const config = projectConfig(project);
+  if (!project || !config) return [];
+  return workspaceBankWarnings(workspace, path, bankedSegments(config, project.banks))
+    .map(warning => ({severity: DiagnosticSeverity.Warning, range: toRange(warning.span), message: warning.message, source: 'clementina'}));
+}
+
 async function runDiagnostics(document: TextDocument): Promise<void> {
+  if (isConfig(document)) return runConfigDiagnostics(document);
   const path = toPath(document.uri);
   if (settings.diagnostics === 'off' || extname(path).toLowerCase() === '.inc') {
     reported.delete(path);
     publishAll();
     return;
   }
+  const banks = bankDiagnostics(path);
+  const withBanks = (out: Map<string, Diagnostic[]>) => {
+    if (banks.length) out.set(path, [...(out.get(path) ?? []), ...banks]);
+    return out;
+  };
   const ca65 = findCa65(settings.ca65Path);
   if (!ca65) {
+    reported.set(path, withBanks(new Map()));
+    publishAll();
     if (!missingReported) {
       missingReported = true;
       void connection.window.showWarningMessage('Clementina: ca65 was not found, so assembly errors are not checked as you type. `clementina install` installs it, or set "clementina.assembly.ca65Path".');
@@ -252,7 +293,7 @@ async function runDiagnostics(document: TextDocument): Promise<void> {
       ca65, cwd: project?.root ?? join(path, '..'), includeDirectories: includeDirectories(path), defines: project?.defines ?? {},
     });
     if (documents.get(document.uri)?.version !== version) return;
-    reported.set(path, toDiagnostics(messages, path));
+    reported.set(path, withBanks(toDiagnostics(messages, path)));
     publishAll();
   } catch (error) {
     if (!missingReported) {
@@ -262,22 +303,32 @@ async function runDiagnostics(document: TextDocument): Promise<void> {
   }
 }
 
-function scheduleDiagnostics(document: TextDocument, delay = 300): void {
+function scheduleDiagnostics(document: TextDocument, delay = 300, withLd65 = true): void {
   const key = document.uri;
   clearTimeout(timers.get(key));
   timers.set(key, setTimeout(() => {
     timers.delete(key);
-    void runDiagnostics(document);
+    void (isConfig(document) ? runConfigDiagnostics(document, withLd65) : runDiagnostics(document));
   }, delay));
 }
 
 documents.onDidOpen(event => {
+  if (isConfig(event.document)) { scheduleDiagnostics(event.document, 0); return; }
   workspace.set(toPath(event.document.uri), event.document.getText());
   scheduleDiagnostics(event.document, 0);
+  scheduleConfigChecks();
 });
 documents.onDidChangeContent(event => {
+  if (isConfig(event.document)) {
+    // The quick checks always run as you type; ld65 itself only with onType.
+    scheduleDiagnostics(event.document, 300, settings.diagnostics === 'onType');
+    // Which segments are banked comes from here: check the open sources again.
+    for (const document of documents.all()) if (!isConfig(document)) scheduleDiagnostics(document, 500);
+    return;
+  }
   workspace.set(toPath(event.document.uri), event.document.getText());
   if (settings.diagnostics === 'onType') scheduleDiagnostics(event.document);
+  scheduleConfigChecks();
 });
 documents.onDidSave(event => {
   // Sources that include the saved file see its new text on disk.
@@ -285,16 +336,125 @@ documents.onDidSave(event => {
 });
 documents.onDidClose(event => {
   const path = toPath(event.document.uri);
+  if (isConfig(event.document)) {
+    parsedConfigs.delete(event.document.uri);
+    connection.sendDiagnostics({uri: event.document.uri, diagnostics: []});
+    return;
+  }
   reported.delete(path);
   publishAll();
   loadFromDisk(path);
 });
+
+// --- Linker configurations -------------------------------------------------
+
+const parsedConfigs = new Map<string, {version: number; config: ParsedConfig}>();
+let ld65MissingReported = false;
+let configTimer: NodeJS.Timeout | undefined;
+
+/** True for an ld65 configuration: the client's `clementina-ld65` language, or a `.cfg` file. */
+function isConfig(document: TextDocument | undefined): boolean {
+  if (!document) return false;
+  return document.languageId === 'clementina-ld65' || document.languageId === 'ld65' || extname(toPath(document.uri)).toLowerCase() === '.cfg';
+}
+
+const configDocument = (uri: string) => {
+  const document = documents.get(uri);
+  return document && isConfig(document) ? document : undefined;
+};
+
+function parsedConfig(document: TextDocument): ParsedConfig {
+  const cached = parsedConfigs.get(document.uri);
+  if (cached?.version === document.version) return cached.config;
+  const config = parseConfig(document.getText());
+  parsedConfigs.set(document.uri, {version: document.version, config});
+  return config;
+}
+
+/** What the configuration's project says: whether it returns to BASIC, memoryTop, loadAddress, the segments its sources use. */
+function configProject(path: string): ConfigProject | undefined {
+  const project = projectFor(path);
+  if (!project) return undefined;
+  const segments: ConfigProject['segments'] = [];
+  for (const file of workspace.files.values()) {
+    if (file.library || !file.path.startsWith(project.root + sep) || file.path.startsWith(project.outputDirectory + sep)) continue;
+    for (const segment of file.parsed.segments) segments.push({name: segment.name, file: relative(project.root, file.path), line: segment.line});
+  }
+  segments.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
+  return {
+    returnsToBasic: project.returnsToBasic, linked: project.linkerConfig !== undefined && normalize(project.linkerConfig) === normalize(path), segments,
+    ...(project.memoryTop !== undefined ? {memoryTop: project.memoryTop} : {}),
+    ...(project.loadAddress !== undefined ? {loadAddress: project.loadAddress} : {}),
+  };
+}
+
+const severities = {error: DiagnosticSeverity.Error, warning: DiagnosticSeverity.Warning, information: DiagnosticSeverity.Information};
+const ld65Results = new Map<string, {version: number; diagnostics: Diagnostic[]}>();
+
+function toConfigDiagnostic(item: ConfigDiagnostic): Diagnostic {
+  return {severity: severities[item.severity], range: toRange(item.span), message: item.message, source: 'clementina'};
+}
+
+/** The quick checks, then ld65's own when they find no error. */
+async function runConfigDiagnostics(document: TextDocument, withLd65 = true): Promise<void> {
+  const path = toPath(document.uri);
+  const config = parsedConfig(document);
+  const own = configDiagnostics(config, configProject(path)).map(toConfigDiagnostic);
+  const version = document.version;
+  const publish = (extra: Diagnostic[]) => connection.sendDiagnostics({uri: document.uri, diagnostics: [...own, ...extra]});
+  const previous = ld65Results.get(document.uri);
+  publish(previous?.version === version ? previous.diagnostics : []);
+  if (!withLd65 || settings.diagnostics === 'off' || own.some(item => item.severity === DiagnosticSeverity.Error)) return;
+  if (previous?.version === version) return;
+  const ld65 = findLd65(settings.ld65Path);
+  if (!ld65) {
+    if (!ld65MissingReported) {
+      ld65MissingReported = true;
+      void connection.window.showWarningMessage('Clementina: ld65 was not found, so linker configurations get only the editor\'s own checks. `clementina install` installs it, or set "clementina.assembly.ld65Path".');
+    }
+    return;
+  }
+  try {
+    const messages = await checkWithLd65(path, document.getText(), ld65);
+    if (documents.get(document.uri)?.version !== version) return;
+    const diagnostics = messages.map((message): Diagnostic => {
+      const line = message.line ?? 0;
+      const text = config.lines[line] ?? '';
+      const indent = text.length - text.trimStart().length;
+      return {
+        severity: message.severity === 'error' ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+        range: {start: {line, character: indent}, end: {line, character: Math.max(indent, text.replace(/#.*$/u, '').trimEnd().length)}},
+        message: message.message, source: 'ld65',
+      };
+    });
+    ld65Results.set(document.uri, {version, diagnostics});
+    publish(diagnostics);
+  } catch (error) {
+    if (!ld65MissingReported) {
+      ld65MissingReported = true;
+      void connection.window.showWarningMessage(`Clementina: could not run ld65 (${ld65}): ${String(error)}`);
+    }
+  }
+}
+
+/** Sources or the manifest changed: check the open configurations again (without rerunning ld65). */
+function scheduleConfigChecks(): void {
+  clearTimeout(configTimer);
+  configTimer = setTimeout(() => {
+    for (const document of documents.all()) if (isConfig(document)) void runConfigDiagnostics(document, false);
+  }, 500);
+}
 
 // --- Language features -----------------------------------------------------
 
 const pathOf = (uri: string) => toPath(uri);
 
 connection.onHover(params => {
+  const config = configDocument(params.textDocument.uri);
+  if (config) {
+    const found = configHover(parsedConfig(config), params.position.line, params.position.character, configProject(toPath(config.uri)));
+    return found ? {contents: {kind: MarkupKind.Markdown, value: found.markdown}, range: toRange(found.span)} : null;
+  }
   const hover = hoverAt(workspace, pathOf(params.textDocument.uri), params.position.line, params.position.character);
   return hover && {contents: {kind: MarkupKind.Markdown, value: hover.markdown}, range: toRange(hover.span)};
 });
@@ -306,7 +466,26 @@ const completionKinds: Record<CompletionKind, CompletionItemKind> = {
   struct: CompletionItemKind.Struct, union: CompletionItemKind.Struct, enum: CompletionItemKind.Enum, member: CompletionItemKind.Field, import: CompletionItemKind.Reference,
 };
 
+const configCompletionKinds: Record<ConfigCompletionKind, CompletionItemKind> = {
+  block: CompletionItemKind.Module, item: CompletionItemKind.Snippet, attribute: CompletionItemKind.Property, value: CompletionItemKind.Value,
+  memory: CompletionItemKind.Reference, segment: CompletionItemKind.Reference, symbol: CompletionItemKind.Constant,
+};
+
 connection.onCompletion((params): CompletionItem[] => {
+  const trigger = params.context?.triggerCharacter;
+  const config = configDocument(params.textDocument.uri);
+  if (config) {
+    const {line, character} = params.position;
+    // A space only opens the list right after `=`, `:` or `,`.
+    if (trigger === ' ' && !/[=:,]\s$/u.test(config.getText({start: {line, character: 0}, end: {line, character}}))) return [];
+    return configCompletions(parsedConfig(config), line, character, configProject(toPath(config.uri))).map((item, index) => ({
+      label: item.label, kind: configCompletionKinds[item.kind], ...(item.detail ? {detail: item.detail} : {}),
+      ...(item.documentation ? {documentation: {kind: MarkupKind.Markdown, value: item.documentation}} : {}),
+      ...(item.snippet ? {insertText: item.snippet, insertTextFormat: InsertTextFormat.Snippet} : {}),
+      sortText: String(index).padStart(5, '0'),
+    }));
+  }
+  if (trigger && !['.', '@'].includes(trigger)) return [];
   const items = completionsAt(workspace, pathOf(params.textDocument.uri), params.position.line, params.position.character);
   return items.map((item, index) => ({
     label: item.label, kind: completionKinds[item.kind], detail: item.detail,
@@ -317,6 +496,7 @@ connection.onCompletion((params): CompletionItem[] => {
 });
 
 connection.onSignatureHelp(params => {
+  if (configDocument(params.textDocument.uri)) return null;
   const help = signatureHelpAt(workspace, pathOf(params.textDocument.uri), params.position.line, params.position.character);
   if (!help) return null;
   return {
@@ -330,6 +510,11 @@ connection.onSignatureHelp(params => {
 });
 
 connection.onDefinition(params => {
+  const config = configDocument(params.textDocument.uri);
+  if (config) {
+    const span = configDefinition(parsedConfig(config), params.position.line, params.position.character);
+    return span ? {uri: config.uri, range: toRange(span)} : null;
+  }
   const path = pathOf(params.textDocument.uri);
   const {line, character} = params.position;
   const unnamed = workspace.unnamedTargetAt(path, line, character);
@@ -343,9 +528,10 @@ connection.onDefinition(params => {
   return at ? location({path: at.target.path, span: at.target.symbol.span}) : null;
 });
 
-connection.onReferences(params => workspace.occurrences(pathOf(params.textDocument.uri), params.position.line, params.position.character, params.context.includeDeclaration).map(location));
+connection.onReferences(params => configDocument(params.textDocument.uri) ? [] : workspace.occurrences(pathOf(params.textDocument.uri), params.position.line, params.position.character, params.context.includeDeclaration).map(location));
 
 connection.onDocumentHighlight(params => {
+  if (configDocument(params.textDocument.uri)) return [];
   const path = pathOf(params.textDocument.uri);
   return workspace.occurrences(path, params.position.line, params.position.character)
     .filter(item => normalize(item.path) === normalize(path))
@@ -354,6 +540,7 @@ connection.onDocumentHighlight(params => {
 
 /** The definition to rename at a position, refusing library symbols. */
 function renameTarget(uri: string, line: number, character: number) {
+  if (configDocument(uri)) throw new ResponseError(ErrorCodes.InvalidRequest, 'Rename works in assembly sources');
   const path = pathOf(uri);
   const at = workspace.targetAt(path, line, character);
   if (!at) throw new ResponseError(ErrorCodes.InvalidRequest, 'No assembly symbol here to rename');
@@ -399,7 +586,24 @@ function toDocumentSymbol(node: OutlineSymbol): DocumentSymbol {
   };
 }
 
-connection.onDocumentSymbol(params => documentOutline(workspace, pathOf(params.textDocument.uri)).map(toDocumentSymbol));
+const configSymbolKinds: Record<ConfigOutlineSymbol['kind'], SymbolKind> = {
+  block: SymbolKind.Namespace, memory: SymbolKind.Struct, segment: SymbolKind.Field, symbol: SymbolKind.Constant, item: SymbolKind.Property,
+};
+
+function toConfigSymbol(node: ConfigOutlineSymbol): DocumentSymbol {
+  return {
+    name: node.name, kind: configSymbolKinds[node.kind], ...(node.detail ? {detail: node.detail} : {}),
+    range: {start: {line: node.span.line, character: 0}, end: {line: node.endLine, character: 1000}},
+    selectionRange: toRange(node.span),
+    children: node.children.map(toConfigSymbol),
+  };
+}
+
+connection.onDocumentSymbol(params => {
+  const config = configDocument(params.textDocument.uri);
+  if (config) return configOutline(parsedConfig(config)).map(toConfigSymbol);
+  return documentOutline(workspace, pathOf(params.textDocument.uri)).map(toDocumentSymbol);
+});
 
 connection.onWorkspaceSymbol(params => {
   const query = params.query.toLowerCase();
@@ -409,11 +613,16 @@ connection.onWorkspaceSymbol(params => {
     .map(target => ({name: qualifiedName(target.symbol), kind: symbolKinds[target.symbol.kind], location: location({path: target.path, span: target.symbol.span})}));
 });
 
-connection.onFoldingRanges(params => (workspace.get(pathOf(params.textDocument.uri))?.parsed.folds ?? [])
-  .filter(fold => fold.end > fold.start)
-  .map(fold => ({startLine: fold.start, endLine: fold.end, ...(fold.kind ? {kind: FoldingRangeKind.Comment} : {})})));
+connection.onFoldingRanges(params => {
+  const config = configDocument(params.textDocument.uri);
+  if (config) return parsedConfig(config).blocks.filter(block => block.closeLine > block.openLine).map(block => ({startLine: block.openLine, endLine: block.closeLine}));
+  return (workspace.get(pathOf(params.textDocument.uri))?.parsed.folds ?? [])
+    .filter(fold => fold.end > fold.start)
+    .map(fold => ({startLine: fold.start, endLine: fold.end, ...(fold.kind ? {kind: FoldingRangeKind.Comment} : {})}));
+});
 
 connection.onDocumentLinks(params => {
+  if (configDocument(params.textDocument.uri)) return [];
   const path = pathOf(params.textDocument.uri);
   return (workspace.get(path)?.parsed.includes ?? []).flatMap(include => {
     const target = workspace.resolveInclude(path, include.path) ?? (include.binary ? join(path, '..', include.path) : undefined);

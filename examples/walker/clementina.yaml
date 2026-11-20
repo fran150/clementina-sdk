@@ -1,0 +1,50 @@
+format: clementina-project
+version: 1
+name: Walker
+target:
+  machine: clementina-6502
+assets:
+  palettes:
+    - assets/palettes/main.palette.json
+    - assets/palettes/ground.palette.json
+    - assets/palettes/player.palette.json
+  paletteConfigs:
+    - assets/palette-configs/main.palette-config.json
+  tilesets:
+    - assets/tilesets/player.tileset.json
+  backgrounds:
+    - assets/backgrounds/level1.background.json
+  overlays: []
+  shapes:
+    - assets/shapes/player_idle.shape.json
+  animations:
+    - assets/animations/player_idle.animation.json
+  instruments:
+    - assets/instruments/lead.instrument.json
+    - assets/instruments/bass.instrument.json
+  songs:
+    - assets/songs/theme.song.json
+  sounds:
+    - assets/sounds/jump.sound.json
+build:
+  outputDirectory: build
+  assembly:
+    sources:
+      - src/main.s
+    linkerConfig: link.cfg
+    outputName: walker
+    loadAddress: $1800
+    entrySymbol: game_start
+  assets:
+    slots:
+      - {name: level,   mia: $14000, size: $1000}
+      - {name: actors,  mia: $15000, size: $0400}
+      - {name: effects, mia: $15400, size: $0400}
+      - {name: music,   mia: $15800, size: $0800}
+    include:
+      - {kind: paletteConfig, id: palette-config:main, slot: palettes}
+      - {kind: tileset, id: tileset:player, slot: chr2}
+      - {kind: background, id: background:level1, slot: level}
+      - {kind: sprites, id: tileset:player, slot: actors}
+      - {kind: song, id: e4f5a6b7-c8d9-4e0f-9a1b-2c3d4e5f6a7b, slot: music}
+      - {kind: sound, id: c2a9f1e0-1b2c-4d3e-8f40-516273849abc, slot: effects}

@@ -1,5 +1,5 @@
 import {isIntegerInRange} from '@clementina/core';
-import type {BankBreakpoint, EmulatorCapabilities, EmulatorStack, EmulatorState, ExecutionState, StopReason} from './index.js';
+import type {BankBreakpoint, EmulatorCapabilities, EmulatorSpeed, EmulatorStack, EmulatorState, ExecutionState, StopReason} from './index.js';
 
 const stopReasons: readonly StopReason[] = ['initial', 'running', 'pause', 'reset', 'breakpoint', 'instruction', 'cycle-limit', 'mia-paused', 'cpu-stopped'];
 
@@ -22,6 +22,13 @@ export function isCapabilities(value: unknown): value is EmulatorCapabilities {
 }
 
 /** Validate a state response, including optional execution fields from newer servers. */
+/** Check a speed or setSpeed result. */
+export function isSpeed(value: unknown): value is EmulatorSpeed {
+  return isObject(value) && typeof value.realtime === 'boolean' && typeof value.unthrottled === 'boolean'
+    && typeof value.targetMHz === 'number' && Number.isFinite(value.targetMHz) && value.targetMHz >= 0
+    && typeof value.measuredMHz === 'number' && Number.isFinite(value.measuredMHz) && value.measuredMHz >= 0;
+}
+
 export function isState(value: unknown): value is EmulatorState {
   return isObject(value) && typeof value.cycles === 'string' && /^(0|[1-9][0-9]*)$/.test(value.cycles)
     && isInteger(value.pc, 65535) && ['a', 'x', 'y', 'sp', 'p'].every(register => isInteger(value[register], 255))

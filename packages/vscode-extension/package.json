@@ -1,7 +1,7 @@
 {
   "name": "clementina",
   "displayName": "Clementina",
-  "description": "Debugging, BASIC and 65C02 assembly language support for the Clementina homebrew computer",
+  "description": "Debugging, BASIC, 65C02 assembly and ld65 linker configuration support, and clementina.yaml editing, for the Clementina homebrew computer",
   "version": "0.3.0-alpha.4",
   "repository": {"type": "git", "url": "git+https://github.com/fran150/clementina-sdk.git", "directory": "packages/vscode-extension"},
   "private": true,
@@ -16,10 +16,13 @@
     "onDebug",
     "onLanguage:clementina-basic",
     "onLanguage:clementina-asm",
+    "onLanguage:clementina-ld65",
+    "workspaceContains:**/clementina.yaml",
     "onCommand:clementina.basic.renumberInteractive",
     "onCommand:clementina.basic.insertGlyph",
     "onCommand:clementina.basic.styleSelection",
     "onCommand:clementina.basic.showScreen",
+    "onCommand:clementina.debug.setSpeed",
     "onView:clementina.basic.screen"
   ],
   "main": "./dist/extension.js",
@@ -27,10 +30,14 @@
     "build": "tsc -b && npm run bundle",
     "bundle": "node scripts/bundle.mjs",
     "vscode:prepublish": "npm run build",
-    "package": "npx --yes @vscode/vsce@4.0.0 package --no-dependencies",
+    "package": "node -e \"require('fs').mkdirSync('build', {recursive: true})\" && npx --yes @vscode/vsce@4.0.0 package --no-dependencies --out build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "extensionDependencies": ["redhat.vscode-yaml"],
   "contributes": {
+    "yamlValidation": [
+      {"fileMatch": ["clementina.yaml", "**/clementina.yaml"], "url": "./dist/project.schema.json"}
+    ],
     "languages": [
       {
         "id": "clementina-basic",
@@ -43,17 +50,27 @@
         "extensions": [".s", ".inc"],
         "aliases": ["Clementina Assembly", "65C02 Assembly (ca65)"],
         "configuration": "./asm-language-configuration.json"
+      },
+      {
+        "id": "clementina-ld65",
+        "extensions": [".ld65"],
+        "filenames": ["link.cfg", "linker.cfg", "ld65.cfg"],
+        "firstLine": "^\\s*(MEMORY|SEGMENTS|SYMBOLS|FEATURES|memory|segments)\\s*\\{",
+        "aliases": ["ld65 Linker Configuration", "Clementina Linker Configuration"],
+        "configuration": "./ld65-language-configuration.json"
       }
     ],
     "grammars": [
       {"language": "clementina-basic", "scopeName": "source.clementina-basic", "path": "./syntaxes/clementina-basic.tmLanguage.json"},
-      {"language": "clementina-asm", "scopeName": "source.clementina-asm", "path": "./syntaxes/clementina-asm.tmLanguage.json"}
+      {"language": "clementina-asm", "scopeName": "source.clementina-asm", "path": "./syntaxes/clementina-asm.tmLanguage.json"},
+      {"language": "clementina-ld65", "scopeName": "source.clementina-ld65", "path": "./syntaxes/clementina-ld65.tmLanguage.json"}
     ],
     "commands": [
       {"command": "clementina.basic.renumberInteractive", "title": "Clementina BASIC: Renumber Program…"},
       {"command": "clementina.basic.insertGlyph", "title": "Clementina BASIC: Insert Glyph…"},
       {"command": "clementina.basic.styleSelection", "title": "Clementina BASIC: Style Selected Text…"},
-      {"command": "clementina.basic.showScreen", "title": "Clementina BASIC: Show Screen Preview"}
+      {"command": "clementina.basic.showScreen", "title": "Clementina BASIC: Show Screen Preview"},
+      {"command": "clementina.debug.setSpeed", "title": "Clementina: Set Emulator Speed…"}
     ],
     "configuration": {
       "title": "Clementina",
@@ -64,12 +81,42 @@
           "scope": "machine-overridable",
           "description": "The ca65 that checks assembly as you type. Empty: the one `clementina install` installed, then ca65 on PATH."
         },
+        "clementina.assembly.ld65Path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The ld65 that checks linker configurations (link.cfg) as you type. Empty: the one `clementina install` installed, then ld65 on PATH."
+        },
         "clementina.assembly.diagnostics": {
           "type": "string",
           "enum": ["onType", "onSave", "off"],
-          "enumDescriptions": ["Check with ca65 as you type", "Check with ca65 when a file is saved", "Do not run ca65"],
+          "enumDescriptions": ["Check with ca65 and ld65 as you type", "Check with ca65 and ld65 when a file is saved", "Do not run ca65 or ld65"],
           "default": "onType",
-          "description": "When the editor runs ca65 on assembly sources to show its errors and warnings."
+          "description": "When the editor runs ca65 on assembly sources and ld65 on linker configurations to show their errors and warnings. The editor's own linker configuration checks (attributes, memory areas and Clementina's memory map) always run."
+        },
+        "clementina.debug.speed": {
+          "type": ["number", "null"],
+          "default": null,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "PHI2 speed in MHz the emulator starts at while debugging. Empty: the project's target.phi2Hz, 1.2 MHz (the speed the board starts at) when that is unset. 0 runs as fast as this computer can. A program that sets its own speed changes it once it runs."
+        },
+        "clementina.debug.openVideoClient": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the Clementina video client window when debugging starts, to see and play the game."
+        },
+        "clementina.debug.emulatorPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The emulator to debug with. Empty: the clementina-emulator that `clementina install` installed, then the one on PATH."
+        },
+        "clementina.debug.videoClientPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "The video client to open. Empty: the clementina-video-client that `clementina install` installed, then the one on PATH."
         }
       }
     },
@@ -81,7 +128,8 @@
       "commandPalette": [
         {"command": "clementina.basic.insertGlyph", "when": "editorLangId == clementina-basic"},
         {"command": "clementina.basic.styleSelection", "when": "editorLangId == clementina-basic"},
-        {"command": "clementina.basic.showScreen", "when": "editorLangId == clementina-basic"}
+        {"command": "clementina.basic.showScreen", "when": "editorLangId == clementina-basic"},
+        {"command": "clementina.debug.setSpeed", "when": "debugType == clementina"}
       ],
       "editor/context": [
         {"command": "clementina.basic.insertGlyph", "when": "editorLangId == clementina-basic", "group": "1_modification@90"},
@@ -115,11 +163,29 @@
               },
               "emulator": {
                 "type": "string",
-                "description": "Path to the clementina-automation executable (default: clementina-automation on PATH)"
+                "description": "Emulator executable (default: the installed clementina-emulator, then PATH; clementina-automation when realtime is false)"
               },
               "port": {
                 "type": "number",
-                "description": "Fixed loopback automation port (default: automatic)"
+                "description": "Fixed loopback control port (default: automatic)"
+              },
+              "realtime": {
+                "type": "boolean",
+                "default": true,
+                "description": "Run the game in real time, with video and input in the video client. False uses the screenless automation emulator."
+              },
+              "speed": {
+                "type": "number",
+                "description": "PHI2 speed in MHz (default: the clementina.debug.speed setting, then the project's target.phi2Hz, then 1.2). 0 runs as fast as possible."
+              },
+              "videoClient": {
+                "type": ["boolean", "string"],
+                "description": "Open the video client (default true), or the path of the video client to open."
+              },
+              "stopOnBankSwitch": {
+                "type": "boolean",
+                "default": false,
+                "description": "Stop just before code linked at $8000-$BFFF stores to VIA Port A (VIA_ORA), which switches the bank under the running code."
               }
             }
           }
@@ -140,11 +206,12 @@
     "@clementina/asm-lsp": "0.3.0-alpha.4",
     "@clementina/basic-lsp": "0.3.0-alpha.4",
     "@clementina/debug-adapter": "0.3.0-alpha.4",
+    "@clementina/project": "0.3.0-alpha.4",
     "@types/node": "^26.6.2",
     "@types/vscode": "^1.138.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.8.0",
     "vscode-languageclient": "^10.1.1"
   },
-  "files": ["dist/extension.js", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "dist/asm-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "syntaxes", "media", "LICENSE"]
+  "files": ["dist/extension.js", "dist/project.schema.json", "dist/debug-adapter.mjs", "dist/basic-lsp.mjs", "dist/asm-lsp.mjs", "language-configuration.json", "asm-language-configuration.json", "ld65-language-configuration.json", "syntaxes", "media", "LICENSE"]
 }

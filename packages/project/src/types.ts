@@ -1,14 +1,23 @@
-export interface ProjectAssemblyBuild {
+/**
+ * An address or size. The checked manifest holds numbers; clementina.yaml may
+ * also write hex strings (`$7000`, `0x7000`), which checking turns into numbers.
+ */
+export type ManifestAddress = number | string;
+export interface ProjectAssemblyBuild<A = number> {
  /** ca65 sources, assembled and linked into one PRG. */
- sources:string[];linkerConfig:string;outputName:string;loadAddress:number;bank?:number;entrySymbol:string;
+ sources:string[];linkerConfig:string;outputName:string;loadAddress:A;bank?:number;entrySymbol:string;
  includeDirectories?:string[];defines?:Record<string,string|number>;
  /** Assemble the Clementina library with its argument checks (CL_CHECKS); default true. */
  checks?:boolean;
+ /** More code linked at $8000-$BFFF: each ld65 MEMORY area here becomes its own PRG, loaded with BANK n:BLOAD. */
+ banks?:ProjectAssemblyBank[];
 }
-export interface ProjectBasicBuild {
+/** One bank of code: the extended RAM bank (1-31) and the ld65 MEMORY area it holds. */
+export interface ProjectAssemblyBank {bank:number;memory:string}
+export interface ProjectBasicBuild<A = number> {
  outputName:string;
  /** MEMSIZ to set before the program runs: BASIC keeps bank-0 RAM from here to $BFFF free. */
- memoryTop?:number;
+ memoryTop?:A;
 }
 export interface ProjectVideoBuild {
  paletteConfigId?:string;tilesets?:Array<{tilesetId:string;bank:number}>;
@@ -17,22 +26,23 @@ export interface ProjectVideoBuild {
  * A named range assets load into: MIA RAM (`mia`) or CPU banks (`bank` and an
  * `address` in the $8000-$BFFF window, running on into the next banks).
  */
-export interface ProjectAssetSlot {name:string;size:number;mia?:number;bank?:number;address?:number}
+export interface ProjectAssetSlot<A = number> {name:string;size:A;mia?:A;bank?:number;address?:A}
 export type ProjectAssetBuildKind="paletteConfig"|"tileset"|"background"|"overlay"|"sprites"|"song"|"sound";
 /** An asset the build writes to the card. A sprite file names its tileset's id. */
 export interface ProjectAssetInclude {kind:ProjectAssetBuildKind;id:string;slot:string;file?:string}
-export interface ProjectAssetsBuild {folder?:string;slots:ProjectAssetSlot[];include:ProjectAssetInclude[]}
+export interface ProjectAssetsBuild<A = number> {folder?:string;slots:ProjectAssetSlot<A>[];include:ProjectAssetInclude[]}
 /** Settings for each part the project has: `assembly`, `basic` for program.entry, or both. */
-export type ProjectBuild = {outputDirectory:string;video?:ProjectVideoBuild;assets?:ProjectAssetsBuild}&(
- {assembly:ProjectAssemblyBuild;basic?:ProjectBasicBuild}|{basic:ProjectBasicBuild;assembly?:ProjectAssemblyBuild}
+export type ProjectBuild<A = number> = {outputDirectory:string;video?:ProjectVideoBuild;assets?:ProjectAssetsBuild<A>}&(
+ {assembly:ProjectAssemblyBuild<A>;basic?:ProjectBasicBuild<A>}|{basic:ProjectBasicBuild<A>;assembly?:ProjectAssemblyBuild<A>}
 );
-export interface ClementinaProjectManifest {
+/** A project manifest. `ClementinaProjectManifest<ManifestAddress>` is clementina.yaml as written. */
+export interface ClementinaProjectManifest<A = number> {
  format:"clementina-project";version:1;name:string;description?:string;
  target:{machine:"clementina-6502";phi2Hz?:number};
  /** The BASIC program that runs last. Without one, the generated loader BRUNs build.assembly. */
  program?:{entry:string};
  assets:{palettes:string[];paletteConfigs:string[];tilesets:string[];backgrounds:string[];overlays:string[];shapes:string[];animations:string[];instruments?:string[];sounds?:string[];songs?:string[]};
- build?:ProjectBuild;
+ build?:ProjectBuild<A>;
 }
 /** A kind's asset paths; the audio kinds may be left out of a manifest. */
 export function assetPaths(manifest:Pick<ClementinaProjectManifest,"assets">,kind:keyof ClementinaProjectManifest["assets"]):string[]{return manifest.assets[kind]??[]}

@@ -35,7 +35,7 @@ const plan = {
 test('load plans render ordered ROM BASIC bootstrap source', () => {
   assert.equal(checkLoadPlan(plan).ok, true);
   assert.equal(renderBootstrapSource(plan), [
-    '10 MIALOAD "ASSETS/PALETTE.BIN",256',
+    '10 MIALOAD "ASSETS/PALETTE.BIN",$00100',
     '20 BANK 1:BLOAD "BANK1.PRG"',
     '30 BANK 0:BRUN "GAME.PRG"',
     '',
@@ -51,7 +51,7 @@ test('load plans pick each PRG bank with BANK only when it changes', () => {
   assert.equal(renderBootstrapSource(banked), [
     '10 BANK 2:BLOAD "A.PRG"',
     '20 BLOAD "B.PRG"',
-    '30 BANK 3:BRUN "GAME.PRG",32784',
+    '30 BANK 3:BRUN "GAME.PRG",$8010',
     '',
   ].join('\n'));
   const basic = renderLoadPlanLaunch({format: 'clementina-load-plan', version: 1, steps: [
@@ -59,7 +59,7 @@ test('load plans pick each PRG bank with BANK only when it changes', () => {
     {kind: 'prg', path: 'DATA.PRG', loadAddress: 0x8000, bank: 4, length: 16},
     {kind: 'basic', path: 'GAME.BAS', length: 2},
   ]});
-  assert.deepEqual(basic.lines, ['MIALOAD "MAP.BIN",81920', 'BANK 4:BLOAD "DATA.PRG"', 'BANK 0:LOAD "GAME.BAS"']);
+  assert.deepEqual(basic.lines, ['MIALOAD "MAP.BIN",$14000', 'BANK 4:BLOAD "DATA.PRG"', 'BANK 0:LOAD "GAME.BAS"']);
   assert.deepEqual(renderLoadPlanLaunch({format: 'clementina-load-plan', version: 1, steps: [
     {kind: 'basic', path: 'GAME.BAS', length: 2},
   ]}).lines, ['LOAD "GAME.BAS"']);
@@ -97,13 +97,13 @@ test('load plans enforce terminal takeover and warn about risky destinations', (
 
 test('BASIC launch commands share the editor limit with numbered bootstraps', () => {
   const directPlan = {format: 'clementina-load-plan', version: 1, steps: [
-    {kind: 'mia', path: 'A'.repeat(66), address: 256, length: 1},
+    {kind: 'mia', path: 'A'.repeat(63), address: 256, length: 1},
     {kind: 'basic', path: 'GAME.BAS', length: 2},
   ]};
   const launch = renderLoadPlanLaunch(directPlan);
   assert.deepEqual(launch, {
     mode: 'direct',
-    lines: [`MIALOAD "${'A'.repeat(66)}",256`, 'LOAD "GAME.BAS"'],
+    lines: [`MIALOAD "${'A'.repeat(63)}",$00100`, 'LOAD "GAME.BAS"'],
     startCommand: 'RUN',
   });
   assert.equal(launch.lines[0].length, 80);
@@ -142,6 +142,7 @@ test('BASIC token tables stay synchronized with the developer spec', async () =>
   assert.deepEqual(basicTokenTables.extensionFunction,spec.tokens.extensionFunction);
   assert.equal(basicTokenTables.mon,spec.tokens.special.MON);
   assert.equal(basicRuntimeDebug.statementBoundaryAddress,spec.runtimeDebug.statementBoundaryAddress);
+  assert.equal(basicRuntimeDebug.lineStartAddress,spec.runtimeDebug.lineStartAddress);
   assert.equal(basicRuntimeDebug.currentLineAddress,spec.runtimeDebug.currentLineAddress);
   assert.equal(basicRuntimeDebug.variableTablePointerAddress,spec.runtimeDebug.variableTablePointerAddress);
   assert.equal(basicRuntimeDebug.directModeLine,spec.runtimeDebug.directModeLine);
@@ -326,8 +327,23 @@ test('a memoryTop step lowers MEMSIZ and clears the warning for a PRG wholly abo
   // One byte below the lowered top is still BASIC's.
   assert.equal(warned({...base, steps: [{kind: 'memoryTop', address: 0xa001}, ...steps]}), true);
   assert.deepEqual(renderLoadPlanLaunch({...base, steps: [{kind: 'memoryTop', address: 0xa000}, ...steps]}).lines, [
-    'POKE 63,0:POKE 64,160:CLEAR', 'BANK 0:BLOAD "CODE.PRG"', 'LOAD "GAME.BAS"',
+    'POKE $3F,$00:POKE $40,$A0:CLEAR', 'BANK 0:BLOAD "CODE.PRG"', 'LOAD "GAME.BAS"',
   ]);
   assert.equal(checkLoadPlan({...base, steps: [{kind: 'memoryTop', address: 0xa000}, {kind: 'memoryTop', address: 0xa000}, ...steps]}).ok, false);
   assert.equal(checkLoadPlan({...base, steps: [{kind: 'memoryTop', address: 0x1000}, ...steps]}).ok, false);
+});
+
+test('a speed step sets the CPU clock through CFG_SPEED_L/M/H before the other steps', () => {
+  const base = {format: 'clementina-load-plan', version: 1};
+  const steps = [{kind: 'speed', hz: 2000000}, {kind: 'prg', path: 'CODE.PRG', loadAddress: 0x7000, length: 0x100, runAddress: 0x7000}];
+  const speedLines = ['POKE $FFE2,$20:POKE $FFE3,$80:POKE $FFE2,$21:POKE $FFE3,$84', 'POKE $FFE2,$22:POKE $FFE3,$1E'];
+  assert.deepEqual(renderBootstrapSource({...base, steps}).trimEnd().split('\n'), [
+    '10 REM SET CPU SPEED', `20 ${speedLines[0]}`, `30 ${speedLines[1]}`, '40 BANK 0:BRUN "CODE.PRG"',
+  ]);
+  const basic = [{kind: 'speed', hz: 4000000}, {kind: 'basic', path: 'GAME.BAS', length: 2}];
+  assert.deepEqual(renderLoadPlanLaunch({...base, steps: basic}).lines, [
+    'POKE $FFE2,$20:POKE $FFE3,$00:POKE $FFE2,$21:POKE $FFE3,$09', 'POKE $FFE2,$22:POKE $FFE3,$3D', 'LOAD "GAME.BAS"',
+  ]);
+  assert.equal(checkLoadPlan({...base, steps: [steps[0], ...steps]}).ok, false);
+  assert.equal(checkLoadPlan({...base, steps: [{kind: 'speed', hz: 8000001}, steps[1]]}).ok, false);
 });

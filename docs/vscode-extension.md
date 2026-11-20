@@ -24,13 +24,33 @@ debugging or language logic of its own:
   symbols on hover, completes instructions, macros, symbols and directives, and
   provides go to definition, references, rename, signature help for macros, the
   outline and folding, across the workspace and the Clementina library.
+- **Linker configuration support**: the same server handles ld65 linker
+  configurations (`link.cfg`, see
+  [linker configurations](asm-lsp.md#linker-configurations-linkcfg)): ld65's
+  rules and ld65's own errors as you type, warnings where a memory area takes
+  memory Clementina's kernel or BASIC uses (from `specs/cpu-memory-map.json` and
+  the project's `build.basic.memoryTop`), a `loadAddress` the configuration does
+  not start at and segments the sources use that it does not place, hover for
+  blocks, attributes, memory areas, segments and addresses, completion, go to
+  definition, the outline and folding.
+- **Manifest editing**: `clementina.yaml` is checked against
+  `specs/schema/project.schema.json` by Red Hat's YAML extension
+  (`redhat.vscode-yaml`, an `extensionDependencies` entry, through
+  `contributes.yamlValidation`), which gives field completion, hover from the
+  schema's `description`s and schema errors. `src/manifest.ts` adds the SDK's
+  own checks as you type, `checkManifestText` from `@clementina/project/node`
+  (the `loadProject` checks on the unsaved text, placed on the YAML node they
+  name; schema errors are left to the YAML extension except an out-of-range
+  hex address), and completion of project files in path fields
+  (`manifestPathFieldAt`, `manifestPathCandidates`).
 
 `packages/vscode-extension/src/extension.ts` is the entire integration: it
 registers a `DebugAdapterDescriptorFactory` that spawns
 `clementina-debug-adapter` and `LanguageClient`s that spawn
 `clementina-basic-lsp` and `clementina-asm-lsp`, all spawned through
 `process.execPath` for cross-platform reliability. The build bundles the
-extension and the three servers,
+extension and the three servers, copies the project schema to
+`dist/project.schema.json`,
 with their SDK dependencies, into `dist/` (`scripts/bundle.mjs`, using
 esbuild), so the `.vsix` needs no `node_modules` and no separate SDK install;
 the servers always match the extension's version. Only the emulator is
@@ -42,15 +62,39 @@ Matching `@clementina/debug`'s actual capabilities exactly — nothing invented:
 
 - Launch (build the project and start an owned emulator via
   `createProjectDebugSession`), source breakpoints, continue/pause,
-  step-in/step-over.
+  step-in/step-over, and restart (reset, then load and start the project again).
+  `F5` works without a `launch.json`: it debugs the open folder.
+- By default the session runs the game in real time in
+  `clementina-emulator --headless --control` and opens `clementina-video-client`,
+  where you see and play it while VS Code stops it at breakpoints. The status bar
+  shows the target and measured speed; clicking it (or **Clementina: Set Emulator
+  Speed…**) picks 1, 1.2, 2, 4 or 8 MHz or unthrottled. Launch attributes `realtime`
+  (`false` for the screenless automation emulator), `speed`, `videoClient`,
+  `emulator` and `stopOnBankSwitch` (stop, with "Bank switch" as the reason, just
+  before code at `$8000-$BFFF` stores to `VIA_ORA`); settings `clementina.debug.speed` (empty by default: the project's `target.phi2Hz`, 1.2 MHz when unset),
+  `clementina.debug.openVideoClient`, `clementina.debug.emulatorPath` and
+  `clementina.debug.videoClientPath`. Empty paths use the tools `clementina
+  install` put in `~/.clementina/bin`, then `PATH`.
+- Projects with BASIC and assembly debug both at once: breakpoints in `.cbas` and
+  `.s` files stop, and the call stack shows the BASIC line under the routine.
 - Verified stack frames for assembly projects, with an explicit unknown caller
   boundary, and a read-only **Registers** scope
   (PC/bank/A/X/Y/SP/P/cycles/MIA-paused) sourced directly from `DebugRegisters`.
 - Assembly projects use ld65 source maps. BASIC projects use the ROM statement
   boundary and current-line state for source breakpoints and line stepping, plus a
   **BASIC Variables** scope and simple-variable hover/watch evaluation.
+  Hover and watch also take registers and assembly labels and constants
+  (`hello`, `KERN_CHROUT`).
 - `.cbas` files have a TextMate grammar and language configuration, and the
   **Clementina BASIC: Renumber Program…** command prompts for start and step.
+- `link.cfg` (also `linker.cfg`, `ld65.cfg` and `*.ld65`) opens as **ld65 Linker
+  Configuration**, with a TextMate grammar (`syntaxes/clementina-ld65.tmLanguage.json`)
+  and a language configuration (`#` comments, `{}` folding). A `.cfg` file that a
+  project's `build.assembly.linkerConfig` names opens as one too, whatever its
+  name. `clementina.assembly.ld65Path` sets the ld65 that checks it (empty: the
+  one `clementina install` installed, then `PATH`), and
+  `clementina.assembly.diagnostics` also says when ld65 runs; the server's own
+  checks always run.
 - `.s` and `.inc` files open as **Clementina Assembly** (ca65 syntax for the
   W65C02S, including the Rockwell bit instructions and `WAI`/`STP`), with a
   TextMate grammar and a language configuration (`;` comments, folding of
@@ -161,6 +205,6 @@ then either:
 - Open `packages/vscode-extension` in VS Code and press `F5` to launch an
   Extension Development Host, or
 - Package it with `npm run package` (from `packages/vscode-extension`) and
-  install the resulting `.vsix` with `code --install-extension`. The script
+  install the resulting `build/clementina-<version>.vsix` with `code --install-extension`. The script
   runs `vsce package --no-dependencies`: vsce cannot collect dependencies from
   an npm workspace, and the bundle already contains them.

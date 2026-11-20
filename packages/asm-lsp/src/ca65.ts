@@ -42,15 +42,20 @@ const executable = (path: string) => {
 };
 
 /**
- * Find ca65: a configured path, then the tools `clementina install` puts in
- * the Clementina home (`CLEMENTINA_HOME` or ~/.clementina), then PATH.
+ * Find a cc65 tool: a configured path, then the tools `clementina install`
+ * puts in the Clementina home (`CLEMENTINA_HOME` or ~/.clementina), then PATH.
  */
-export function findCa65(configured?: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function findTool(tool: string, configured?: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
   if (configured) return configured;
-  const name = process.platform === 'win32' ? 'ca65.exe' : 'ca65';
+  const name = process.platform === 'win32' ? `${tool}.exe` : tool;
   const home = env.CLEMENTINA_HOME || join(homedir(), '.clementina');
   const candidates = [join(home, 'bin', name), join(home, 'tools', 'cc65', 'bin', name), ...(env.PATH ?? '').split(delimiter).filter(Boolean).map(dir => join(dir, name))];
   return candidates.find(path => existsSync(path) && executable(path));
+}
+
+/** Find ca65 (see {@link findTool}). */
+export function findCa65(configured?: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return findTool('ca65', configured, env);
 }
 
 /** Parse ca65's `file(line): Error: message` output; `rename` maps a reported path to the real one. */

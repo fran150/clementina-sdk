@@ -30,7 +30,7 @@ The destination must be new or an empty directory. The starter has both
 [program parts](../../docs/project-format.md#program-parts): `clementina.yaml`,
 `src/main.cbas`, JSON palette assets, `src/hello.s` with `link.cfg`, and
 `checks/smoke.json`. The program prints a line, calls the assembly routine
-`hello` with `SYS 28672`, which prints another through the kernel, and waits
+`hello` with `SYS $7000`, which prints another through the kernel, and waits
 for a key; the smoke check presses `A`. `examples/catch-the-star` is a
 complete game built from the starter. `build.basic.memoryTop` keeps
 BASIC below the routine at `$7000`. Remove `build.assembly` (and the `SYS`) for

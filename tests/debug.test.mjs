@@ -207,9 +207,9 @@ test('BASIC debug session filters the shared ROM statement hook by CURLIN and ma
   if(request.method==='readMemory')return {version:1,ok:true,result:[currentLine&255,currentLine>>>8]};
   if(request.method==='state'){
    if(++polls===2)currentLine=30;
-   return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress,stopReason:'breakpoint'})};
+   return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.lineStartAddress,stopReason:'breakpoint'})};
   }
-  if(request.method==='resume')return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress,running:true,stopReason:'running'})};
+  if(request.method==='resume')return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.lineStartAddress,running:true,stopReason:'running'})};
   throw new Error(`unexpected ${request.method}`);
  });
  const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 PRINT "A"\n20\n30 END\n');
@@ -310,7 +310,7 @@ test('BASIC stop wait times out while skipping unrequested statement hooks',asyn
   if(request.method==='removeBreakpoint'){active.splice(active.indexOf(request.address),1);return {version:1,ok:true,result:[...active]};}
   if(request.method==='readMemory')return {version:1,ok:true,result:[10,0]};
   if(request.method==='resume')resumes++;
-  return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.statementBoundaryAddress})};
+  return {version:1,ok:true,result:machineState({pc:basicRuntimeDebug.lineStartAddress})};
  });
  const session=new ClementinaBasicDebugSession(client,'/project/main.cbas','10 END\n20 END\n');
  await session.setSourceBreakpoints('/project/main.cbas',[2]);
@@ -382,4 +382,15 @@ test('Node debug composition reports build and emulator startup diagnostics',asy
  assert.equal(notStarted.ok,false);
  assert.equal(notStarted.diagnostics[0].code,'debug.emulator-startup');
  assert.match(notStarted.diagnostics[0].message,/spawn failed/);
+});
+
+test('a real-time debug emulator starts at the project speed unless the caller picks one',async()=>{
+ const built={kind:'assembly',sdRoot:'.',diagnostics:[],assembly:{loadStep:{},debug:{files:[],lines:[],segments:[],spans:[]}},loadPlan:{steps:[{kind:'speed',hz:2000000}]},bootstrapSource:'',files:[]};
+ const started=[];
+ const startProcess=async options=>{started.push(options.realtime);throw new Error('stop here');};
+ const build=async()=>({ok:true,value:built,diagnostics:[]});
+ await createProjectDebugSession('/project',{realtime:{}},{build,startProcess});
+ await createProjectDebugSession('/project',{realtime:{speedMhz:4}},{build,startProcess});
+ await createProjectDebugSession('/project',{},{build,startProcess});
+ assert.deepEqual(started,[{speedMhz:2},{speedMhz:4},undefined]);
 });

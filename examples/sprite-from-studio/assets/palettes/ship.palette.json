@@ -1,0 +1,16 @@
+{
+  "format": "clementina-palette",
+  "version": 1,
+  "id": "palette:ship",
+  "name": "Ship",
+  "colors": [
+    0,
+    65535,
+    23513,
+    1855,
+    64608,
+    0,
+    0,
+    0
+  ]
+}

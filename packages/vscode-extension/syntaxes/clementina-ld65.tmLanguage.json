@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ld65 Linker Configuration",
+  "scopeName": "source.clementina-ld65",
+  "patterns": [
+    {"include": "#comment"},
+    {"include": "#block"},
+    {"include": "#item"},
+    {"include": "#attribute"},
+    {"include": "#values"}
+  ],
+  "repository": {
+    "comment": {
+      "match": "(#).*$",
+      "name": "comment.line.number-sign.ld65",
+      "captures": {"1": {"name": "punctuation.definition.comment.ld65"}}
+    },
+    "block": {
+      "match": "(?i)\\b(MEMORY|FILES|SEGMENTS|FEATURES|SYMBOLS|FORMATS)\\b(?=\\s*(\\{|$))",
+      "name": "keyword.control.block.ld65"
+    },
+    "item": {
+      "match": "(?:\\b([A-Za-z_][A-Za-z0-9_]*)|(\"[^\"]*\")|(%O))\\s*(:)(?!\\s*[A-Za-z_][A-Za-z0-9_]*\\s*;)",
+      "captures": {
+        "1": {"name": "entity.name.section.ld65"},
+        "2": {"name": "string.quoted.double.ld65"},
+        "3": {"name": "variable.language.ld65"},
+        "4": {"name": "punctuation.separator.key-value.ld65"}
+      }
+    },
+    "attribute": {
+      "match": "(?i)\\b(start|size|type|file|define|fill|fillval|bank|format|load|run|align|align_load|offset|optional|segment|label|count|order|import|default|value|addrsize|os|version|id|export|runad|initad)\\s*(=)",
+      "captures": {
+        "1": {"name": "variable.parameter.attribute.ld65"},
+        "2": {"name": "keyword.operator.assignment.ld65"}
+      }
+    },
+    "values": {
+      "patterns": [
+        {"match": "(?i)\\b(yes|no|true|false)\\b", "name": "constant.language.boolean.ld65"},
+        {"match": "(?i)\\b(ro|rw|bss|zp|overwrite|bin|binary|o65|atari|constructor|destructor|interruptor|increasing|decreasing|export|import|weak|zeropage|direct|abs|absolute|near|far|long|dword|lunix|osa65|cc65|opencbm|small|large)\\b", "name": "support.constant.ld65"},
+        {"match": "%[OS]\\b", "name": "variable.language.ld65"},
+        {"match": "\\$[0-9A-Fa-f]+\\b", "name": "constant.numeric.hex.ld65"},
+        {"match": "\\b[0-9]+\\b", "name": "constant.numeric.decimal.ld65"},
+        {"match": "\"[^\"]*\"", "name": "string.quoted.double.ld65"},
+        {"match": "\\b__[A-Za-z0-9_]+__\\b", "name": "variable.other.constant.ld65"},
+        {"match": "[-+*/]", "name": "keyword.operator.arithmetic.ld65"},
+        {"match": "[;,]", "name": "punctuation.separator.ld65"},
+        {"match": "[{}]", "name": "punctuation.section.block.ld65"},
+        {"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b", "name": "variable.other.ld65"}
+      ]
+    }
+  }
+}

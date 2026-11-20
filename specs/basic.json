@@ -39,11 +39,13 @@
   },
   "runtimeDebug": {
     "statementBoundaryAddress": 7825,
+    "lineStartAddress": 7865,
     "currentLineAddress": 65,
     "variableTablePointerAddress": 53,
     "directModeLine": 65535,
     "source": "current ROM kernel.lbl symbols NEWSTT2=$1E91, CURLIN=$0041 and VARTAB=$0035 (ARYTAB follows at $0037)",
-    "behavior": "NEWSTT2 runs immediately before each statement dispatch, after CURLIN is updated for a new numbered line; an address breakpoint there can be filtered by the little-endian CURLIN value"
+    "behavior": "NEWSTT2 runs at every statement boundary, after the previous statement ran and before NEWSTT loads the next line, so CURLIN there is still the line that just ran. lineStartAddress ($1EB9, the TYA after NEWSTT stores CURLIN+1) runs only when a new numbered line starts (RUN, GOTO, GOSUB, falling through, a false IF), with CURLIN already that line and before its first statement; statements after a colon, and a RETURN to the middle of a line, do not pass it. Line breakpoints and line steps use lineStartAddress, filtered by the little-endian CURLIN value",
+    "lineStartSource": "no ROM label yet: check-drift finds it as the instruction after the STA CURLIN+1 that follows NEWSTT2"
   },
   "savedProgram": {
     "contents": "raw TXTTAB..VARTAB bytes; no PRG header",

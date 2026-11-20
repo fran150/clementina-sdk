@@ -5,7 +5,7 @@ It builds and runs as it is, and shows where everything goes.
 
 - `clementina.yaml` is the project manifest.
 - `src/main.cbas` is the BASIC program, the project's entry. It prints a
-  line, calls the assembly routine with `SYS 28672`, and waits for a key.
+  line, calls the assembly routine with `SYS $7000`, and waits for a key.
 - `src/hello.s` is the assembly routine `hello`. It prints a line through
   the kernel and returns to BASIC with `RTS`.
 - `link.cfg` places the assembly code at `$7000`, and `build.basic.memoryTop`

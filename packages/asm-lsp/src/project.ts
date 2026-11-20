@@ -15,6 +15,25 @@ export interface AsmProject {
   defines: Record<string, string | number>;
   /** The ld65 label file of the last build, `<outputDirectory>/<outputName>.lbl`. */
   labelFile?: string;
+  /** `build.assembly.linkerConfig`, as an absolute path. */
+  linkerConfig?: string;
+  /** True when the project has a BASIC program (`program.entry`), which the assembly returns to. */
+  returnsToBasic: boolean;
+  /** `build.basic.memoryTop`. */
+  memoryTop?: number;
+  /** `build.assembly.loadAddress`. */
+  loadAddress?: number;
+  /** `build.assembly.banks`: the bank of each MEMORY area listed there. */
+  banks: Array<{bank: number; memory: string}>;
+}
+
+/** A manifest address: a number, or `$7000` / `0x7000` text. */
+export function manifestAddress(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim();
+  if (/^(?:\$|0x)[0-9A-Fa-f]+$/u.test(text)) return parseInt(text.replace(/^(?:\$|0x)/u, ''), 16);
+  return /^[0-9]+$/u.test(text) ? Number(text) : undefined;
 }
 
 /** The folder holding the nearest clementina.yaml at or above a file, or undefined. */
@@ -30,7 +49,10 @@ export function findProjectRoot(path: string): string | undefined {
 
 /** Read the parts of a project's manifest that assembling needs; a missing or broken manifest gives defaults. */
 export function readAsmProject(root: string): AsmProject {
-  let manifest: {build?: {outputDirectory?: unknown; assembly?: {includeDirectories?: unknown; defines?: unknown; outputName?: unknown}}} = {};
+  let manifest: {
+    program?: {entry?: unknown};
+    build?: {outputDirectory?: unknown; basic?: {memoryTop?: unknown}; assembly?: {includeDirectories?: unknown; defines?: unknown; outputName?: unknown; linkerConfig?: unknown; loadAddress?: unknown; banks?: unknown}};
+  } = {};
   try {
     const value = parse(readFileSync(join(root, 'clementina.yaml'), 'utf8'));
     if (value && typeof value === 'object') manifest = value;
@@ -45,8 +67,18 @@ export function readAsmProject(root: string): AsmProject {
   if (assembly.defines && typeof assembly.defines === 'object') {
     for (const [name, value] of Object.entries(assembly.defines)) if (typeof value === 'string' || typeof value === 'number') defines[name] = value;
   }
+  const memoryTop = manifestAddress(build.basic?.memoryTop);
+  const loadAddress = manifestAddress(assembly.loadAddress);
+  const banks = Array.isArray(assembly.banks)
+    ? assembly.banks.filter((item): item is {bank: number; memory: string} => typeof item?.bank === 'number' && typeof item?.memory === 'string')
+      .map(item => ({bank: item.bank, memory: item.memory}))
+    : [];
   return {
-    root, outputDirectory, defines,
+    root, outputDirectory, defines, banks,
+    returnsToBasic: typeof manifest.program?.entry === 'string' && manifest.program.entry !== '',
+    ...(memoryTop !== undefined ? {memoryTop} : {}),
+    ...(loadAddress !== undefined ? {loadAddress} : {}),
+    ...(typeof assembly.linkerConfig === 'string' ? {linkerConfig: join(root, assembly.linkerConfig)} : {}),
     // The same order as the build: the project's own, the machine definitions, the library, the generated assets.
     includeDirectories: [...own, join(outputDirectory, 'include'), join(outputDirectory, 'lib'), outputDirectory],
     ...(typeof assembly.outputName === 'string' ? {labelFile: join(outputDirectory, `${assembly.outputName}.lbl`)} : {}),

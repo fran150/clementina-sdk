@@ -36,7 +36,7 @@ export interface BasicLoadStep {
 }
 
 /**
- * Lower BASIC's MEMSIZ before later steps: `POKE 63,lo:POKE 64,hi:CLEAR`.
+ * Lower BASIC's MEMSIZ before later steps: `POKE $3F,lo:POKE $40,hi:CLEAR`.
  * BASIC then keeps its program, variables and strings below `address`, so
  * bank-0 RAM from there to $BFFF is free for code the program calls with SYS.
  */
@@ -45,7 +45,17 @@ export interface MemoryTopStep {
   address: number;
 }
 
-export type LoadStep = MiaLoadStep | PrgLoadStep | BasicLoadStep | MemoryTopStep;
+/**
+ * Set the CPU clock before later steps by writing MIA's CFG_SPEED_L/M/H
+ * fields: `POKE $FFE2,$20:POKE $FFE3,lo:...`. Writing the high byte commits
+ * the change, and the program then runs at `hz` on the board and in the emulator.
+ */
+export interface SpeedStep {
+  kind: 'speed';
+  hz: number;
+}
+
+export type LoadStep = MiaLoadStep | PrgLoadStep | BasicLoadStep | MemoryTopStep | SpeedStep;
 export interface LoadPlan {
   format: 'clementina-load-plan';
   version: 1;
@@ -99,13 +109,18 @@ export function checkLoadPlan(value: unknown): ValidationResult<LoadPlan> {
   const diagnostics = schemaDiagnostics('load-plan', value);
   if (diagnostics.length) return result(value, diagnostics);
   const plan = value as LoadPlan;
-  let terminal = -1, memoryTop: number | undefined;
+  let terminal = -1, memoryTop: number | undefined, speed = false;
 
   plan.steps.forEach((step, index) => {
     const base = `/steps/${index}`;
     if (step.kind === 'memoryTop') {
       if (memoryTop !== undefined) diagnostics.push(diagnostic('load.memoryTop.multiple', base, 'Only one memoryTop step is allowed'));
       memoryTop = step.address;
+      return;
+    }
+    if (step.kind === 'speed') {
+      if (speed) diagnostics.push(diagnostic('load.speed.multiple', base, 'Only one speed step is allowed'));
+      speed = true;
       return;
     }
     if (!portablePath(step.path)) {
@@ -162,18 +177,52 @@ function editorLine(statement: string, diagnostics: ClementinaDiagnostic[], path
  * as the user had it until the first PRG step, and a later BASIC program gets
  * bank 0 back.
  */
-function loadStatements(steps: readonly LoadStep[], chain = false): string[] {
+/** A BASIC hex literal, as the docs write addresses: $3F, $7000, $00100. */
+const hex = (value: number, digits: number): string => `$${value.toString(16).toUpperCase().padStart(digits, '0')}`;
+
+/** MIA's CFG_SELECT and CFG_PORT registers, and the CFG_SPEED_L/M/H field ids (specs/mia-registers.json, specs/mia-config.json). */
+const CFG_SELECT = 0xffe2, CFG_PORT = 0xffe3, CFG_SPEED_L = 0x20;
+
+/**
+ * The POKEs that set the CPU clock, low and middle bytes first. They take two
+ * statements because all six do not fit the 80-character input line.
+ */
+function speedStatements(hz: number): string[] {
+  const poke = (field: number, value: number) => `POKE ${hex(CFG_SELECT, 4)},${hex(CFG_SPEED_L + field, 2)}:POKE ${hex(CFG_PORT, 4)},${hex(value, 2)}`;
+  return [`${poke(0, hz & 0xff)}:${poke(1, (hz >> 8) & 0xff)}`, poke(2, (hz >> 16) & 0xff)];
+}
+
+/** Each step's statements, in order; most steps are one statement. */
+function loadStatements(steps: readonly LoadStep[], chain = false): string[][] {
   let bank: number | undefined;
-  return steps.map(step => {
-    if (step.kind === 'memoryTop') return `POKE 63,${step.address & 0xff}:POKE 64,${step.address >> 8}:CLEAR`;
-    if (step.kind === 'mia') return `MIALOAD "${step.path}",${step.address}`;
+  return steps.map(step => step.kind === 'speed' ? speedStatements(step.hz) : [loadStatement(step)]);
+  function loadStatement(step: Exclude<LoadStep, SpeedStep>): string {
+    if (step.kind === 'memoryTop') return `POKE $3F,${hex(step.address & 0xff, 2)}:POKE $40,${hex(step.address >> 8, 2)}:CLEAR`;
+    if (step.kind === 'mia') return `MIALOAD "${step.path}",${hex(step.address, 5)}`;
     const wanted = step.kind === 'prg' ? step.bank ?? 0 : bank === undefined ? undefined : 0;
     const select = wanted === undefined || wanted === bank ? '' : `BANK ${wanted}:`;
     bank = wanted;
     if (step.kind === 'basic') return `${select}${chain ? 'RUN' : 'LOAD'} "${step.path}"`;
     if (step.runAddress === undefined) return `${select}BLOAD "${step.path}"`;
-    return `${select}BRUN "${step.path}"${step.runAddress === step.loadAddress ? '' : `,${step.runAddress}`}`;
+    return `${select}BRUN "${step.path}"${step.runAddress === step.loadAddress ? '' : `,${hex(step.runAddress, 4)}`}`;
+  }
+}
+
+/** The REM line a bootstrap puts before a step that is only POKEs. */
+const BOOTSTRAP_NOTES: Partial<Record<LoadStep['kind'], string>> = {speed: 'SET CPU SPEED', memoryTop: 'MOVE BASIC MEMORY TOP'};
+
+/** Editor lines for every step, numbered 10, 20, ... for a bootstrap, each checked against the input limit. */
+function editorLines(plan: LoadPlan, diagnostics: ClementinaDiagnostic[], chain: boolean, numbered: boolean): string[] {
+  const lines: string[] = [];
+  loadStatements(plan.steps, chain).forEach((statements, index) => {
+    const step = plan.steps[index]!;
+    const path = step.kind === 'speed' ? `/steps/${index}/hz` : step.kind === 'memoryTop' ? `/steps/${index}/address` : `/steps/${index}/path`;
+    // A bootstrap names its POKE steps, so boot.cbas reads without the memory map.
+    const note = numbered ? BOOTSTRAP_NOTES[step.kind] : undefined;
+    if (note) lines.push(editorLine(`REM ${note}`, diagnostics, path, (lines.length + 1) * 10));
+    for (const statement of statements) lines.push(editorLine(statement, diagnostics, path, numbered ? (lines.length + 1) * 10 : undefined));
   });
+  return lines;
 }
 
 /**
@@ -183,8 +232,7 @@ function loadStatements(steps: readonly LoadStep[], chain = false): string[] {
  */
 function numberedBootstrap(plan: LoadPlan): ValidationResult<string[]> {
   const diagnostics: ClementinaDiagnostic[] = [];
-  const statements = loadStatements(plan.steps, true);
-  const lines = plan.steps.map((_, index) => editorLine(statements[index]!, diagnostics, `/steps/${index}/path`, (index + 1) * 10));
+  const lines = editorLines(plan, diagnostics, true, true);
   return result(lines, diagnostics);
 }
 
@@ -211,8 +259,7 @@ export function checkLoadPlanLaunch(value: unknown): ValidationResult<LoadPlanLa
       : bootstrap as ValidationResult<LoadPlanLaunch>;
   }
   const diagnostics: ClementinaDiagnostic[] = [];
-  const statements = loadStatements(checked.value.steps);
-  const lines = statements.map((statement, index) => editorLine(statement, diagnostics, `/steps/${index}/path`));
+  const lines = editorLines(checked.value, diagnostics, false, false);
   return result({mode: 'direct', lines, startCommand: 'RUN'}, diagnostics);
 }
 
