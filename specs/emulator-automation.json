@@ -22,7 +22,10 @@
       "usagePage",
       "usageId",
       "down",
-      "player"
+      "player",
+      "watch",
+      "values",
+      "mhz"
     ],
     "unknownFields": "reject"
   },
@@ -150,6 +153,25 @@
     "stackTrace": {
       "result": "callers in innermost-first order with pc, bank, and kind (call or interrupt), plus unknownCaller boolean",
       "behavior": "stop before inspecting; only executed JSR and interrupt entries with verified pushed PC words appear; return frames are removed by matching RTS/RTI; preserved stack bytes are rechecked; unknownCaller remains true because execution before tracing cannot be established"
+    },
+    "setBreakpointFilter": {
+      "params": ["address", "watch", "values"],
+      "result": "state",
+      "behavior": "the logical breakpoint at address stops the runner only while the little-endian word at CPU address watch (0..65534) is one of values (1..1024 words); replaces an earlier filter for address; manual steps are unaffected"
+    },
+    "clearBreakpointFilter": {
+      "params": ["address"],
+      "result": "state",
+      "behavior": "removes the filter; the breakpoint itself stays"
+    },
+    "speed": {
+      "result": "{realtime, targetMHz, unthrottled, measuredMHz}",
+      "behavior": "realtime is false for clementina-automation, which is always unthrottled; measuredMHz is 0 while stopped"
+    },
+    "setSpeed": {
+      "params": ["mhz"],
+      "result": "{realtime, targetMHz, unthrottled, measuredMHz}",
+      "behavior": "real-time emulator only (clementina-emulator --headless --control); mhz 0..100, where 0 runs unthrottled; MIA PHI2 follows the target between 1 Hz and 8 MHz"
     }
   },
   "policyLimits": {
@@ -165,7 +187,7 @@
     "backgroundCpuExecution": true,
     "timeSource": "existing host wall clock",
     "deterministicReplay": false,
-    "runner": "unthrottled; serialized ownership released every 256 cycles",
+    "runner": "clementina-automation: unthrottled; clementina-emulator --headless --control: paced to the PHI2 target (default 1.2 MHz) with video and input on UDP; both release serialized ownership every 256 cycles",
     "stopReasons": [
       "initial",
       "running",

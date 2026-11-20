@@ -613,6 +613,16 @@ export function checkRom(report, specs, rom) {
   for (const [key, name] of [['extensionPrefix', 'TOKEN_EXT'], ['extension2Prefix', 'TOKEN_EXT2'], ['extensionFunctionPrefix', 'TOKEN_EXTFN']]) report.same('basic.json', `tokens.${key}`, t[key], () => rom.value(name, 'basic'), `token.s ${name}`);
   report.same('basic.json', 'tokens.special.MON', t.special.MON, () => rom.value('TOKEN_MON', 'basic'), 'token.s TOKEN_MON');
   for (const [key, name] of [['statementBoundaryAddress', 'NEWSTT2'], ['currentLineAddress', 'CURLIN'], ['variableTablePointerAddress', 'VARTAB']]) report.same('basic.json', `runtimeDebug.${key}`, basic.runtimeDebug[key], () => rom.value(name, 'basic'), `the ROM build (${name})`);
+  // The ROM has no label where NEWSTT starts a new line: it is the instruction
+  // after the STA CURLIN+1 (85 42) that follows NEWSTT2.
+  report.same('basic.json', 'runtimeDebug.lineStartAddress', basic.runtimeDebug.lineStartAddress, () => {
+    const start = rom.value('NEWSTT2', 'basic'), curlinHigh = rom.value('CURLIN', 'basic') + 1;
+    const seg = rom.segments.find(s => start >= s.start && start < s.start + s.size);
+    for (let addr = start; addr < Math.min(start + 64, seg.start + seg.size - 1); addr++) {
+      if (rom.bin[seg.offset + addr - seg.start] === 0x85 && rom.bin[seg.offset + addr + 1 - seg.start] === curlinHigh) return addr + 2;
+    }
+    throw Error('no STA CURLIN+1 after NEWSTT2');
+  }, 'the ROM build (after STA CURLIN+1 in NEWSTT)');
 
   const sidecar = basic.savedProgram.styleSidecar;
   for (const [key, value, name] of [['magic[0]', sidecar.magic[0], 'STYLE_SIDE_MAGIC0'], ['magic[1]', sidecar.magic[1], 'STYLE_SIDE_MAGIC1'], ['maxBytes', sidecar.maxBytes, 'STYLE_SIDE_BUF_SIZE'], ['rawTileBit', sidecar.rawTileBit, 'STRING_RAW_TILE'], ['defaultAttribute', sidecar.defaultAttribute, 'DEFAULT_ATTR']]) {

@@ -121,7 +121,7 @@ test('new writes the embedded starter, with both program parts, that validates a
  assert.equal(r.status,0,r.stdout+r.stderr);
  const out=JSON.parse(r.stdout);
  assert.deepEqual([out.ok,out.data.name,out.data.directory],[true,'star-game',star]);
- assert.match(await readFile(join(star,'src/main.cbas'),'utf8'),/SYS 28672/);
+ assert.match(await readFile(join(star,'src/main.cbas'),'utf8'),/SYS \$7000/);
  assert.match(await readFile(join(star,'src/hello.s'),'utf8'),/^hello:/m);
  assert.match(await readFile(join(star,'clementina.yaml'),'utf8'),/^name: star-game$/m);
  assert.equal(run('project','validate',star,'--json').status,0);

@@ -3,7 +3,7 @@ import {EmulatorError, SourceBreakpointError, SourceStepError} from './errors.js
 import {stepSource, updateSourceBreakpoint} from './source.js';
 import {
   isAddresses, isBankBreakpoints, isByteArray, isCapabilities, isEmulatorStack, isExecutionState,
-  isInteger, isMemoryBytes, isObject, isState, requireByteArray, requireCycleBudget, requireHidPage,
+  isInteger, isMemoryBytes, isObject, isSpeed, isState, requireByteArray, requireCycleBudget, requireHidPage,
 } from './validation.js';
 
 export {EmulatorError, SourceBreakpointError, SourceStepError};
@@ -24,6 +24,8 @@ export interface ExecutionState extends EmulatorState {
 export interface EmulatorCapabilities {
   version: 1; methods: string[]; maxCycles: number; maxRead: number;
 }
+/** Pacing reported by `speed` and `setSpeed`. Only a real-time emulator has a target. */
+export interface EmulatorSpeed {realtime: boolean; targetMHz: number; unthrottled: boolean; measuredMHz: number}
 export interface SourceBreakpointLocation {address: number; bank?: number}
 export interface BankBreakpoint {address: number; bank: number}
 export interface EmulatorCaller {pc: number; bank: number; kind: 'call' | 'interrupt'}
@@ -147,6 +149,29 @@ export class EmulatorClient {
   bankBreakpoints() { return this.call('bankBreakpoints', {}, isBankBreakpoints); }
   /** Remove every physical ExRAM bank breakpoint. */
   clearBankBreakpoints() { return this.call('clearBankBreakpoints', {}, isBankBreakpoints); }
+  /** Read the real-time pacing: target, whether it is unthrottled, and the measured speed. */
+  speed() { return this.call('speed', {}, isSpeed); }
+  /** Set the PHI2 target of a real-time emulator; 0 runs as fast as the host allows. */
+  setSpeed(mhz: number) {
+    if (typeof mhz !== 'number' || !Number.isFinite(mhz) || mhz < 0 || mhz > 100) throw new RangeError('mhz must be 0..100');
+    return this.call('setSpeed', {mhz}, isSpeed);
+  }
+  /**
+   * Make the breakpoint at `address` stop only while the little-endian word at
+   * `watch` has one of `values`, so the emulator skips other hits by itself.
+   */
+  setBreakpointFilter(address: number, watch: number, values: readonly number[]) {
+    if (!isInteger(address, 65535) || !isInteger(watch, 65534)) throw new RangeError('Invalid breakpoint filter address');
+    if (!Array.isArray(values) || values.length < 1 || values.length > 1024 || values.some(value => !isInteger(value, 65535))) {
+      throw new RangeError('values must contain 1..1024 words');
+    }
+    return this.call('setBreakpointFilter', {address, watch, values: [...new Set(values)]}, isState);
+  }
+  /** Remove the filter of the breakpoint at `address`; the breakpoint stays. */
+  clearBreakpointFilter(address: number) {
+    if (!isInteger(address, 65535)) throw new RangeError('Invalid breakpoint address');
+    return this.call('clearBreakpointFilter', {address}, isState);
+  }
   /** Read observed and validated caller frames from a stopped machine. */
   stackTrace() { return this.call('stackTrace', {}, isEmulatorStack); }
   /** Check a physical bank breakpoint address and bank. */

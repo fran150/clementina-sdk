@@ -171,8 +171,8 @@ await client.resume();                   // continue past a just-hit breakpoint
 await client.pause();                    // returns after CPU execution has stopped
 ```
 
-The background runner is unthrottled and releases its machine lock every 256
-cycles. It does not promise the requested hardware PHI2 rate. Inspection and input
+The `clementina-automation` runner is unthrottled and releases its machine lock
+every 256 cycles. It does not promise the requested hardware PHI2 rate. Inspection and input
 share that lock; each response is coherent, but successive reads can observe
 different cycles. Pause first when multiple reads must describe one fixed state.
 `pause` stops at a full cycle boundary, which may be inside an instruction.
@@ -221,6 +221,26 @@ it advances to the next opcode fetch. It reports `cycle-limit` if the cycle budg
 is exhausted, including a CPU waiting without an interrupt. `STP` reports
 `cpu-stopped`; resume cannot release it. Reset is required. This is machine
 instruction stepping.
+
+## Real-time emulator
+
+`clementina-emulator --headless --control` serves the same protocol from the
+real-time emulator: it keeps PHI2 time (1.2 MHz by default, `--speed` to change
+it), sends video and takes input over UDP so the video client shows and plays
+the game, and prints its endpoint as its only line of output. `--paused` resets
+the machine and waits for `run`. `startEmulatorProcess({realtime: {}})` starts
+it this way; `findInstalledTool` looks for it, like every tool, in
+`~/.clementina/bin` (or `$CLEMENTINA_HOME/bin`) before `PATH`.
+
+It adds `speed` and `setSpeed` (`client.speed()`, `client.setSpeed(mhz)`, with
+`0` for unthrottled). `clementina-automation` answers `speed` with
+`realtime: false` and refuses `setSpeed`.
+
+Both servers support breakpoint filters. `setBreakpointFilter(address, watch,
+values)` makes the breakpoint at `address` stop only while the little-endian
+word at `watch` is one of `values`. The BASIC debugger puts one on the ROM
+statement hook, filtered by `CURLIN`, so a game runs at full speed between the
+lines a person asked to stop on instead of stopping at every statement.
 
 ## Source stepping
 

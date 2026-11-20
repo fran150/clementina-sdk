@@ -1,6 +1,8 @@
+import {spawn, type ChildProcess} from 'node:child_process';
 import {resolve} from 'node:path';
 import {
   DebugSession,
+  ContinuedEvent,
   InitializedEvent,
   StoppedEvent,
   TerminatedEvent,
@@ -10,9 +12,11 @@ import {
 } from '@vscode/debugadapter';
 import type {DebugProtocol} from '@vscode/debugprotocol';
 import {errorMessage} from '@clementina/core';
-import {createProjectDebugSession, type ProjectDebugRuntime} from '@clementina/debug/node';
+import {
+  createProjectDebugSession, DEFAULT_VIDEO_CLIENT_EXECUTABLE, findInstalledTool, type ProjectDebugRuntime,
+} from '@clementina/debug/node';
 import type {DebugSnapshot} from '@clementina/debug';
-import {breakpointPath, dapBreakpoints, dapInstructions, dapStackFrames, disassemblyRange, registerVariables} from './protocol.js';
+import {breakpointPath, sourceLanguage, dapBreakpoints, dapInstructions, dapStackFrames, disassemblyRange, registerVariables} from './protocol.js';
 
 const THREAD_ID = 1;
 const REGISTERS_SCOPE_REF = 1;
@@ -22,11 +26,26 @@ const BASIC_VARIABLES_SCOPE_REF = 2;
 interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
   /** Portable project root. */
   program: string;
-  /** Optional emulator automation executable. */
+  /** Optional emulator executable. */
   emulator?: string;
-  /** Optional loopback automation port. */
+  /** Optional loopback control port. */
   port?: number;
+  /**
+   * Run the game in real time with video and input through the video client
+   * (default). False uses the unthrottled, screenless automation server.
+   */
+  realtime?: boolean;
+  /** PHI2 speed in MHz for a real-time session; 0 is unthrottled. Default: the project's target.phi2Hz, 1.2 MHz when unset. */
+  speed?: number;
+  /** Open the video client for a real-time session (default), or the path of one to open. */
+  videoClient?: boolean | string;
+  /** Stop just before code at $8000-$BFFF stores to VIA Port A and so switches the bank under itself. */
+  stopOnBankSwitch?: boolean;
 }
+
+/** Custom requests editors send for emulator controls outside source debugging. */
+export const SET_SPEED_REQUEST = 'clementina.setSpeed';
+export const SPEED_REQUEST = 'clementina.speed';
 
 /**
  * Thin DAP translation over `ClementinaDebugSession`/`createProjectDebugSession`.
@@ -51,6 +70,11 @@ export class ClementinaDebugAdapter extends DebugSession {
   private stopping = false;
   private closing?: Promise<void>;
   private launchGeneration = 0;
+  private launchArgs?: LaunchRequestArguments;
+  private videoClient?: ChildProcess;
+  /** Overridable for tests: start the video client window. */
+  spawnVideoClient: (executable: string) => ChildProcess = executable =>
+    spawn(executable, [], {shell: false, stdio: 'ignore', detached: false});
 
   /** Configure the DAP session to use one-based source coordinates. */
   constructor() {
@@ -65,6 +89,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     response.body.supportsConfigurationDoneRequest = true;
     response.body.supportsEvaluateForHovers = true;
     response.body.supportsDisassembleRequest = true;
+    response.body.supportsRestartRequest = true;
     this.sendResponse(response);
     this.sendEvent(new InitializedEvent());
   }
@@ -74,6 +99,7 @@ export class ClementinaDebugAdapter extends DebugSession {
     const generation = ++this.launchGeneration;
     this.cancelStopWait();
     this.projectRoot = resolve(args.program);
+    this.launchArgs = args;
     this.stopping = false;
     this.runtime = undefined;
     this.lastSnapshot = undefined;
@@ -98,6 +124,8 @@ export class ClementinaDebugAdapter extends DebugSession {
     const built = await this.createSession(args.program, {
       ...(args.emulator === undefined ? {} : {executable: args.emulator}),
       ...(args.port === undefined ? {} : {port: args.port}),
+      ...(args.realtime === false ? {} : {realtime: args.speed === undefined ? {} : {speedMhz: args.speed}}),
+      ...(args.stopOnBankSwitch ? {stopOnBankSwitch: true} : {}),
     });
     if (!built.ok) throw new Error(built.diagnostics.map(d => d.message).join('; ') || 'Failed to prepare the debug session');
     return built.value;
@@ -120,6 +148,7 @@ export class ClementinaDebugAdapter extends DebugSession {
 
   /** Close the active runtime at most once, ignoring cleanup failures. */
   private closeRuntime(): Promise<void> {
+    this.closeVideoClient();
     if (!this.runtime) return Promise.resolve();
     return this.closing ??= this.runtime.close().then(() => undefined, () => undefined);
   }
@@ -145,7 +174,7 @@ export class ClementinaDebugAdapter extends DebugSession {
       }
       const lines = args.breakpoints?.map(b => b.line) ?? args.lines ?? [];
       const resolved = await runtime.session.setSourceBreakpoints(breakpointPath(this.projectRoot, path), lines);
-      response.body = {breakpoints: dapBreakpoints(path, resolved)};
+      response.body = {breakpoints: dapBreakpoints(path, resolved, this.projectRoot)};
       this.sendResponse(response);
     });
   }
@@ -162,7 +191,10 @@ export class ClementinaDebugAdapter extends DebugSession {
     if (!runtime) return;
     try {
       await runtime.launch();
-      if (!this.stopping) this.pollForStop();
+      if (!this.stopping) {
+        this.openVideoClient();
+        this.pollForStop();
+      }
     } catch (error) {
       if (!this.stopping) {
         this.stopping = true;
@@ -185,7 +217,7 @@ export class ClementinaDebugAdapter extends DebugSession {
       const snapshot = await this.currentSnapshot();
       const runtime = await this.ready();
       const stack = runtime && 'stackTrace' in runtime.session ? await runtime.session.stackTrace() : {frames: [snapshot.frame], unknownCaller: false};
-      const frames = dapStackFrames(stack);
+      const frames = dapStackFrames(stack, this.projectRoot);
       response.body = {stackFrames: frames, totalFrames: frames.length};
       this.sendResponse(response);
     });
@@ -198,7 +230,7 @@ export class ClementinaDebugAdapter extends DebugSession {
       if (!runtime || !('disassemble' in runtime.session)) throw new Error('Assembly debug session required for disassembly');
       const range = disassemblyRange(args);
       const decoded = await runtime.session.disassemble(range.address, range.count + range.skip, range.bank);
-      response.body = {instructions: dapInstructions(decoded, range)};
+      response.body = {instructions: dapInstructions(decoded, range, this.projectRoot)};
       this.sendResponse(response);
     });
   }
@@ -232,14 +264,17 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
-  /** Evaluate a BASIC variable name when the session supports it. */
+  /**
+   * Evaluate a BASIC variable, a register or an assembly symbol. A hover says
+   * which file it is in, which picks the language for names both have (`A`).
+   */
   protected override evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
     return this.guard(response, async () => {
       const runtime = await this.ready();
-      const value = runtime && 'evaluate' in runtime.session ? await runtime.session.evaluate(args.expression) : undefined;
+      const value = runtime ? await runtime.session.evaluate(args.expression, sourceLanguage(args.source?.path)) : undefined;
       response.body = value
         ? {result: value.value, type: value.type, variablesReference: 0}
-        : {result: 'Expression evaluation is available for BASIC variables', variablesReference: 0};
+        : {result: 'Not a BASIC variable, register or assembly symbol', variablesReference: 0};
       this.sendResponse(response);
     });
   }
@@ -293,6 +328,57 @@ export class ClementinaDebugAdapter extends DebugSession {
     });
   }
 
+  /** Reset the machine and load and start the project again, keeping breakpoints. */
+  protected override restartRequest(response: DebugProtocol.RestartResponse): Promise<void> {
+    return this.guard(response, async () => {
+      const runtime = await this.ready();
+      if (!runtime) { this.sendResponse(response); return; }
+      this.cancelStopWait();
+      this.lastSnapshot = undefined;
+      await runtime.launch();
+      this.sendResponse(response);
+      this.sendEvent(new ContinuedEvent(THREAD_ID));
+      this.pollForStop();
+    });
+  }
+
+  /** Speed controls: `clementina.speed` reads it, `clementina.setSpeed` takes `{mhz}` (0 is unthrottled). */
+  protected override customRequest(command: string, response: DebugProtocol.Response, args: unknown): void {
+    if (command !== SPEED_REQUEST && command !== SET_SPEED_REQUEST) { super.customRequest(command, response, args); return; }
+    void this.guard(response, async () => {
+      const runtime = await this.ready();
+      if (!runtime) throw new Error('No active debug session');
+      const mhz = (args as {mhz?: unknown} | undefined)?.mhz;
+      if (command === SET_SPEED_REQUEST && typeof mhz !== 'number') throw new Error('setSpeed needs a number of MHz');
+      response.body = command === SET_SPEED_REQUEST ? await runtime.client.setSpeed(mhz as number) : await runtime.client.speed();
+      this.sendResponse(response);
+    });
+  }
+
+  /** Open the video client window for a real-time session, unless the launch turned it off. */
+  private openVideoClient(): void {
+    const args = this.launchArgs;
+    if (!args || args.realtime === false || args.videoClient === false || this.videoClient) return;
+    const executable = typeof args.videoClient === 'string' ? args.videoClient : findInstalledTool(DEFAULT_VIDEO_CLIENT_EXECUTABLE);
+    const report = (detail: string) => this.sendEvent(new OutputEvent(
+      `Could not open the video client (${executable}): ${detail}. Run clementina-video-client to see and play the game.\n`, 'console'));
+    try {
+      const child = this.spawnVideoClient(executable);
+      child.once('error', error => { report(errorMessage(error)); if (this.videoClient === child) this.videoClient = undefined; });
+      child.once('exit', () => { if (this.videoClient === child) this.videoClient = undefined; });
+      this.videoClient = child;
+    } catch (error) {
+      report(errorMessage(error));
+    }
+  }
+
+  /** Close the video client this session opened. */
+  private closeVideoClient(): void {
+    const child = this.videoClient;
+    this.videoClient = undefined;
+    if (child && child.exitCode === null && child.signalCode === null) child.kill();
+  }
+
   /** Stop accepting launch work and close the current runtime. */
   protected override disconnectRequest(response: DebugProtocol.DisconnectResponse): Promise<void> {
     this.stopping = true;
@@ -340,7 +426,13 @@ export class ClementinaDebugAdapter extends DebugSession {
       .then(snapshot => {
         if (this.stopWait !== wait || this.stopping) return;
         this.lastSnapshot = snapshot;
-        this.sendEvent(new StoppedEvent(snapshot.state.stopReason === 'breakpoint' ? 'breakpoint' : 'step', THREAD_ID));
+        const {pc, bank} = snapshot.state;
+        const bankSwitch = snapshot.state.stopReason === 'breakpoint'
+          && this.runtime?.bankSwitchStops?.some(stop => stop.address === pc && stop.bank === bank);
+        const event = new StoppedEvent(snapshot.state.stopReason === 'breakpoint' ? 'breakpoint' : 'step', THREAD_ID);
+        // The editor shows the description, so a bank-switch stop says why it stopped.
+        if (bankSwitch) (event as DebugProtocol.StoppedEvent).body.description = `Bank switch: code in bank ${bank} stores to VIA Port A`;
+        this.sendEvent(event);
       })
       .catch(() => undefined)
       .finally(() => { if (this.stopWait === wait) this.stopWait = undefined; });
