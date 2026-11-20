@@ -1,6 +1,6 @@
 {
   "settleCycles": 3000000,
-  "beforeText": "PASSES A SECOND",
+  "beforeText": "PRESS A KEY TO COUNT",
   "input": " ",
   "afterText": "COUNTING FOR ONE SECOND..."
 }

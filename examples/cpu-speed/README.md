@@ -2,7 +2,7 @@
 
 A BASIC program that counts how many times a one-line loop runs in one
 second, measured with MIA's millisecond clock (`TICKS`). Press a key to
-count again.
+start each count.
 
 `clementina.yaml` sets `target.phi2Hz` to 4,000,000, so the bootstrap sets
 the 6502's clock to 4 MHz before it loads the program. Remove the line, or
@@ -21,4 +21,5 @@ clementina-emulator --sd build/sd
 
 Then type `RUN "BOOT.BAS"` in the video client. `clementina check` runs the
 program headless, without real-time pacing, so its count says nothing about
-the speed; it tests that the program counts and counts again after a key.
+the speed; it tests that a key starts the count. The count's own end
+depends on real time, so the check doesn't wait for it.
